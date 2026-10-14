@@ -27,6 +27,7 @@ jobs:
           node --check server/index.js
           node --check server/db.js
           node --input-type=module --check < client/game.js
+          node --input-type=module --check < client/menu.js
           node --input-type=module --check < client/player-controls.js
           node --input-type=module --check < client/character-facing.js
           echo "Server and browser-module syntax OK"
@@ -76,6 +77,7 @@ jobs:
             node --check server/index.js
             node --check server/db.js
             node --input-type=module --check < client/game.js
+            node --input-type=module --check < client/menu.js
             node --input-type=module --check < client/player-controls.js
             node --input-type=module --check < client/character-facing.js
             echo "Source syntax OK"
@@ -150,6 +152,7 @@ jobs:
             node --check server/index.js
             node --check server/db.js
             node --input-type=module --check < client/game.js
+            node --input-type=module --check < client/menu.js
             node --input-type=module --check < client/player-controls.js
             node --input-type=module --check < client/character-facing.js
             echo "Source syntax OK"
