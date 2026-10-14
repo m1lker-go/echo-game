@@ -108,12 +108,16 @@ io.on('connection', (socket) => {
     const current = players.get(socket.id);
     if (!current) return;
 
-    // Accept only finite numeric movement data and clamp values to sane bounds.
+    // Keep the player snapshot authoritative to this socket and reject malformed values.
     current.x = finiteNumber(payload.x, current.x);
     current.y = finiteNumber(payload.y, current.y);
     current.vx = finiteNumber(payload.vx, 0, -100_000, 100_000);
     current.vy = finiteNumber(payload.vy, 0, -100_000, 100_000);
     current.energy = Math.round(finiteNumber(payload.energy, current.energy, 0, MAX_ENERGY));
+
+    // Keep the chosen appearance tied to the session; never accept arbitrary asset paths.
+    const requestedSkin = payload.skin;
+    if (allowedSkins.has(requestedSkin)) current.skin = requestedSkin;
 
     broadcastPlayers();
   });
