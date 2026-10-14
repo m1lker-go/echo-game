@@ -469,6 +469,7 @@ function update(dt, time) {
       energy: state.energy,
       vx: state.vx,
       vy: state.vy,
+      skin: selectedModel,
     });
   }
 }
