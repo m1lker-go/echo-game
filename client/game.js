@@ -278,6 +278,11 @@ function drawModels(time, dt) {
 }
 
 function draw(time) {
+  // The world canvas is cleared here, inside the game renderer. Keeping this
+  // out of the global requestAnimationFrame wrapper prevents UI animations
+  // (such as boost cooldown) from erasing the game, while still giving every
+  // game frame a clean canvas.
+  ctx.clearRect(0, 0, state.width, state.height);
   drawGrid(time);
   drawPoints(time);
   drawModels(time, state.lastTime ? Math.min((time - state.lastTime) / 1000, .05) : 0);
