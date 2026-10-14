@@ -10,13 +10,13 @@ THREE.DefaultLoadingManager.setURLModifier((url) => {
   return url;
 });
 
-// The Kenney model's default forward is opposite to the direction used by
-// ECHO's movement rotation. Rotate the loaded character 180 degrees once;
-// the existing per-frame rotation then makes the character face where it runs.
+// Align the Kenney model's default forward with ECHO's movement direction.
+// Keep the correction at 90 degrees; the existing per-frame rotation then
+// turns the character to face the direction it is actually running.
 const originalLoad = GLTFLoader.prototype.load;
 GLTFLoader.prototype.load = function patchedLoad(url, onLoad, onProgress, onError) {
   return originalLoad.call(this, url, (gltf) => {
-    if (gltf?.scene) gltf.scene.rotation.y += Math.PI;
+    if (gltf?.scene) gltf.scene.rotation.y += Math.PI / 2;
     if (onLoad) onLoad(gltf);
   }, onProgress, onError);
 };
