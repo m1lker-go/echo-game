@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#030406" />
+  <title>ECHO — Prototype</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <main id="game" aria-label="ECHO game prototype">
+    <canvas id="world" aria-label="Игровое поле"></canvas>
+    <div class="vignette"></div>
+    <header class="hud">
+      <div class="brand">ECHO<span class="brand-dot">.</span></div>
+      <div class="status"><span id="connection-dot"></span><span id="connection-label">подключение…</span></div>
+    </header>
+    <div class="stats"><span class="stats-label">ЭНЕРГИЯ</span><strong id="energy">0</strong><span class="stats-hint">тестовое поле</span></div>
+    <div class="center-mark" aria-hidden="true"></div>
+    <div class="controls-hint" id="controls-hint">WASD / ← ↑ → ↓ — движение</div>
+    <div class="mobile-controls" aria-label="Сенсорное управление">
+      <div id="joystick" class="joystick" role="application" aria-label="Джойстик">
+        <div id="stick" class="stick"></div>
+      </div>
+      <div class="ability-stack">
+        <button id="boost" class="ability" type="button" aria-label="Ускорение"><span>»</span><small>РЫВОК</small></button>
+      </div>
+    </div>
+    <div class="footer"><span>ПРОТОТИП 01</span><span id="coords">0 · 0</span></div>
+  </main>
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" crossorigin="anonymous"></script>
+  <script type="module" src="./game.js"></script>
+</body>
+</html>
