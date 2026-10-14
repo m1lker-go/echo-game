@@ -232,8 +232,10 @@ function updateModel(root, animation, x, y, vx, vy, time, label, isOther = false
   if (moving) {
     const screenVX = ((vx || 0) - (vy || 0)) * ISO.x;
     const screenVY = ((vx || 0) + (vy || 0)) * ISO.y;
-    let facing = Math.atan2(screenVX, -screenVY) + Math.PI / 2;
-    if (Math.abs(vx || 0) > Math.abs(vy || 0)) facing += Math.PI;
+    // Convert projected screen movement into a continuous world-space heading.
+    // Since the ground plane is viewed isometrically, use the projected vector
+    // only to match the apparent direction on screen; don't flip by dominant axis.
+    const facing = Math.atan2(screenVX, -screenVY) + Math.PI / 2;
     root.rotation.y = facing;
   }
   switchAnimation(animation, moving);
