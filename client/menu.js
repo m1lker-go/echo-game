@@ -36,6 +36,7 @@ const settingsButton = document.querySelector('#menu-settings');
 const ratingButton = document.querySelector('#menu-rating');
 const characterBack = document.querySelector('#character-back');
 const placeholderBack = document.querySelector('#placeholder-back');
+const exitButton = document.querySelector('#menu-exit');
 const foodCanvas = document.querySelector('#menu-food');
 
 function showScreen(screen) {
@@ -67,6 +68,9 @@ settingsButton.addEventListener('click', () => openPlaceholder('НАСТРОЙК
 ratingButton.addEventListener('click', () => openPlaceholder('РЕЙТИНГ'));
 characterBack.addEventListener('click', openMenu);
 placeholderBack.addEventListener('click', openMenu);
+exitButton.addEventListener('click', () => {
+  window.close();
+});
 
 for (const [file, label] of characters) {
   const button = document.createElement('button');
@@ -96,9 +100,9 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setClearColor(0x000000, 0);
 const scene = new THREE.Scene();
-const camera = new THREE.OrthographicCamera(-120, 120, 120, -120, 0.1, 1000);
-camera.position.set(0, 20, 260);
-camera.lookAt(0, 30, 0);
+const camera = new THREE.OrthographicCamera(-100, 100, 100, -100, 0.1, 1000);
+camera.position.set(0, 40, 260);
+camera.lookAt(0, 40, 0);
 scene.add(new THREE.AmbientLight(0xffffff, 2.3));
 const light = new THREE.DirectionalLight(0xffffff, 3.2);
 light.position.set(-60, 100, 180);
@@ -110,11 +114,15 @@ let previewRequest = 0;
 
 function resizePreview() {
   const rect = previewCanvas.getBoundingClientRect();
-  renderer.setSize(Math.max(1, rect.width), Math.max(1, rect.height), false);
-  camera.left = -Math.max(1, rect.width) / 2;
-  camera.right = Math.max(1, rect.width) / 2;
-  camera.top = Math.max(1, rect.height) / 2;
-  camera.bottom = -Math.max(1, rect.height) / 2;
+  const width = Math.max(1, rect.width);
+  const height = Math.max(1, rect.height);
+  renderer.setSize(width, height, false);
+  const halfHeight = 105;
+  const halfWidth = halfHeight * width / height;
+  camera.left = -halfWidth;
+  camera.right = halfWidth;
+  camera.top = halfHeight;
+  camera.bottom = -halfHeight;
   camera.updateProjectionMatrix();
 }
 window.addEventListener('resize', resizePreview, { passive: true });
@@ -130,6 +138,22 @@ function disposePreview(root) {
   });
 }
 
+function framePreview(root) {
+  const box = new THREE.Box3().setFromObject(root);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const maxSize = Math.max(size.x, size.y, size.z) || 1;
+  const targetHeight = 145;
+  const scale = targetHeight / maxSize;
+  root.scale.setScalar(scale);
+  root.updateMatrixWorld(true);
+  const framedBox = new THREE.Box3().setFromObject(root);
+  const framedCenter = framedBox.getCenter(new THREE.Vector3());
+  root.position.x -= framedCenter.x;
+  root.position.y -= framedCenter.y - 8;
+  root.position.z -= framedCenter.z;
+}
+
 function loadPreview(file) {
   const request = ++previewRequest;
   loader.load(`./assets/models/${file}`, (gltf) => {
@@ -142,8 +166,7 @@ function loadPreview(file) {
       disposePreview(previewRoot);
     }
     previewRoot = gltf.scene;
-    previewRoot.scale.setScalar(46);
-    previewRoot.position.set(0, -55, 0);
+    framePreview(previewRoot);
     scene.add(previewRoot);
     previewMixer = gltf.animations?.length ? new THREE.AnimationMixer(previewRoot) : null;
     const idle = gltf.animations?.find((clip) => /idle/i.test(clip.name));
