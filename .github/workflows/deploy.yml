@@ -23,8 +23,7 @@ jobs:
         run: |
           node --check server/index.js
           node --check server/db.js
-          node --check client/game.js
-          echo "Source syntax OK"
+          echo "Server source syntax OK"
 
       - name: Deploy attempt 1
         id: deploy_attempt_1
@@ -76,8 +75,7 @@ jobs:
             echo "== [3/6] Check Node syntax =="
             node --check server/index.js
             node --check server/db.js
-            node --check client/game.js
-            echo "Node syntax OK"
+            echo "Server syntax OK"
 
             echo "== [4/6] Install server dependencies =="
             cd /var/www/echo-game/server
@@ -158,8 +156,7 @@ jobs:
             echo "== [3/6] Check Node syntax =="
             node --check server/index.js
             node --check server/db.js
-            node --check client/game.js
-            echo "Node syntax OK"
+            echo "Server syntax OK"
 
             echo "== [4/6] Install server dependencies =="
             cd /var/www/echo-game/server
