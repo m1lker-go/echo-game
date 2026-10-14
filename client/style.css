@@ -29,7 +29,7 @@ body { color: var(--white); user-select: none; -webkit-user-select: none; -webki
 .center-mark { position: absolute; z-index: 4; left: 50%; top: 50%; width: 2px; height: 2px; transform: translate(-50%,-50%); background: white; opacity: .22; border-radius: 100%; box-shadow: 0 0 12px 4px rgba(218,238,255,.12); pointer-events: none; }
 .controls-hint { position: absolute; z-index: 4; bottom: max(28px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); white-space: nowrap; letter-spacing: .08em; color: #5d6673; }
 .footer { position: absolute; z-index: 4; bottom: max(22px, env(safe-area-inset-bottom)); left: max(22px, env(safe-area-inset-left)); right: max(22px, env(safe-area-inset-right)); display: flex; justify-content: space-between; font-size: 8px; color: #414955; pointer-events: none; }
-.mobile-controls { display: none; position: absolute; z-index: 5; inset: auto 0 max(34px, env(safe-area-inset-bottom)) 0; align-items: flex-end; justify-content: space-between; padding: 0 24px; pointer-events: none; }
+.mobile-controls { display: flex; position: absolute; z-index: 5; inset: auto 0 max(34px, env(safe-area-inset-bottom)) 0; align-items: flex-end; justify-content: space-between; padding: 0 24px; pointer-events: none; }
 .joystick { width: 112px; height: 112px; border: 1px solid rgba(210,228,247,.17); background: rgba(25,31,41,.22); border-radius: 50%; display: grid; place-items: center; position: relative; pointer-events: auto; touch-action: none; backdrop-filter: blur(3px); }
 .joystick::before, .joystick::after { content: ""; position: absolute; background: rgba(210,228,247,.10); }
 .joystick::before { width: 1px; height: 72%; }
@@ -40,8 +40,11 @@ body { color: var(--white); user-select: none; -webkit-user-select: none; -webki
 .ability span { font-size: 28px; line-height: 28px; font-weight: 250; text-shadow: 0 0 14px rgba(225,244,255,.75); }
 .ability small { color: #8995a4; font-size: 7px; letter-spacing: .12em; }
 .ability:active, .ability.active { background: rgba(145,186,220,.22); }
+@media (pointer: fine) and (min-width: 721px) {
+  .mobile-controls { justify-content: flex-end; padding-right: 24px; }
+  .joystick { display: none; }
+}
 @media (pointer: coarse), (max-width: 720px) {
-  .mobile-controls { display: flex; }
   .controls-hint { display: none; }
   .stats { top: 70px; }
 }
