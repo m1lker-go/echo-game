@@ -14,7 +14,10 @@
     <div class="vignette"></div>
     <header class="hud">
       <div class="brand">ECHO<span class="brand-dot">.</span></div>
-      <div class="status"><span id="connection-dot"></span><span id="connection-label">подключение…</span></div>
+      <div class="status-stack">
+        <div class="status"><span id="connection-dot"></span><span id="connection-label">подключение…</span></div>
+        <button id="game-exit" class="game-exit" type="button">Покинуть игру</button>
+      </div>
     </header>
     <div class="stats"><span class="stats-label">ЭНЕРГИЯ</span><strong id="energy">0</strong><span class="stats-hint">тестовое поле</span></div>
     <div class="center-mark" aria-hidden="true"></div>
@@ -31,7 +34,6 @@
 
     <section id="main-menu" class="main-menu" aria-label="Главное меню">
       <canvas id="menu-food" class="menu-food" aria-hidden="true"></canvas>
-      <button id="menu-exit" class="menu-exit" type="button">Покинуть игру</button>
 
       <div id="menu-main" class="menu-screen menu-main-screen">
         <div class="menu-logo">ECHO<span>.</span></div>
