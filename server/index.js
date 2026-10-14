@@ -85,9 +85,21 @@ io.on('connection', (socket) => {
   });
   broadcastPlayers();
 
-  socket.on('echo:hello', () => {
-    // A reconnect may have replaced the entry; always send the current snapshot.
+  socket.on('echo:hello', (payload) => {
+    // Keep the skin tied to this socket session; accept only known bundled model names.
+    const requestedSkin = payload?.skin;
+    const allowedSkins = new Set([
+      'character-female-a.glb', 'character-female-b.glb', 'character-female-c.glb',
+      'character-female-d.glb', 'character-female-e.glb', 'character-female-f.glb',
+      'character-male-a.glb', 'character-male-b.glb', 'character-male-c.glb',
+      'character-male-d.glb', 'character-male-e.glb', 'character-male-f.glb',
+    ]);
+    const current = players.get(socket.id);
+    if (current && allowedSkins.has(requestedSkin)) current.skin = requestedSkin;
+
+    // Send the current snapshot to the connecting client.
     socket.emit('echo:players', Array.from(players.values(), (player) => ({ ...player })));
+    broadcastPlayers();
   });
 
   socket.on('echo:move', (payload) => {
