@@ -80,25 +80,42 @@ function disposeScene(root) {
 }
 
 function frameCharacter(root, camera, width, height) {
-  const box = new THREE.Box3().setFromObject(root);
-  const size = box.getSize(new THREE.Vector3());
-  const maxSize = Math.max(size.x, size.y, size.z) || 1;
-  const scale = 82 / maxSize;
-  root.scale.setScalar(scale);
+  // Fit by the real world-space bounds, then use a perspective camera.
+  // This is deliberately independent of the model's original GLB scale.
   root.updateMatrixWorld(true);
 
-  const framedBox = new THREE.Box3().setFromObject(root);
-  const center = framedBox.getCenter(new THREE.Vector3());
-  root.position.x -= center.x;
-  root.position.y -= center.y - 5;
-  root.position.z -= center.z;
+  const initialBox = new THREE.Box3().setFromObject(root);
+  const initialSize = initialBox.getSize(new THREE.Vector3());
+  const initialMax = Math.max(initialSize.x, initialSize.y, initialSize.z) || 1;
+  const targetHeight = 2.2;
+  root.scale.multiplyScalar(targetHeight / initialMax);
+  root.updateMatrixWorld(true);
 
-  const halfHeight = 55;
-  const halfWidth = halfHeight * width / height;
-  camera.left = -halfWidth;
-  camera.right = halfWidth;
-  camera.top = halfHeight;
-  camera.bottom = -halfHeight;
+  const box = new THREE.Box3().setFromObject(root);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const radius = Math.max(size.length() * 0.5, 0.75);
+
+  // Put the model around the origin so every GLB gets the same framing.
+  root.position.x -= center.x;
+  root.position.y -= center.y - 0.15;
+  root.position.z -= center.z;
+  root.updateMatrixWorld(true);
+
+  const aspect = Math.max(0.5, width / Math.max(1, height));
+  camera.aspect = aspect;
+  camera.fov = 25;
+
+  // Fit the complete bounding sphere with comfortable margins.
+  const verticalDistance = radius / Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5));
+  const horizontalFov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * aspect);
+  const horizontalDistance = radius / Math.tan(horizontalFov * 0.5);
+  const distance = Math.max(verticalDistance, horizontalDistance) * 1.22;
+
+  camera.position.set(0, 0.15, distance);
+  camera.near = Math.max(0.01, distance - radius * 2.2);
+  camera.far = distance + radius * 3;
+  camera.lookAt(0, 0.15, 0);
   camera.updateProjectionMatrix();
 }
 
@@ -132,15 +149,12 @@ function createCharacterCard(file, label) {
   renderer.setClearColor(0x000000, 0);
 
   const scene = new THREE.Scene();
-  scene.add(new THREE.AmbientLight(0xffffff, 2.3));
-  const light = new THREE.DirectionalLight(0xffffff, 3.2);
-  light.position.set(-60, 100, 180);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x6d7480, 2.5));
+  const light = new THREE.DirectionalLight(0xffffff, 3.5);
+  light.position.set(-3, 6, 7);
   scene.add(light);
 
-  const camera = new THREE.OrthographicCamera(-40, 40, 55, -55, 0.1, 1000);
-  camera.position.set(0, 20, 260);
-  camera.lookAt(0, 20, 0);
-
+  const camera = new THREE.PerspectiveCamera(25, 1, 0.01, 1000);
   const view = { button, canvas, renderer, scene, camera, root: null, mixer: null, request: 0 };
   cardViews.set(file, view);
 
@@ -151,8 +165,8 @@ function createCharacterCard(file, label) {
       return;
     }
     view.root = gltf.scene;
-    frameCharacter(view.root, camera, Math.max(1, canvas.clientWidth), Math.max(1, canvas.clientHeight));
     scene.add(view.root);
+    frameCharacter(view.root, camera, Math.max(1, canvas.clientWidth), Math.max(1, canvas.clientHeight));
 
     view.mixer = gltf.animations?.length ? new THREE.AnimationMixer(view.root) : null;
     const idle = gltf.animations?.find((clip) => /idle/i.test(clip.name));
