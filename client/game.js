@@ -36,6 +36,7 @@ const state = {
   socket: null,
   others: new Map(),
   lastSent: 0,
+  lastSnapshotAt: 0,
 };
 
 const WORLD = { spacing: 84 };
@@ -67,8 +68,25 @@ rimLight.position.set(60, 30, 100);
 modelScene.add(rimLight);
 
 const loader = new GLTFLoader();
-const MODEL_URL = './assets/models/character-female-a.glb';
-const modelCache = { source: null, clips: [], local: null, localAnimation: null, others: new Map(), ready: false };
+const DEFAULT_MODEL = 'character-female-a.glb';
+const ALLOWED_MODELS = new Set([
+  'character-female-a.glb', 'character-female-b.glb', 'character-female-c.glb',
+  'character-female-d.glb', 'character-female-e.glb', 'character-female-f.glb',
+  'character-male-a.glb', 'character-male-b.glb', 'character-male-c.glb',
+  'character-male-d.glb', 'character-male-e.glb', 'character-male-f.glb',
+]);
+const selectedModel = ALLOWED_MODELS.has(localStorage.getItem('echo.selectedModel'))
+  ? localStorage.getItem('echo.selectedModel')
+  : DEFAULT_MODEL;
+const modelCache = {
+  source: null,
+  clips: [],
+  local: null,
+  localAnimation: null,
+  others: new Map(),
+  otherSources: new Map(),
+  ready: false,
+};
 
 function prepareModel(root, isOther = false) {
   root.traverse((object) => {
@@ -114,22 +132,33 @@ function switchAnimation(animation, moving) {
   animation.current = next;
 }
 
-loader.load(MODEL_URL, (gltf) => {
-  modelCache.source = gltf.scene;
-  modelCache.clips = gltf.animations || [];
-  const local = new THREE.Group();
-  const visibleModel = prepareModel(gltf.scene, false);
-  local.add(visibleModel);
-  modelCache.local = local;
-  modelCache.localAnimation = setupAnimation(visibleModel, modelCache.clips, false);
-  local.userData.animation = modelCache.localAnimation;
-  modelScene.add(local);
-  modelCache.ready = true;
-  console.log(`[echo] GLB loaded: ${MODEL_URL}; animations: ${modelCache.clips.length}`);
-  console.log('[echo] available animations:', modelCache.clips.map((clip) => clip.name));
-}, undefined, (error) => {
-  console.error('[echo] failed to load character GLB:', error);
-});
+function loadCharacterModel(file, onLoaded, onError) {
+  const safeFile = ALLOWED_MODELS.has(file) ? file : DEFAULT_MODEL;
+  loader.load(`./assets/models/${safeFile}`, (gltf) => {
+    onLoaded(gltf, safeFile);
+  }, undefined, (error) => {
+    console.error(`[echo] failed to load character GLB: ${safeFile}`, error);
+    onError?.(error, safeFile);
+  });
+}
+
+function createLocalModel(file) {
+  loadCharacterModel(file, (gltf, loadedFile) => {
+    modelCache.source = gltf.scene;
+    modelCache.clips = gltf.animations || [];
+    const local = new THREE.Group();
+    const visibleModel = prepareModel(gltf.scene, false);
+    local.add(visibleModel);
+    modelCache.local = local;
+    modelCache.localAnimation = setupAnimation(visibleModel, modelCache.clips, false);
+    local.userData.animation = modelCache.localAnimation;
+    modelScene.add(local);
+    modelCache.ready = true;
+    console.log(`[echo] GLB loaded: ${loadedFile}; animations: ${modelCache.clips.length}`);
+    console.log('[echo] available animations:', modelCache.clips.map((clip) => clip.name));
+  });
+}
+createLocalModel(selectedModel);
 
 function resize() {
   const rect = canvas.getBoundingClientRect();
@@ -160,17 +189,54 @@ function connectSocket() {
   if (!window.io) { setConnection('offline', 'режим без сервера'); return; }
   const url = window.ECHO_SERVER_URL || window.location.origin;
   try {
-    state.socket = window.io(url, { path: '/echo/socket.io/', transports: ['websocket', 'polling'], reconnection: true, timeout: 5000 });
-    state.socket.on('connect', () => { setConnection('online', 'сервер подключён'); state.socket.emit('echo:hello', { version: 1 }); });
+    state.socket = window.io(url, {
+      path: '/echo/socket.io/',
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      timeout: 5000,
+      auth: { skin: selectedModel },
+    });
+    state.socket.on('connect', () => {
+      setConnection('online', 'сервер подключён');
+      state.socket.emit('echo:hello', { version: 1, skin: selectedModel });
+    });
     state.socket.on('disconnect', () => setConnection('offline', 'нет соединения'));
     state.socket.on('connect_error', () => setConnection('offline', 'ожидаем сервер'));
     state.socket.on('echo:players', (players) => {
       if (!Array.isArray(players)) return;
+      const now = performance.now();
       const next = new Map();
+
       for (const player of players) {
-        if (player && player.id !== state.socket.id && Number.isFinite(player.x) && Number.isFinite(player.y)) next.set(player.id, player);
+        if (!player || player.id === state.socket.id ||
+            !Number.isFinite(player.x) || !Number.isFinite(player.y)) continue;
+
+        const previous = state.others.get(player.id);
+        const skin = ALLOWED_MODELS.has(player.skin) ? player.skin : DEFAULT_MODEL;
+        const target = {
+          ...player,
+          skin,
+          previousX: previous?.targetX ?? player.x,
+          previousY: previous?.targetY ?? player.y,
+          targetX: player.x,
+          targetY: player.y,
+          snapshotAt: now,
+          displayX: previous?.displayX ?? player.x,
+          displayY: previous?.displayY ?? player.y,
+          vx: Number.isFinite(player.vx) ? player.vx : 0,
+          vy: Number.isFinite(player.vy) ? player.vy : 0,
+        };
+
+        // Retain the currently rendered location if the target moves to a new point.
+        if (previous) {
+          target.displayX = previous.displayX;
+          target.displayY = previous.displayY;
+        }
+        next.set(player.id, target);
       }
+
       state.others = next;
+      state.lastSnapshotAt = now;
     });
   } catch { setConnection('offline', 'режим без сервера'); }
 }
@@ -256,16 +322,39 @@ function updateModel(root, animation, x, y, vx, vy, time, label, isOther = false
 }
 
 function ensureOtherModel(player) {
-  if (!modelCache.source) return null;
-  let entry = modelCache.others.get(player.id); if (entry) return entry;
+  let entry = modelCache.others.get(player.id);
+  if (entry && entry.skin === player.skin) return entry;
+
+  if (entry) {
+    modelScene.remove(entry.root);
+    modelCache.others.delete(player.id);
+  }
+
+  const source = modelCache.otherSources.get(player.skin);
+  if (!source) {
+    if (!modelCache.otherSources.has(player.skin)) {
+      modelCache.otherSources.set(player.skin, null);
+      loadCharacterModel(player.skin, (gltf, loadedFile) => {
+        modelCache.otherSources.set(loadedFile, {
+          scene: gltf.scene,
+          clips: gltf.animations || [],
+        });
+        // New model sources become visible on the next render frame.
+      });
+    }
+    return null;
+  }
+
   const holder = new THREE.Group();
-  const clone = SkeletonUtils.clone(modelCache.source);
+  const clone = SkeletonUtils.clone(source.scene);
   clone.scale.setScalar(1);
   prepareModel(clone, true);
   holder.add(clone);
-  const animation = setupAnimation(clone, modelCache.clips, true);
+  const animation = setupAnimation(clone, source.clips, true);
   modelScene.add(holder);
-  entry = { root: holder, animation }; modelCache.others.set(player.id, entry); return entry;
+  entry = { root: holder, animation, skin: player.skin };
+  modelCache.others.set(player.id, entry);
+  return entry;
 }
 
 function drawModels(time, dt) {
@@ -275,9 +364,18 @@ function drawModels(time, dt) {
   if (!jumping) updateModel(modelCache.local, modelCache.localAnimation, state.x, state.y, state.vx, state.vy, time, state.energy, false);
   const alive = new Set();
   for (const player of state.others.values()) {
-    const entry = ensureOtherModel(player); if (!entry) continue;
+    const entry = ensureOtherModel(player);
+    if (!entry) continue;
     alive.add(player.id);
-    updateModel(entry.root, entry.animation, player.x, player.y, player.vx || 0, player.vy || 0, time, player.energy || 0, true);
+
+    // Interpolate remote players between server snapshots. Our own movement stays local.
+    const elapsed = Math.max(0, (time - player.snapshotAt) / 1000);
+    const interpolationWindow = 0.12;
+    const alpha = Math.min(1, elapsed / interpolationWindow);
+    player.displayX += (player.targetX - player.displayX) * Math.min(1, dt * 12);
+    player.displayY += (player.targetY - player.displayY) * Math.min(1, dt * 12);
+    // Smooth correction above follows the received targets at render-frame rate.
+    updateModel(entry.root, entry.animation, player.displayX, player.displayY, player.vx || 0, player.vy || 0, time, player.energy || 0, true);
   }
   for (const [id, entry] of modelCache.others) {
     if (!alive.has(id)) { modelScene.remove(entry.root); modelCache.others.delete(id); }
@@ -354,7 +452,16 @@ function update(dt, time) {
   applyFoodMagnet(dt);
   if (points.every((point) => point.collected)) for (const point of points) { point.collected = false; const angle = Math.random() * Math.PI * 2; const radius = 210 + Math.random() * 1200; point.x = Math.cos(angle) * radius; point.y = Math.sin(angle) * radius; }
   state.cameraX = state.x; state.cameraY = state.y; coordsText.textContent = `${Math.round(state.x)} · ${Math.round(state.y)}`;
-  if (state.socket?.connected && time - state.lastSent > 80) { state.lastSent = time; state.socket.emit('echo:move', { x: Math.round(state.x), y: Math.round(state.y), energy: state.energy, vx: Math.round(state.vx), vy: Math.round(state.vy) }); }
+  if (state.socket?.connected && time - state.lastSent > 80) {
+    state.lastSent = time;
+    state.socket.emit('echo:move', {
+      x: state.x,
+      y: state.y,
+      energy: state.energy,
+      vx: state.vx,
+      vy: state.vy,
+    });
+  }
 }
 
 function triggerBoost() {
