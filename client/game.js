@@ -230,13 +230,10 @@ function updateModel(root, animation, x, y, vx, vy, time, label, isOther = false
   root.position.z = 0;
   const moving = Math.hypot(vx || 0, vy || 0) > 18;
   if (moving) {
-    const screenVX = ((vx || 0) - (vy || 0)) * ISO.x;
-    const screenVY = ((vx || 0) + (vy || 0)) * ISO.y;
-    // Convert projected screen movement into a continuous world-space heading.
-    // Since the ground plane is viewed isometrically, use the projected vector
-    // only to match the apparent direction on screen; don't flip by dominant axis.
-    const facing = Math.atan2(screenVX, -screenVY) + Math.PI / 2;
-    root.rotation.y = facing;
+    // Character heading is always exactly +90° from the actual movement vector.
+    // This is deliberately based on world velocity, not the isometric projection,
+    // so every two-key diagonal gets the same fixed quarter-turn relationship.
+    root.rotation.y = Math.atan2(vy || 0, vx || 0) + Math.PI / 2;
   }
   switchAnimation(animation, moving);
   drawEnergyLabel(x, y, label, isOther);
