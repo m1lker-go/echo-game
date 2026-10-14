@@ -231,15 +231,21 @@ function updateModel(root, animation, x, y, vx, vy, time, label, isOther = false
 
   const moving = Math.hypot(vx || 0, vy || 0) > 18;
   if (moving) {
-    // Eight movement directions + a neutral center. The movement vector is
-    // projected to screen space first, then snapped to one of the eight
-    // compass directions. Down is the model's confirmed front, up is its back.
+    // Character orientation is based ONLY on the actual on-screen movement.
+    // Movement itself is untouched. The four cardinal directions are calibrated
+    // so that screen-up = back, screen-down = front, and left/right are profile.
     const screenVX = ((vx || 0) - (vy || 0)) * ISO.x;
     const screenVY = ((vx || 0) + (vy || 0)) * ISO.y;
     const angle = Math.atan2(screenVX, screenVY);
     const step = Math.PI / 4;
     const snapped = Math.round(angle / step) * step;
-    root.rotation.y = -snapped;
+
+    // The model's neutral calibration gives the vertical pair correctly.
+    // For every direction containing horizontal movement, the model needs the
+    // opposite half-turn. This preserves the correct up/down views while fixing
+    // both side profiles and all four diagonal views.
+    const horizontal = Math.abs(Math.sin(snapped)) > 0.01;
+    root.rotation.y = -snapped + (horizontal ? Math.PI : 0);
   }
 
   switchAnimation(animation, moving);
@@ -286,23 +292,12 @@ function draw(time) {
 }
 
 function update(dt, time) {
-  // Controls are screen-space. Convert the requested screen direction back
-  // through the inverse isometric projection so the character moves exactly
-  // where the player presses: up/down/left/right and true 45° diagonals.
-  let screenX = state.inputX, screenY = state.inputY;
-  if (state.keys.has('ArrowLeft') || state.keys.has('a')) screenX -= 1;
-  if (state.keys.has('ArrowRight') || state.keys.has('d')) screenX += 1;
-  if (state.keys.has('ArrowUp') || state.keys.has('w')) screenY -= 1;
-  if (state.keys.has('ArrowDown') || state.keys.has('s')) screenY += 1;
-  const screenLen = Math.hypot(screenX, screenY);
-  if (screenLen > 1) { screenX /= screenLen; screenY /= screenLen; }
-
-  // Inverse of:
-  // screenX = (worldX - worldY) * ISO.x
-  // screenY = (worldX + worldY) * ISO.y
-  const ix = screenX / (2 * ISO.x) + screenY / (2 * ISO.y);
-  const iy = -screenX / (2 * ISO.x) + screenY / (2 * ISO.y);
-
+  let ix = state.inputX, iy = state.inputY;
+  if (state.keys.has('ArrowLeft') || state.keys.has('a')) ix -= 1;
+  if (state.keys.has('ArrowRight') || state.keys.has('d')) ix += 1;
+  if (state.keys.has('ArrowUp') || state.keys.has('w')) iy -= 1;
+  if (state.keys.has('ArrowDown') || state.keys.has('s')) iy += 1;
+  const len = Math.hypot(ix, iy); if (len > 1) { ix /= len; iy /= len; }
   const boosted = time < state.boostUntil; const speed = boosted ? 300 : 155; const smoothing = Math.min(1, dt * 12);
   state.vx += (ix * speed - state.vx) * smoothing; state.vy += (iy * speed - state.vy) * smoothing;
   state.x += state.vx * dt; state.y += state.vy * dt;
