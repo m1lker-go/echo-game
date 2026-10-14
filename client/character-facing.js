@@ -10,9 +10,9 @@ export const CHARACTER_FACING = Object.freeze({
   RIGHT:       90 * DEG,
   DOWN_RIGHT: 45 * DEG,
   DOWN:       0 * DEG,
-  DOWN_LEFT:  225 * DEG,
+  DOWN_LEFT:  315 * DEG,
   LEFT:       270 * DEG,
-  UP_LEFT:    315 * DEG,
+  UP_LEFT:    225 * DEG,
 });
 
 const MOVEMENT_THRESHOLD = 18;
