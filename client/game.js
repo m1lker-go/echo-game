@@ -319,7 +319,7 @@ function triggerBoost() {
   if (now < state.boostCooldownUntil) return;
 
   state.boostUntil = now + 700;
-  state.boostCooldownUntil = now + 3000;
+  state.boostCooldownUntil = now + 2900;
   boostButton.classList.remove('cooldown', 'ready');
   boostButton.classList.add('active');
   window.setTimeout(() => boostButton.classList.remove('active'), 700);
@@ -331,14 +331,14 @@ function triggerBoost() {
   boostButton.classList.add('cooldown');
 
   const phases = [
-    { value: '2', start: 0, duration: 850 },
-    { value: '1', start: 1150, duration: 1550 },
+    { value: '2', start: 300, duration: 1000 },
+    { value: '1', start: 1600, duration: 1000 },
   ];
   let lastPhase = -1;
 
   const updateCountdown = () => {
     const elapsed = performance.now() - now;
-    if (elapsed >= 3000) {
+    if (elapsed >= 2900) {
       countdown.remove();
       boostButton.classList.remove('cooldown');
       boostButton.classList.add('ready');
