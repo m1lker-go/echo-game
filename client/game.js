@@ -89,15 +89,13 @@ const modelCache = {
 };
 
 function prepareModel(root, isOther = false) {
-  root.traverse((object) => {
-    if (!object.isMesh) return;
-    const materials = Array.isArray(object.material) ? object.material : [object.material];
-    for (const material of materials) {
-      if (!material) continue;
-      if ('emissive' in material) {
-        material.emissive.set(0x000000);
-        material.emissiveIntensity = 0;
-      }
+  root.traverse((child) => {
+    if (!child.isMesh) return;
+    child.castShadow = false;
+    child.receiveShadow = false;
+    if (child.material) {
+      child.material = child.material.clone();
+      if ('emissiveIntensity' in child.material) child.material.emissiveIntensity = isOther ? 0.9 : 1.1;
     }
   });
   root.scale.setScalar(isOther ? 42 : 50);
@@ -232,7 +230,6 @@ function connectSocket() {
           target.previousX = player.x;
           target.previousY = player.y;
         }
-
         if (previous) {
           target.displayX = previous.displayX;
           target.displayY = previous.displayY;
@@ -324,7 +321,6 @@ function updateModel(root, animation, x, y, vx, vy, time, label, isOther = false
   root.position.x = p.x - state.width / 2;
   root.position.y = -(p.y - state.height / 2) + Math.sin(time * .0028 + x * .02) * (Math.hypot(vx || 0, vy || 0) > 18 ? 1.3 : 1.8);
   root.position.z = 0;
-
   const moving = Math.hypot(vx || 0, vy || 0) > 18;
   updateCharacterFacing(root, vx, vy, ISO);
   switchAnimation(animation, moving);
@@ -334,26 +330,20 @@ function updateModel(root, animation, x, y, vx, vy, time, label, isOther = false
 function ensureOtherModel(player) {
   let entry = modelCache.others.get(player.id);
   if (entry && entry.skin === player.skin) return entry;
-
   if (entry) {
     modelScene.remove(entry.root);
     modelCache.others.delete(player.id);
   }
-
   const source = modelCache.otherSources.get(player.skin);
   if (!source) {
     if (!modelCache.otherSources.has(player.skin)) {
       modelCache.otherSources.set(player.skin, null);
       loadCharacterModel(player.skin, (gltf, loadedFile) => {
-        modelCache.otherSources.set(loadedFile, {
-          scene: gltf.scene,
-          clips: gltf.animations || [],
-        });
+        modelCache.otherSources.set(loadedFile, { scene: gltf.scene, clips: gltf.animations || [] });
       });
     }
     return null;
   }
-
   const holder = new THREE.Group();
   const clone = SkeletonUtils.clone(source.scene);
   clone.scale.setScalar(1);
@@ -376,14 +366,12 @@ function drawModels(time, dt) {
     const entry = ensureOtherModel(player);
     if (!entry) continue;
     alive.add(player.id);
-
     const sinceSnapshot = Math.min(Math.max(0, (performance.now() - player.snapshotAt) / 1000), 0.25);
     const predictedX = player.targetX + player.vx * sinceSnapshot;
     const predictedY = player.targetY + player.vy * sinceSnapshot;
     const correction = 1 - Math.exp(-18 * dt);
     player.displayX += (predictedX - player.displayX) * correction;
     player.displayY += (predictedY - player.displayY) * correction;
-
     updateModel(entry.root, entry.animation, player.displayX, player.displayY, player.vx || 0, player.vy || 0, time, player.energy || 0, true);
   }
   for (const [id, entry] of modelCache.others) {
@@ -427,10 +415,8 @@ function applyFoodMagnet(dt) {
 function triggerJump() {
   const now = performance.now();
   if (now < state.jumpUntil) return;
-
   const directionLength = Math.hypot(state.vx, state.vy);
   if (directionLength < 1) return;
-
   const dirX = state.vx / directionLength;
   const dirY = state.vy / directionLength;
   state.jumpStart = now;
@@ -463,39 +449,28 @@ function update(dt, time) {
   state.cameraX = state.x; state.cameraY = state.y; coordsText.textContent = `${Math.round(state.x)} · ${Math.round(state.y)}`;
   if (state.socket?.connected && time - state.lastSent > 80) {
     state.lastSent = time;
-    state.socket.emit('echo:move', {
-      x: state.x,
-      y: state.y,
-      energy: state.energy,
-      vx: state.vx,
-      vy: state.vy,
-      skin: selectedModel,
-    });
+    state.socket.emit('echo:move', { x: state.x, y: state.y, energy: state.energy, vx: state.vx, vy: state.vy, skin: selectedModel });
   }
 }
 
 function triggerBoost() {
   const now = performance.now();
   if (now < state.boostCooldownUntil) return;
-
   state.boostUntil = now + 700;
   state.boostCooldownUntil = now + 3000;
   boostButton.classList.remove('cooldown', 'ready');
   boostButton.classList.add('active');
   window.setTimeout(() => boostButton.classList.remove('active'), 700);
-
   const countdown = document.createElement('span');
   countdown.className = 'ability-cooldown';
   countdown.setAttribute('aria-hidden', 'true');
   boostButton.appendChild(countdown);
   boostButton.classList.add('cooldown');
-
   const phases = [
     { value: '2', start: 0, duration: 850 },
     { value: '1', start: 1150, duration: 1550 },
   ];
   let lastPhase = -1;
-
   const updateCountdown = () => {
     const elapsed = performance.now() - now;
     if (elapsed >= 3000) {
@@ -505,11 +480,7 @@ function triggerBoost() {
       window.setTimeout(() => boostButton.classList.remove('ready'), 450);
       return;
     }
-
-    const phaseIndex = phases.findIndex((phase) =>
-      elapsed >= phase.start && elapsed < phase.start + phase.duration
-    );
-
+    const phaseIndex = phases.findIndex((phase) => elapsed >= phase.start && elapsed < phase.start + phase.duration);
     if (phaseIndex !== lastPhase) {
       lastPhase = phaseIndex;
       countdown.classList.remove('countdown-pop');
@@ -518,13 +489,10 @@ function triggerBoost() {
         countdown.style.animationDuration = `${phases[phaseIndex].duration}ms`;
         void countdown.offsetWidth;
         countdown.classList.add('countdown-pop');
-      } else {
-        countdown.textContent = '';
-      }
+      } else countdown.textContent = '';
     }
     requestAnimationFrame(updateCountdown);
   };
-
   updateCountdown();
 }
 
