@@ -229,12 +229,19 @@ function updateModel(root, animation, x, y, vx, vy, time, label, isOther = false
   root.position.y = -(p.y - state.height / 2) + Math.sin(time * .0028 + x * .02) * (Math.hypot(vx || 0, vy || 0) > 18 ? 1.3 : 1.8);
   root.position.z = 0;
 
-  // Calibration step: keep the character facing the camera in every direction.
-  // Once the model's natural front is confirmed, movement directions can be
-  // mapped onto this known baseline without guessing about the GLB's local axis.
-  root.rotation.y = 0;
-
   const moving = Math.hypot(vx || 0, vy || 0) > 18;
+  if (moving) {
+    // Eight movement directions + a neutral center. The movement vector is
+    // projected to screen space first, then snapped to one of the eight
+    // compass directions. Down is the model's confirmed front, up is its back.
+    const screenVX = ((vx || 0) - (vy || 0)) * ISO.x;
+    const screenVY = ((vx || 0) + (vy || 0)) * ISO.y;
+    const angle = Math.atan2(screenVX, screenVY);
+    const step = Math.PI / 4;
+    const snapped = Math.round(angle / step) * step;
+    root.rotation.y = -snapped;
+  }
+
   switchAnimation(animation, moving);
   drawEnergyLabel(x, y, label, isOther);
 }
