@@ -59,6 +59,21 @@ io.on('connection', (socket) => {
   console.log(`[socket] connected: ${socket.id}`);
 
   // Add the new player immediately so existing clients receive them as well.
+  const requestedSkin = socket.handshake.auth?.skin;
+  const allowedSkins = new Set([
+    'character-female-a.glb',
+    'character-female-b.glb',
+    'character-female-c.glb',
+    'character-female-d.glb',
+    'character-female-e.glb',
+    'character-female-f.glb',
+    'character-male-a.glb',
+    'character-male-b.glb',
+    'character-male-c.glb',
+    'character-male-d.glb',
+    'character-male-e.glb',
+    'character-male-f.glb',
+  ]);
   players.set(socket.id, {
     id: socket.id,
     x: 0,
@@ -66,6 +81,7 @@ io.on('connection', (socket) => {
     vx: 0,
     vy: 0,
     energy: 0,
+    skin: allowedSkins.has(requestedSkin) ? requestedSkin : 'character-female-a.glb',
   });
   broadcastPlayers();
 
