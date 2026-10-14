@@ -89,15 +89,13 @@ const modelCache = {
 };
 
 function prepareModel(root, isOther = false) {
-  root.traverse((object) => {
-    if (!object.isMesh) return;
-    const materials = Array.isArray(object.material) ? object.material : [object.material];
-    for (const material of materials) {
-      if (!material) continue;
-      if ('emissive' in material) {
-        material.emissive.set(0x000000);
-        material.emissiveIntensity = 0;
-      }
+  root.traverse((child) => {
+    if (!child.isMesh) return;
+    child.castShadow = false;
+    child.receiveShadow = false;
+    if (child.material) {
+      child.material = child.material.clone();
+      if ('emissiveIntensity' in child.material) child.material.emissiveIntensity = isOther ? 0.9 : 1.1;
     }
   });
   root.scale.setScalar(isOther ? 42 : 50);
@@ -227,14 +225,12 @@ function connectSocket() {
           vx: Number.isFinite(player.vx) ? player.vx : 0,
           vy: Number.isFinite(player.vy) ? player.vy : 0,
         };
-        // On the very first snapshot there is no previous sample, so start at the real coordinates.
         if (!previous) {
           target.previousSnapshotAt = now - 120;
           target.previousX = player.x;
           target.previousY = player.y;
         }
 
-        // Retain the currently rendered location if the target moves to a new point.
         if (previous) {
           target.displayX = previous.displayX;
           target.displayY = previous.displayY;
@@ -294,6 +290,11 @@ function worldToScreen(x, y) {
   return { x: Math.round(state.width / 2 + p.x - camera.x), y: Math.round(state.height / 2 + p.y - camera.y) };
 }
 
+function worldToScreenPrecise(x, y) {
+  const p = isoProject(x, y); const camera = isoProject(state.cameraX, state.cameraY);
+  return { x: state.width / 2 + p.x - camera.x, y: state.height / 2 + p.y - camera.y };
+}
+
 function drawPoints(time) {
   ctx.save(); ctx.shadowBlur = 0;
   for (const point of points) {
@@ -317,7 +318,7 @@ function drawEnergyLabel(x, y, label, isOther = false) {
 
 function updateModel(root, animation, x, y, vx, vy, time, label, isOther = false) {
   if (!root) return;
-  const p = worldToScreen(x, y);
+  const p = worldToScreenPrecise(x, y);
   root.position.x = p.x - state.width / 2;
   root.position.y = -(p.y - state.height / 2) + Math.sin(time * .0028 + x * .02) * (Math.hypot(vx || 0, vy || 0) > 18 ? 1.3 : 1.8);
   root.position.z = 0;
@@ -346,7 +347,6 @@ function ensureOtherModel(player) {
           scene: gltf.scene,
           clips: gltf.animations || [],
         });
-        // New model sources become visible on the next render frame.
       });
     }
     return null;
@@ -375,11 +375,13 @@ function drawModels(time, dt) {
     if (!entry) continue;
     alive.add(player.id);
 
-    // Smoothly follow the latest server target on every rendered frame.
-    // Exponential smoothing is frame-rate independent and avoids visible position snaps.
-    const smoothing = 1 - Math.exp(-12 * dt);
-    player.displayX += (player.targetX - player.displayX) * smoothing;
-    player.displayY += (player.targetY - player.displayY) * smoothing;
+    // Predict the remote position continuously from its latest server velocity, then gently correct drift.
+    const sinceSnapshot = Math.min(Math.max(0, (performance.now() - player.snapshotAt) / 1000), 0.25);
+    const predictedX = player.targetX + player.vx * sinceSnapshot;
+    const predictedY = player.targetY + player.vy * sinceSnapshot;
+    const correction = 1 - Math.exp(-18 * dt);
+    player.displayX += (predictedX - player.displayX) * correction;
+    player.displayY += (predictedY - player.displayY) * correction;
 
     updateModel(entry.root, entry.animation, player.displayX, player.displayY, player.vx || 0, player.vy || 0, time, player.energy || 0, true);
   }
@@ -471,64 +473,14 @@ function update(dt, time) {
   }
 }
 
-function triggerBoost() {
-  const now = performance.now();
-  if (now < state.boostCooldownUntil) return;
-
-  state.boostUntil = now + 700;
-  state.boostCooldownUntil = now + 3000;
-  boostButton.classList.remove('cooldown', 'ready');
-  boostButton.classList.add('active');
-  window.setTimeout(() => boostButton.classList.remove('active'), 700);
-
-  const countdown = document.createElement('span');
-  countdown.className = 'ability-cooldown';
-  countdown.setAttribute('aria-hidden', 'true');
-  boostButton.appendChild(countdown);
-  boostButton.classList.add('cooldown');
-
-  const phases = [
-    { value: '2', start: 0, duration: 850 },
-    { value: '1', start: 1150, duration: 1550 },
-  ];
-  let lastPhase = -1;
-
-  const updateCountdown = () => {
-    const elapsed = performance.now() - now;
-    if (elapsed >= 3000) {
-      countdown.remove();
-      boostButton.classList.remove('cooldown');
-      boostButton.classList.add('ready');
-      window.setTimeout(() => boostButton.classList.remove('ready'), 450);
-      return;
-    }
-
-    const phaseIndex = phases.findIndex((phase) =>
-      elapsed >= phase.start && elapsed < phase.start + phase.duration
-    );
-
-    if (phaseIndex !== lastPhase) {
-      lastPhase = phaseIndex;
-      countdown.classList.remove('countdown-pop');
-      if (phaseIndex >= 0) {
-        countdown.textContent = phases[phaseIndex].value;
-        countdown.style.animationDuration = `${phases[phaseIndex].duration}ms`;
-        void countdown.offsetWidth;
-        countdown.classList.add('countdown-pop');
-      } else {
-        countdown.textContent = '';
-      }
-    }
-    requestAnimationFrame(updateCountdown);
-  };
-
-  updateCountdown();
-}
-
-bindPlayerControls({ state, joystick, stick, boostButton, triggerBoost });
-
 function frame(time) {
-  const dt = state.lastTime ? Math.min((time - state.lastTime) / 1000, .05) : 0;
-  update(dt, time); draw(time); state.lastTime = time; requestAnimationFrame(frame);
+  if (!state.lastTime) state.lastTime = time;
+  const dt = Math.min((time - state.lastTime) / 1000, 0.05);
+  state.lastTime = time;
+  update(dt, time);
+  draw(time);
+  requestAnimationFrame(frame);
 }
+
+bindPlayerControls({ state, joystick, stick, boostButton, jumpButton });
 requestAnimationFrame(frame);
