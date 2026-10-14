@@ -73,7 +73,7 @@ jobs:
             echo "== [3/6] Check Node syntax =="
             node --check server/index.js
             node --check server/db.js
-            node --check client/game.js
+            node --input-type=module --check < client/game.js
             echo "Source syntax OK"
             echo "== [4/6] Install server dependencies =="
             cd /var/www/echo-game/server
@@ -145,7 +145,7 @@ jobs:
             echo "== [3/6] Check Node syntax =="
             node --check server/index.js
             node --check server/db.js
-            node --check client/game.js
+            node --input-type=module --check < client/game.js
             echo "Source syntax OK"
             echo "== [4/6] Install server dependencies =="
             cd /var/www/echo-game/server
