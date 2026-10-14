@@ -67,13 +67,11 @@ function prepareModel(root, isOther = false) {
     const materials = Array.isArray(object.material) ? object.material : [object.material];
     for (const material of materials) {
       if (!material) continue;
-      if (material.color) material.color.set(isOther ? 0xb7c9d9 : 0xf0f8ff);
+      // Keep Kenney's original material colors and texture; do not tint the preset.
       if ('emissive' in material) {
-        material.emissive.set(isOther ? 0x557a98 : 0x9edcff);
-        material.emissiveIntensity = isOther ? 0.45 : 0.75;
+        material.emissive.set(0x000000);
+        material.emissiveIntensity = 0;
       }
-      if ('roughness' in material) material.roughness = 0.42;
-      if ('metalness' in material) material.metalness = 0.05;
     }
   });
   root.scale.setScalar(isOther ? 42 : 50);
