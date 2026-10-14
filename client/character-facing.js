@@ -5,14 +5,14 @@
 const DEG = Math.PI / 180;
 
 export const CHARACTER_FACING = Object.freeze({
-  UP:           180 * DEG,
-  UP_RIGHT:    135 * DEG,
-  RIGHT:       90 * DEG,
-  DOWN_RIGHT: 45 * DEG,
   DOWN:       0 * DEG,
-  DOWN_LEFT:  315 * DEG,
-  LEFT:       270 * DEG,
+  DOWN_RIGHT: 45 * DEG,
+  RIGHT:       90 * DEG,
+  UP_RIGHT:    135 * DEG,
+  UP:           180 * DEG,
   UP_LEFT:    225 * DEG,
+  LEFT:       270 * DEG,
+  DOWN_LEFT:  315 * DEG,
 });
 
 const MOVEMENT_THRESHOLD = 18;
