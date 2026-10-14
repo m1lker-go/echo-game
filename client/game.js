@@ -70,7 +70,7 @@ function prepareModel(root, isOther = false) {
       if ('metalness' in material) material.metalness = 0.05;
     }
   });
-  root.scale.setScalar(isOther ? 30 : 30);
+  root.scale.setScalar(isOther ? 34 : 40);
   return root;
 }
 
@@ -102,8 +102,6 @@ function switchAnimation(animation, moving) {
 }
 
 loader.load(MODEL_URL, (gltf) => {
-  // Keep an unscaled source for clones. The visible local model gets its
-  // display scale only after it is placed in its holder.
   modelCache.source = gltf.scene;
   modelCache.clips = gltf.animations || [];
 
@@ -233,7 +231,11 @@ function updateModel(root, animation, x, y, vx, vy, time, label, isOther = false
   if (moving) {
     const screenVX = ((vx || 0) - (vy || 0)) * ISO.x;
     const screenVY = ((vx || 0) + (vy || 0)) * ISO.y;
-    root.rotation.y = Math.atan2(screenVX, -screenVY) + Math.PI / 2;
+    let facing = Math.atan2(screenVX, -screenVY) + Math.PI / 2;
+    // The Kenney model's horizontal walk directions are mirrored relative
+    // to the vertical ones. Flip only when moving predominantly left/right.
+    if (Math.abs(vx || 0) > Math.abs(vy || 0)) facing += Math.PI;
+    root.rotation.y = facing;
   }
   switchAnimation(animation, moving);
   drawEnergyLabel(x, y, label, isOther);
@@ -244,8 +246,6 @@ function ensureOtherModel(player) {
   let entry = modelCache.others.get(player.id); if (entry) return entry;
   const holder = new THREE.Group();
   const clone = SkeletonUtils.clone(modelCache.source);
-  // The source is intentionally kept unscaled until the local model uses it.
-  // Reset any inherited scale so each remote model receives exactly one scale.
   clone.scale.setScalar(1);
   prepareModel(clone, true);
   holder.add(clone);
@@ -259,38 +259,22 @@ function drawModels(time, dt) {
   updateModel(modelCache.local, modelCache.localAnimation, state.x, state.y, state.vx, state.vy, time, state.energy, false);
   const alive = new Set();
   for (const player of state.others.values()) {
-    alive.add(player.id); const entry = ensureOtherModel(player); if (!entry) continue;
-    updateModel(entry.root, entry.animation, player.x, player.y, player.vx ?? 0, player.vy ?? 0, time, player.energy ?? 0, true);
+    const entry = ensureOtherModel(player); if (!entry) continue;
+    alive.add(player.id);
+    updateModel(entry.root, entry.animation, player.x, player.y, player.vx || 0, player.vy || 0, time, player.energy || 0, true);
   }
-  for (const [id, entry] of modelCache.others) if (!alive.has(id)) { modelScene.remove(entry.root); modelCache.others.delete(id); }
-  modelCache.localAnimation?.mixer.update(dt); for (const entry of modelCache.others.values()) entry.animation?.mixer.update(dt);
+  for (const [id, entry] of modelCache.others) {
+    if (!alive.has(id)) { modelScene.remove(entry.root); modelCache.others.delete(id); }
+  }
+  for (const entry of modelCache.others.values()) entry.animation?.mixer.update(dt);
+  modelCache.localAnimation?.mixer.update(dt);
   modelRenderer.render(modelScene, modelCamera);
 }
 
-function beginBoost() {
-  const now = performance.now(); if (now < state.boostCooldownUntil) return;
-  state.boostUntil = now + 480; state.boostCooldownUntil = now + 3600; boostButton.classList.add('active'); setTimeout(() => boostButton.classList.remove('active'), 480);
-}
-boostButton.addEventListener('pointerdown', (event) => { event.preventDefault(); beginBoost(); });
-window.addEventListener('keydown', (event) => { const key = event.key.toLowerCase(); if (['arrowup','arrowdown','arrowleft','arrowright',' '].includes(key)) event.preventDefault(); state.keys.add(key); if (key === ' ' || key === 'shift') beginBoost(); }, { passive: false });
-window.addEventListener('keyup', (event) => state.keys.delete(event.key.toLowerCase())); window.addEventListener('blur', () => state.keys.clear());
-
-let joystickPointer = null;
-function updateJoystick(event) {
-  const rect = joystick.getBoundingClientRect(); const cx = rect.left + rect.width / 2; const cy = rect.top + rect.height / 2;
-  let dx = event.clientX - cx; let dy = event.clientY - cy; const max = rect.width * .31; const length = Math.hypot(dx, dy);
-  if (length > max) { dx = dx / length * max; dy = dy / length * max; } state.inputX = dx / max; state.inputY = dy / max; stick.style.transform = `translate(${dx}px, ${dy}px)`;
-}
-joystick.addEventListener('pointerdown', (event) => { joystickPointer = event.pointerId; joystick.setPointerCapture(event.pointerId); updateJoystick(event); });
-joystick.addEventListener('pointermove', (event) => { if (event.pointerId === joystickPointer) updateJoystick(event); });
-function releaseJoystick(event) { if (event.pointerId !== joystickPointer) return; joystickPointer = null; state.inputX = 0; state.inputY = 0; stick.style.transform = 'translate(0,0)'; }
-joystick.addEventListener('pointerup', releaseJoystick); joystick.addEventListener('pointercancel', releaseJoystick); joystick.addEventListener('lostpointercapture', () => { joystickPointer = null; state.inputX = 0; state.inputY = 0; stick.style.transform = 'translate(0,0)'; });
-
-function getInput() {
-  let x = state.inputX, y = state.inputY;
-  if (state.keys.has('a') || state.keys.has('arrowleft')) x -= 1; if (state.keys.has('d') || state.keys.has('arrowright')) x += 1;
-  if (state.keys.has('w') || state.keys.has('arrowup')) y -= 1; if (state.keys.has('s') || state.keys.has('arrowdown')) y += 1;
-  const length = Math.hypot(x, y); if (length > 1) { x /= length; y /= length; } return { x, y };
+function draw(time) {
+  drawGrid(time);
+  drawPoints(time);
+  drawModels(time, state.lastTime ? Math.min(.05, (time - state.lastTime) / 1000) : 0);
 }
 
 function update(dt, time) {
@@ -302,7 +286,44 @@ function update(dt, time) {
   if (state.socket?.connected && time - state.lastSent > 80) { state.lastSent = time; state.socket.emit('echo:move', { x: Math.round(state.x), y: Math.round(state.y), energy: state.energy, vx: Math.round(state.vx), vy: Math.round(state.vy) }); }
 }
 
+function getInput() {
+  let x = state.inputX, y = state.inputY;
+  if (state.keys.has('a') || state.keys.has('arrowleft')) x -= 1; if (state.keys.has('d') || state.keys.has('arrowright')) x += 1;
+  if (state.keys.has('w') || state.keys.has('arrowup')) y -= 1; if (state.keys.has('s') || state.keys.has('arrowdown')) y += 1;
+  const length = Math.hypot(x, y); if (length > 1) { x /= length; y /= length; } return { x, y };
+}
+
+function updateJoystick(event) {
+  const rect = joystick.getBoundingClientRect(); const cx = rect.left + rect.width / 2; const cy = rect.top + rect.height / 2;
+  let dx = event.clientX - cx; let dy = event.clientY - cy; const max = rect.width * .31; const length = Math.hypot(dx, dy);
+  if (length > max) { dx = dx / length * max; dy = dy / length * max; } state.inputX = dx / max; state.inputY = dy / max; stick.style.transform = `translate(${dx}px, ${dy}px)`;
+}
+joystick.addEventListener('pointerdown', (event) => { joystickPointer = event.pointerId; joystick.setPointerCapture(event.pointerId); updateJoystick(event); });
+joystick.addEventListener('pointermove', (event) => { if (event.pointerId === joystickPointer) updateJoystick(event); });
+function releaseJoystick(event) { if (event.pointerId !== joystickPointer) return; joystickPointer = null; state.inputX = 0; state.inputY = 0; stick.style.transform = 'translate(0,0)'; }
+joystick.addEventListener('pointerup', releaseJoystick); joystick.addEventListener('pointercancel', releaseJoystick); joystick.addEventListener('lostpointercapture', () => { joystickPointer = null; state.inputX = 0; state.inputY = 0; stick.style.transform = 'translate(0,0)'; });
+
+let joystickPointer = null;
+
+const boost = () => {
+  const now = performance.now();
+  if (now < state.boostCooldownUntil) return;
+  state.boostUntil = now + 650;
+  state.boostCooldownUntil = now + 3200;
+};
+boostButton?.addEventListener('click', boost);
+window.addEventListener('keydown', (event) => {
+  const key = event.key.toLowerCase();
+  state.keys.add(key);
+  if (key === 'shift' || key === ' ') boost();
+});
+window.addEventListener('keyup', (event) => state.keys.delete(event.key.toLowerCase()));
+
 function frame(time) {
-  const dt = state.lastTime ? Math.min((time - state.lastTime) / 1000, .05) : 0; update(dt, time); drawGrid(time); drawPoints(time); drawModels(time, dt); state.lastTime = time; requestAnimationFrame(frame);
+  const dt = state.lastTime ? Math.min(.05, (time - state.lastTime) / 1000) : 0;
+  state.lastTime = time;
+  update(dt, time);
+  draw(time);
+  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
