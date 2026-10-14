@@ -50,10 +50,16 @@ function setConnection(status, label) {
 
 function connectSocket() {
   if (!window.io) { setConnection('offline', 'режим без сервера'); return; }
-  // Set window.ECHO_SERVER_URL before this file to use a public HTTPS/WSS endpoint.
+  // ECHO is served at https://cat-fight.ru/echo/; Nginx proxies this dedicated path
+  // to the ECHO server, keeping Cat Fighting's own Socket.IO endpoint separate.
   const url = window.ECHO_SERVER_URL || window.location.origin;
   try {
-    state.socket = window.io(url, { transports: ['websocket', 'polling'], reconnection: true, timeout: 5000 });
+    state.socket = window.io(url, {
+      path: '/echo/socket.io/',
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      timeout: 5000,
+    });
     state.socket.on('connect', () => {
       setConnection('online', 'сервер подключён');
       state.socket.emit('echo:hello', { version: 1 });
