@@ -43,7 +43,7 @@ const ISO = { x: 0.8660254, y: 0.5 };
 const FOOD_MAGNET_RADIUS = WORLD.spacing * 0.9;
 const FOOD_MAGNET_STRENGTH = 7.5;
 const FOOD_COLLECT_RADIUS = 22;
-const JUMP_DISTANCE = 60;
+const JUMP_DISTANCE = 420;
 const JUMP_DURATION = 200;
 const points = Array.from({ length: 34 }, (_, i) => {
   const angle = i * 2.399963229728653;
