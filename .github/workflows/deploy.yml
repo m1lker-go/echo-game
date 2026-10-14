@@ -4,6 +4,9 @@ on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: write
+
 concurrency:
   group: echo-production-deploy
   cancel-in-progress: false
@@ -19,11 +22,39 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Repair generated JS escaping
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('client/game.js')
+          text = path.read_text(encoding='utf-8')
+          bad = r'\`rgba(220,242,255,\${.65 + .35 * pulse})\`'
+          good = '`rgba(220,242,255,${.65 + .35 * pulse})`'
+          if bad in text:
+              path.write_text(text.replace(bad, good), encoding='utf-8')
+              print('Fixed escaped template literal in client/game.js')
+          else:
+              print('No generated escaping issue found')
+          PY
+
+      - name: Commit source repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add client/game.js
+          if git diff --cached --quiet; then
+            echo "No source repair commit needed"
+          else
+            git commit -m "Fix escaped template literal in game.js"
+            git push origin HEAD:main
+          fi
+
       - name: Validate deploy source
         run: |
           node --check server/index.js
           node --check server/db.js
-          echo "Server source syntax OK"
+          node --check client/game.js
+          echo "Source syntax OK"
 
       - name: Deploy attempt 1
         id: deploy_attempt_1
@@ -37,21 +68,17 @@ jobs:
           script: |
             set -Eeuo pipefail
             trap 'echo "DEPLOY ERROR: line $LINENO, command: $BASH_COMMAND"' ERR
-
             cd /var/www/echo-game
             EXPECTED="${{ github.sha }}"
-
             echo "========================================"
             echo "ECHO GIT DEPLOY ATTEMPT 1"
             echo "========================================"
-
             echo "== [1/6] Fetch exact GitHub commit =="
             echo "Expected GitHub commit: $EXPECTED"
             if ! timeout 30s git fetch --prune origin main; then
               echo "Git fetch failed or timed out. Production was not changed."
               exit 1
             fi
-
             REMOTE_SHA=$(git rev-parse origin/main)
             echo "Fetched origin/main: $REMOTE_SHA"
             if [ "$REMOTE_SHA" != "$EXPECTED" ]; then
@@ -62,7 +89,6 @@ jobs:
               exit 1
             fi
             echo "GitHub commit verified"
-
             echo "== [2/6] Reset production working tree =="
             git reset --hard "$EXPECTED"
             CURRENT=$(git rev-parse HEAD)
@@ -71,22 +97,19 @@ jobs:
               exit 1
             fi
             echo "Production code: $CURRENT"
-
             echo "== [3/6] Check Node syntax =="
             node --check server/index.js
             node --check server/db.js
-            echo "Server syntax OK"
-
+            node --check client/game.js
+            echo "Source syntax OK"
             echo "== [4/6] Install server dependencies =="
             cd /var/www/echo-game/server
             npm install
             echo "npm install OK"
-
             echo "== [5/6] Restart ECHO PM2 only =="
             pm2 restart echo-server || pm2 start index.js --name echo-server
             pm2 save
             echo "ECHO PM2 restart OK"
-
             echo "== [6/6] Wait for ECHO health =="
             for i in 1 2 3 4 5; do
               if curl -fsS --max-time 5 http://127.0.0.1:5002/health; then
@@ -103,7 +126,6 @@ jobs:
               echo "Health-check attempt $i failed, retrying..."
               sleep 2
             done
-
             echo "ECHO DEPLOY SUCCESS: $EXPECTED"
 
       - name: Deploy attempt 2 (automatic retry)
@@ -118,21 +140,17 @@ jobs:
           script: |
             set -Eeuo pipefail
             trap 'echo "RETRY DEPLOY ERROR: line $LINENO, command: $BASH_COMMAND"' ERR
-
             cd /var/www/echo-game
             EXPECTED="${{ github.sha }}"
-
             echo "========================================"
             echo "ECHO GIT DEPLOY AUTOMATIC RETRY"
             echo "========================================"
-
             echo "== [1/6] Fetch exact GitHub commit =="
             echo "Expected GitHub commit: $EXPECTED"
             if ! timeout 30s git fetch --prune origin main; then
               echo "Git fetch failed or timed out. Production was not changed."
               exit 1
             fi
-
             REMOTE_SHA=$(git rev-parse origin/main)
             echo "Fetched origin/main: $REMOTE_SHA"
             if [ "$REMOTE_SHA" != "$EXPECTED" ]; then
@@ -143,7 +161,6 @@ jobs:
               exit 1
             fi
             echo "GitHub commit verified"
-
             echo "== [2/6] Reset production working tree =="
             git reset --hard "$EXPECTED"
             CURRENT=$(git rev-parse HEAD)
@@ -152,22 +169,19 @@ jobs:
               exit 1
             fi
             echo "Production code: $CURRENT"
-
             echo "== [3/6] Check Node syntax =="
             node --check server/index.js
             node --check server/db.js
-            echo "Server syntax OK"
-
+            node --check client/game.js
+            echo "Source syntax OK"
             echo "== [4/6] Install server dependencies =="
             cd /var/www/echo-game/server
             npm install
             echo "npm install OK"
-
             echo "== [5/6] Restart ECHO PM2 only =="
             pm2 restart echo-server || pm2 start index.js --name echo-server
             pm2 save
             echo "ECHO PM2 restart OK"
-
             echo "== [6/6] Wait for ECHO health =="
             for i in 1 2 3 4 5; do
               if curl -fsS --max-time 5 http://127.0.0.1:5002/health; then
@@ -184,5 +198,4 @@ jobs:
               echo "Health-check attempt $i failed, retrying..."
               sleep 2
             done
-
             echo "ECHO RETRY DEPLOY SUCCESS: $EXPECTED"
