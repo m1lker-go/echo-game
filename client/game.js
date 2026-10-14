@@ -70,7 +70,7 @@ function prepareModel(root, isOther = false) {
       if ('metalness' in material) material.metalness = 0.05;
     }
   });
-  root.scale.setScalar(isOther ? 34 : 40);
+  root.scale.setScalar(isOther ? 42 : 50);
   return root;
 }
 
@@ -84,7 +84,9 @@ function setupAnimation(root, clips, isOther = false) {
   if (!clips?.length) return null;
   const mixer = new THREE.AnimationMixer(root);
   const idle = findClip(clips, ['idle', 'idle_01', 'idle-01']);
-  const walk = findClip(clips, ['walk', 'walk_01', 'walk-01']);
+  // Prefer the actual running animation. Fall back to walk if this model has no sprint clip.
+  const run = findClip(clips, ['sprint', 'run', 'running']);
+  const walk = run || findClip(clips, ['walk', 'walk_01', 'walk-01']);
   const action = idle || clips[0];
   if (action) mixer.clipAction(action).play();
   return { mixer, idle, walk, current: action, isOther };
@@ -114,6 +116,7 @@ loader.load(MODEL_URL, (gltf) => {
   modelScene.add(local);
   modelCache.ready = true;
   console.log(`[echo] GLB loaded: ${MODEL_URL}; animations: ${modelCache.clips.length}`);
+  console.log('[echo] available animations:', modelCache.clips.map((clip) => clip.name));
 }, undefined, (error) => {
   console.error('[echo] failed to load character GLB:', error);
 });
@@ -232,8 +235,6 @@ function updateModel(root, animation, x, y, vx, vy, time, label, isOther = false
     const screenVX = ((vx || 0) - (vy || 0)) * ISO.x;
     const screenVY = ((vx || 0) + (vy || 0)) * ISO.y;
     let facing = Math.atan2(screenVX, -screenVY) + Math.PI / 2;
-    // The Kenney model's horizontal walk directions are mirrored relative
-    // to the vertical ones. Flip only when moving predominantly left/right.
     if (Math.abs(vx || 0) > Math.abs(vy || 0)) facing += Math.PI;
     root.rotation.y = facing;
   }
@@ -274,56 +275,53 @@ function drawModels(time, dt) {
 function draw(time) {
   drawGrid(time);
   drawPoints(time);
-  drawModels(time, state.lastTime ? Math.min(.05, (time - state.lastTime) / 1000) : 0);
+  drawModels(time, state.lastTime ? Math.min((time - state.lastTime) / 1000, .05) : 0);
+  const gradient = ctx.createRadialGradient(state.width / 2, state.height / 2, Math.min(state.width, state.height) * .22, state.width / 2, state.height / 2, Math.max(state.width, state.height) * .7);
+  gradient.addColorStop(0, 'rgba(0,0,0,0)'); gradient.addColorStop(.58, 'rgba(0,0,0,.1)'); gradient.addColorStop(1, 'rgba(0,0,0,.82)');
+  ctx.fillStyle = gradient; ctx.fillRect(0, 0, state.width, state.height);
 }
 
 function update(dt, time) {
-  const input = getInput(); const speed = time < state.boostUntil ? 300 : 155; const smoothing = Math.min(1, dt * 12);
-  state.vx += (input.x * speed - state.vx) * smoothing; state.vy += (input.y * speed - state.vy) * smoothing; state.x += state.vx * dt; state.y += state.vy * dt;
-  for (const point of points) if (!point.collected && Math.hypot(state.x - point.x, state.y - point.y) < 22) { point.collected = true; state.energy += 1; energyText.textContent = String(state.energy); }
-  if (points.every((point) => point.collected)) for (const point of points) { point.collected = false; const angle = Math.random() * Math.PI * 2; const radius = 210 + Math.random() * 1200; point.x = Math.cos(angle) * radius; point.y = Math.sin(angle) * radius; }
-  state.cameraX = state.x; state.cameraY = state.y; coordsText.textContent = `${Math.round(state.x)} · ${Math.round(state.y)}`;
-  if (state.socket?.connected && time - state.lastSent > 80) { state.lastSent = time; state.socket.emit('echo:move', { x: Math.round(state.x), y: Math.round(state.y), energy: state.energy, vx: Math.round(state.vx), vy: Math.round(state.vy) }); }
+  let ix = state.inputX, iy = state.inputY;
+  if (state.keys.has('ArrowLeft') || state.keys.has('a')) ix -= 1;
+  if (state.keys.has('ArrowRight') || state.keys.has('d')) ix += 1;
+  if (state.keys.has('ArrowUp') || state.keys.has('w')) iy -= 1;
+  if (state.keys.has('ArrowDown') || state.keys.has('s')) iy += 1;
+  const len = Math.hypot(ix, iy); if (len > 1) { ix /= len; iy /= len; }
+  const boosted = time < state.boostUntil; const speed = boosted ? 300 : 155;
+  state.vx = ix * speed; state.vy = iy * speed;
+  state.x += state.vx * dt; state.y += state.vy * dt;
+  state.cameraX = state.x; state.cameraY = state.y;
+  for (const point of points) if (!point.collected && Math.hypot(point.x - state.x, point.y - state.y) < 28) { point.collected = true; state.energy += 1; }
+  energyText.textContent = String(state.energy);
+  coordsText.textContent = `${Math.round(state.x)}, ${Math.round(state.y)}`;
+  if (state.socket?.connected && time - state.lastSent > 80) { state.socket.emit('echo:move', { x: state.x, y: state.y, vx: state.vx, vy: state.vy, energy: state.energy }); state.lastSent = time; }
 }
 
-function getInput() {
-  let x = state.inputX, y = state.inputY;
-  if (state.keys.has('a') || state.keys.has('arrowleft')) x -= 1; if (state.keys.has('d') || state.keys.has('arrowright')) x += 1;
-  if (state.keys.has('w') || state.keys.has('arrowup')) y -= 1; if (state.keys.has('s') || state.keys.has('arrowdown')) y += 1;
-  const length = Math.hypot(x, y); if (length > 1) { x /= length; y /= length; } return { x, y };
-}
-
-function updateJoystick(event) {
-  const rect = joystick.getBoundingClientRect(); const cx = rect.left + rect.width / 2; const cy = rect.top + rect.height / 2;
-  let dx = event.clientX - cx; let dy = event.clientY - cy; const max = rect.width * .31; const length = Math.hypot(dx, dy);
-  if (length > max) { dx = dx / length * max; dy = dy / length * max; } state.inputX = dx / max; state.inputY = dy / max; stick.style.transform = `translate(${dx}px, ${dy}px)`;
-}
-joystick.addEventListener('pointerdown', (event) => { joystickPointer = event.pointerId; joystick.setPointerCapture(event.pointerId); updateJoystick(event); });
-joystick.addEventListener('pointermove', (event) => { if (event.pointerId === joystickPointer) updateJoystick(event); });
-function releaseJoystick(event) { if (event.pointerId !== joystickPointer) return; joystickPointer = null; state.inputX = 0; state.inputY = 0; stick.style.transform = 'translate(0,0)'; }
-joystick.addEventListener('pointerup', releaseJoystick); joystick.addEventListener('pointercancel', releaseJoystick); joystick.addEventListener('lostpointercapture', () => { joystickPointer = null; state.inputX = 0; state.inputY = 0; stick.style.transform = 'translate(0,0)'; });
-
-let joystickPointer = null;
-
-const boost = () => {
+function triggerBoost() {
   const now = performance.now();
   if (now < state.boostCooldownUntil) return;
-  state.boostUntil = now + 650;
-  state.boostCooldownUntil = now + 3200;
-};
-boostButton?.addEventListener('click', boost);
-window.addEventListener('keydown', (event) => {
-  const key = event.key.toLowerCase();
-  state.keys.add(key);
-  if (key === 'shift' || key === ' ') boost();
-});
-window.addEventListener('keyup', (event) => state.keys.delete(event.key.toLowerCase()));
+  state.boostUntil = now + 700; state.boostCooldownUntil = now + 3500;
+  boostButton.classList.add('active');
+  setTimeout(() => boostButton.classList.remove('active'), 700);
+}
+
+function setJoystick(clientX, clientY) {
+  const rect = joystick.getBoundingClientRect(); const cx = rect.left + rect.width / 2; const cy = rect.top + rect.height / 2;
+  const max = rect.width * .31; let dx = clientX - cx, dy = clientY - cy; const len = Math.hypot(dx, dy); if (len > max) { dx *= max / len; dy *= max / len; }
+  stick.style.transform = `translate(${dx}px, ${dy}px)`; state.inputX = dx / max; state.inputY = dy / max;
+}
+function resetJoystick() { stick.style.transform = 'translate(0, 0)'; state.inputX = 0; state.inputY = 0; }
+let joystickActive = false;
+joystick.addEventListener('pointerdown', (e) => { joystickActive = true; joystick.setPointerCapture(e.pointerId); setJoystick(e.clientX, e.clientY); });
+joystick.addEventListener('pointermove', (e) => { if (joystickActive) setJoystick(e.clientX, e.clientY); });
+joystick.addEventListener('pointerup', resetJoystick); joystick.addEventListener('pointercancel', resetJoystick);
+boostButton.addEventListener('pointerdown', triggerBoost);
+window.addEventListener('keydown', (e) => { state.keys.add(e.key); if (e.code === 'Space') triggerBoost(); });
+window.addEventListener('keyup', (e) => state.keys.delete(e.key));
 
 function frame(time) {
-  const dt = state.lastTime ? Math.min(.05, (time - state.lastTime) / 1000) : 0;
-  state.lastTime = time;
-  update(dt, time);
-  draw(time);
-  requestAnimationFrame(frame);
+  const dt = state.lastTime ? Math.min((time - state.lastTime) / 1000, .05) : 0;
+  update(dt, time); draw(time); state.lastTime = time; requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
