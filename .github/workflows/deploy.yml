@@ -1,0 +1,191 @@
+name: Deploy ECHO to VPS
+
+on:
+  push:
+    branches: [ main ]
+
+concurrency:
+  group: echo-production-deploy
+  cancel-in-progress: false
+  queue: max
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate deploy source
+        run: |
+          node --check server/index.js
+          node --check server/db.js
+          node --check client/game.js
+          echo "Source syntax OK"
+
+      - name: Deploy attempt 1
+        id: deploy_attempt_1
+        continue-on-error: true
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 10m
+          script: |
+            set -Eeuo pipefail
+            trap 'echo "DEPLOY ERROR: line $LINENO, command: $BASH_COMMAND"' ERR
+
+            cd /var/www/echo-game
+            EXPECTED="${{ github.sha }}"
+
+            echo "========================================"
+            echo "ECHO GIT DEPLOY ATTEMPT 1"
+            echo "========================================"
+
+            echo "== [1/6] Fetch exact GitHub commit =="
+            echo "Expected GitHub commit: $EXPECTED"
+            if ! timeout 30s git fetch --prune origin main; then
+              echo "Git fetch failed or timed out. Production was not changed."
+              exit 1
+            fi
+
+            REMOTE_SHA=$(git rev-parse origin/main)
+            echo "Fetched origin/main: $REMOTE_SHA"
+            if [ "$REMOTE_SHA" != "$EXPECTED" ]; then
+              echo "origin/main does not match GitHub Actions commit."
+              echo "Expected: $EXPECTED"
+              echo "Fetched:  $REMOTE_SHA"
+              echo "Production was not changed."
+              exit 1
+            fi
+            echo "GitHub commit verified"
+
+            echo "== [2/6] Reset production working tree =="
+            git reset --hard "$EXPECTED"
+            CURRENT=$(git rev-parse HEAD)
+            if [ "$CURRENT" != "$EXPECTED" ]; then
+              echo "Production checkout mismatch!"
+              exit 1
+            fi
+            echo "Production code: $CURRENT"
+
+            echo "== [3/6] Check Node syntax =="
+            node --check server/index.js
+            node --check server/db.js
+            node --check client/game.js
+            echo "Node syntax OK"
+
+            echo "== [4/6] Install server dependencies =="
+            cd /var/www/echo-game/server
+            npm install
+            echo "npm install OK"
+
+            echo "== [5/6] Restart ECHO PM2 only =="
+            pm2 restart echo-server || pm2 start index.js --name echo-server
+            pm2 save
+            echo "ECHO PM2 restart OK"
+
+            echo "== [6/6] Wait for ECHO health =="
+            for i in 1 2 3 4 5; do
+              if curl -fsS --max-time 5 http://127.0.0.1:5002/health; then
+                echo
+                echo "ECHO health OK"
+                break
+              fi
+              if [ "$i" -eq 5 ]; then
+                echo "ECHO health-check failed after 5 attempts"
+                pm2 status
+                pm2 logs echo-server --lines 40 --nostream || true
+                exit 1
+              fi
+              echo "Health-check attempt $i failed, retrying..."
+              sleep 2
+            done
+
+            echo "ECHO DEPLOY SUCCESS: $EXPECTED"
+
+      - name: Deploy attempt 2 (automatic retry)
+        id: deploy_attempt_2
+        if: ${{ steps.deploy_attempt_1.outcome == 'failure' }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 10m
+          script: |
+            set -Eeuo pipefail
+            trap 'echo "RETRY DEPLOY ERROR: line $LINENO, command: $BASH_COMMAND"' ERR
+
+            cd /var/www/echo-game
+            EXPECTED="${{ github.sha }}"
+
+            echo "========================================"
+            echo "ECHO GIT DEPLOY AUTOMATIC RETRY"
+            echo "========================================"
+
+            echo "== [1/6] Fetch exact GitHub commit =="
+            echo "Expected GitHub commit: $EXPECTED"
+            if ! timeout 30s git fetch --prune origin main; then
+              echo "Git fetch failed or timed out. Production was not changed."
+              exit 1
+            fi
+
+            REMOTE_SHA=$(git rev-parse origin/main)
+            echo "Fetched origin/main: $REMOTE_SHA"
+            if [ "$REMOTE_SHA" != "$EXPECTED" ]; then
+              echo "origin/main does not match GitHub Actions commit."
+              echo "Expected: $EXPECTED"
+              echo "Fetched:  $REMOTE_SHA"
+              echo "Production was not changed."
+              exit 1
+            fi
+            echo "GitHub commit verified"
+
+            echo "== [2/6] Reset production working tree =="
+            git reset --hard "$EXPECTED"
+            CURRENT=$(git rev-parse HEAD)
+            if [ "$CURRENT" != "$EXPECTED" ]; then
+              echo "Production checkout mismatch!"
+              exit 1
+            fi
+            echo "Production code: $CURRENT"
+
+            echo "== [3/6] Check Node syntax =="
+            node --check server/index.js
+            node --check server/db.js
+            node --check client/game.js
+            echo "Node syntax OK"
+
+            echo "== [4/6] Install server dependencies =="
+            cd /var/www/echo-game/server
+            npm install
+            echo "npm install OK"
+
+            echo "== [5/6] Restart ECHO PM2 only =="
+            pm2 restart echo-server || pm2 start index.js --name echo-server
+            pm2 save
+            echo "ECHO PM2 restart OK"
+
+            echo "== [6/6] Wait for ECHO health =="
+            for i in 1 2 3 4 5; do
+              if curl -fsS --max-time 5 http://127.0.0.1:5002/health; then
+                echo
+                echo "ECHO health OK"
+                break
+              fi
+              if [ "$i" -eq 5 ]; then
+                echo "ECHO health-check failed after 5 attempts"
+                pm2 status
+                pm2 logs echo-server --lines 40 --nostream || true
+                exit 1
+              fi
+              echo "Health-check attempt $i failed, retrying..."
+              sleep 2
+            done
+
+            echo "ECHO RETRY DEPLOY SUCCESS: $EXPECTED"
