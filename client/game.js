@@ -220,6 +220,7 @@ function connectSocket() {
           previousY: previous?.targetY ?? player.y,
           targetX: player.x,
           targetY: player.y,
+          previousSnapshotAt: previous?.snapshotAt ?? now - 80,
           snapshotAt: now,
           displayX: previous?.displayX ?? player.x,
           displayY: previous?.displayY ?? player.y,
@@ -368,13 +369,15 @@ function drawModels(time, dt) {
     if (!entry) continue;
     alive.add(player.id);
 
-    // Interpolate remote players between server snapshots. Our own movement stays local.
-    const elapsed = Math.max(0, (time - player.snapshotAt) / 1000);
-    const interpolationWindow = 0.12;
-    const alpha = Math.min(1, elapsed / interpolationWindow);
-    player.displayX += (player.targetX - player.displayX) * Math.min(1, dt * 12);
-    player.displayY += (player.targetY - player.displayY) * Math.min(1, dt * 12);
-    // Smooth correction above follows the received targets at render-frame rate.
+    // Render slightly behind the newest snapshot so there is time to blend between samples.
+    const renderAt = time - 120;
+    const span = Math.max(1, player.snapshotAt - (player.previousSnapshotAt ?? player.snapshotAt - 80));
+    const alpha = Math.max(0, Math.min(1, (renderAt - (player.previousSnapshotAt ?? player.snapshotAt - 80)) / span));
+    const targetX = player.previousX + (player.targetX - player.previousX) * alpha;
+    const targetY = player.previousY + (player.targetY - player.previousY) * alpha;
+    player.displayX = targetX;
+    player.displayY = targetY;
+
     updateModel(entry.root, entry.animation, player.displayX, player.displayY, player.vx || 0, player.vy || 0, time, player.energy || 0, true);
   }
   for (const [id, entry] of modelCache.others) {
