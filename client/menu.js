@@ -36,7 +36,6 @@ const settingsButton = document.querySelector('#menu-settings');
 const ratingButton = document.querySelector('#menu-rating');
 const characterBack = document.querySelector('#character-back');
 const placeholderBack = document.querySelector('#placeholder-back');
-const exitButton = document.querySelector('#menu-exit');
 const foodCanvas = document.querySelector('#menu-food');
 
 function showScreen(screen) {
@@ -68,9 +67,6 @@ settingsButton.addEventListener('click', () => openPlaceholder('НАСТРОЙК
 ratingButton.addEventListener('click', () => openPlaceholder('РЕЙТИНГ'));
 characterBack.addEventListener('click', openMenu);
 placeholderBack.addEventListener('click', openMenu);
-exitButton.addEventListener('click', () => {
-  window.close();
-});
 
 for (const [file, label] of characters) {
   const button = document.createElement('button');
