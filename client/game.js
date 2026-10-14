@@ -1,4 +1,9 @@
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { SkeletonUtils } from 'three/addons/utils/SkeletonUtils.js';
+
 const canvas = document.querySelector('#world');
+const modelCanvas = document.querySelector('#models');
 const ctx = canvas.getContext('2d', { alpha: true });
 const energyText = document.querySelector('#energy');
 const coordsText = document.querySelector('#coords');
@@ -30,6 +35,93 @@ const points = Array.from({ length: 34 }, (_, i) => {
   return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius, size: 1.7 + (i % 3) * .6, pulse: i * .7, collected: false };
 });
 
+// 3D model layer. The existing GLB from the client is rendered above the 2D world.
+const modelScene = new THREE.Scene();
+const modelCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);
+modelCamera.position.z = 100;
+const modelRenderer = new THREE.WebGLRenderer({ canvas: modelCanvas, alpha: true, antialias: true });
+modelRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+modelRenderer.outputColorSpace = THREE.SRGBColorSpace;
+modelRenderer.setClearColor(0x000000, 0);
+
+const ambientLight = new THREE.AmbientLight(0xffffff, 2.2);
+modelScene.add(ambientLight);
+const keyLight = new THREE.DirectionalLight(0xd9eeff, 3.5);
+keyLight.position.set(-40, 80, 120);
+modelScene.add(keyLight);
+const rimLight = new THREE.DirectionalLight(0x9ed7ff, 2.2);
+rimLight.position.set(60, 30, 100);
+modelScene.add(rimLight);
+
+const loader = new GLTFLoader();
+const MODEL_URL = './assets/models/character-female-a.glb';
+const modelCache = { source: null, mixer: null, local: null, others: new Map(), ready: false };
+
+function prepareModel(root, isOther = false) {
+  root.traverse((object) => {
+    if (!object.isMesh) return;
+    object.castShadow = false;
+    object.receiveShadow = false;
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    for (const material of materials) {
+      if (!material) continue;
+      if (material.color) material.color.set(isOther ? 0xb7c9d9 : 0xf0f8ff);
+      if ('emissive' in material) {
+        material.emissive.set(isOther ? 0x557a98 : 0x9edcff);
+        material.emissiveIntensity = isOther ? 0.45 : 0.75;
+      }
+      if ('roughness' in material) material.roughness = 0.42;
+      if ('metalness' in material) material.metalness = 0.05;
+    }
+  });
+
+  // The Kenney character is a normal humanoid; keep it slightly smaller than the old 2D ghost.
+  root.scale.setScalar(isOther ? 25 : 29);
+  root.position.z = 0;
+  return root;
+}
+
+function findClip(clips, names) {
+  const wanted = names.map((name) => name.toLowerCase());
+  return clips.find((clip) => wanted.some((name) => clip.name.toLowerCase() === name))
+    || clips.find((clip) => wanted.some((name) => clip.name.toLowerCase().includes(name)));
+}
+
+function setupAnimation(root, clips, isOther = false) {
+  if (!clips?.length) return null;
+  const mixer = new THREE.AnimationMixer(root);
+  const idle = findClip(clips, ['idle', 'idle_01', 'idle-01']);
+  const walk = findClip(clips, ['walk', 'walk_01', 'walk-01']);
+  const action = idle || clips[0];
+  if (action) mixer.clipAction(action).play();
+  return { mixer, idle, walk, current: action, isOther };
+}
+
+function switchAnimation(animation, moving) {
+  if (!animation) return;
+  const next = moving && animation.walk ? animation.walk : animation.idle;
+  if (!next || next === animation.current) return;
+  const current = animation.mixer.clipAction(animation.current);
+  const nextAction = animation.mixer.clipAction(next);
+  nextAction.reset().fadeIn(0.15).play();
+  current.fadeOut(0.15);
+  animation.current = next;
+}
+
+function loadCharacter() {
+  loader.load(MODEL_URL, (gltf) => {
+    modelCache.source = gltf.scene;
+    const local = prepareModel(gltf.scene, false);
+    modelCache.local = local;
+    modelCache.mixer = setupAnimation(local, gltf.animations, false);
+    modelScene.add(local);
+    modelCache.ready = true;
+  }, undefined, (error) => {
+    console.error('[echo] failed to load character GLB:', error);
+  });
+}
+loadCharacter();
+
 function resize() {
   const rect = canvas.getBoundingClientRect();
   state.dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -38,6 +130,14 @@ function resize() {
   canvas.width = Math.round(state.width * state.dpr);
   canvas.height = Math.round(state.height * state.dpr);
   ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+
+  modelRenderer.setPixelRatio(state.dpr);
+  modelRenderer.setSize(state.width, state.height, false);
+  modelCamera.left = -state.width / 2;
+  modelCamera.right = state.width / 2;
+  modelCamera.top = state.height / 2;
+  modelCamera.bottom = -state.height / 2;
+  modelCamera.updateProjectionMatrix();
 }
 window.addEventListener('resize', resize, { passive: true });
 resize();
@@ -50,8 +150,6 @@ function setConnection(status, label) {
 
 function connectSocket() {
   if (!window.io) { setConnection('offline', 'режим без сервера'); return; }
-  // ECHO is served at https://cat-fight.ru/echo/; Nginx proxies this dedicated path
-  // to the ECHO server, keeping Cat Fighting's own Socket.IO endpoint separate.
   const url = window.ECHO_SERVER_URL || window.location.origin;
   try {
     state.socket = window.io(url, {
@@ -134,54 +232,83 @@ function drawPoints(time) {
   }
 }
 
-function drawGhost(x, y, time, label = '0', isOther = false) {
+function drawEnergyLabel(x, y, label, isOther = false) {
   const p = worldToScreen(x, y);
-  const bob = Math.sin(time * .0028 + (isOther ? x : 0)) * 2.2;
-  const scale = isOther ? .88 : 1;
   ctx.save();
-  ctx.translate(p.x, p.y + bob);
-  ctx.scale(scale, scale);
-  const halo = ctx.createRadialGradient(0, 4, 2, 0, 4, 45);
-  halo.addColorStop(0, isOther ? 'rgba(190,222,255,.22)' : 'rgba(207,238,255,.28)');
-  halo.addColorStop(1, 'rgba(168,205,245,0)');
-  ctx.fillStyle = halo;
-  ctx.beginPath();
-  ctx.ellipse(0, 4, 45, 49, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowColor = 'rgba(221,244,255,.9)';
-  ctx.shadowBlur = isOther ? 12 : 18;
-  ctx.fillStyle = isOther ? 'rgba(184,207,229,.88)' : 'rgba(236,247,255,.95)';
-  ctx.beginPath();
-  ctx.moveTo(0, -26);
-  ctx.bezierCurveTo(14, -26, 20, -13, 18, 0);
-  ctx.lineTo(17, 15);
-  ctx.quadraticCurveTo(10, 12, 6, 19);
-  ctx.quadraticCurveTo(2, 13, -2, 19);
-  ctx.quadraticCurveTo(-8, 12, -16, 16);
-  ctx.lineTo(-17, 0);
-  ctx.bezierCurveTo(-20, -13, -13, -26, 0, -26);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = 'rgba(10,16,24,.9)';
-  ctx.beginPath();
-  ctx.ellipse(-5.5, -8, 1.9, 3.1, -.12, 0, Math.PI * 2);
-  ctx.ellipse(5.5, -8, 1.9, 3.1, .12, 0, Math.PI * 2);
-  ctx.fill();
   ctx.font = '500 11px Inter, system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.fillStyle = isOther ? 'rgba(216,230,246,.68)' : 'rgba(244,250,255,.9)';
   ctx.shadowColor = 'rgba(193,226,255,.8)';
   ctx.shadowBlur = 7;
-  ctx.fillText(String(label), 0, -39);
+  ctx.fillText(String(label), p.x, p.y - 39);
   ctx.restore();
 }
 
-function draw(time) {
-  ctx.clearRect(0, 0, state.width, state.height);
-  drawGrid(time);
-  drawPoints(time);
-  for (const player of state.others.values()) drawGhost(player.x, player.y, time, player.energy ?? 0, true);
-  drawGhost(state.x, state.y, time, state.energy, false);
+function updateModel(root, x, y, vx, vy, time, isOther = false) {
+  if (!root) return;
+  const p = worldToScreen(x, y);
+  root.position.x = p.x - state.width / 2;
+  root.position.y = -(p.y - state.height / 2);
+  root.position.z = 0;
+  const moving = Math.hypot(vx || 0, vy || 0) > 18;
+  root.rotation.y = Math.atan2(vx || 0, -(vy || 0));
+  const bob = Math.sin(time * .0028 + x * .02) * (moving ? 1.3 : 1.8);
+  root.position.y += bob;
+  const scale = isOther ? 22 : 26;
+  root.scale.setScalar(scale);
+  if (root.userData.animation) {
+    switchAnimation(root.userData.animation, moving);
+  }
+  if (root.userData.lastLabel !== undefined) drawEnergyLabel(x, y, root.userData.lastLabel, isOther);
+}
+
+function ensureOtherModel(player) {
+  if (!modelCache.source) return null;
+  let entry = modelCache.others.get(player.id);
+  if (entry) return entry;
+  const clone = SkeletonUtils.clone(modelCache.source);
+  prepareModel(clone, true);
+  const animation = setupAnimation(clone, modelCache.source.userData?.animations || [], true);
+  // GLTF animations live on the original GLTF, so store them on the source template.
+  if (!animation && modelCache.animationClips) {
+    clone.userData.animation = setupAnimation(clone, modelCache.animationClips, true);
+  } else {
+    clone.userData.animation = animation;
+  }
+  modelScene.add(clone);
+  entry = { root: clone, animation: clone.userData.animation };
+  modelCache.others.set(player.id, entry);
+  return entry;
+}
+
+function drawModels(time) {
+  if (!modelCache.ready) return;
+
+  if (modelCache.local) {
+    modelCache.local.userData.animation = modelCache.mixer;
+    updateModel(modelCache.local, state.x, state.y, state.vx, state.vy, time, false);
+  }
+
+  const alive = new Set();
+  for (const player of state.others.values()) {
+    alive.add(player.id);
+    const entry = ensureOtherModel(player);
+    if (!entry) continue;
+    entry.root.userData.animation = entry.animation;
+    entry.root.userData.lastLabel = player.energy ?? 0;
+    updateModel(entry.root, player.x, player.y, player.vx ?? 0, player.vy ?? 0, time, true);
+  }
+  for (const [id, entry] of modelCache.others) {
+    if (!alive.has(id)) {
+      modelScene.remove(entry.root);
+      modelCache.others.delete(id);
+    }
+  }
+
+  const delta = state.lastTime ? Math.min((time - state.lastTime) / 1000, .05) : 0;
+  if (modelCache.mixer) modelCache.mixer.update(delta);
+  for (const entry of modelCache.others.values()) entry.animation?.mixer.update(delta);
+  modelRenderer.render(modelScene, modelCamera);
 }
 
 function beginBoost() {
@@ -268,14 +395,17 @@ function update(dt, time) {
   coordsText.textContent = `${Math.round(state.x)} · ${Math.round(state.y)}`;
   if (state.socket?.connected && time - state.lastSent > 80) {
     state.lastSent = time;
-    state.socket.emit('echo:move', { x: Math.round(state.x), y: Math.round(state.y), energy: state.energy });
+    state.socket.emit('echo:move', { x: Math.round(state.x), y: Math.round(state.y), energy: state.energy, vx: Math.round(state.vx), vy: Math.round(state.vy) });
   }
 }
+
 function frame(time) {
   const dt = state.lastTime ? Math.min((time - state.lastTime) / 1000, .05) : 0;
-  state.lastTime = time;
   update(dt, time);
-  draw(time);
+  drawGrid(time);
+  drawPoints(time);
+  drawModels(time);
+  state.lastTime = time;
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
