@@ -29,14 +29,12 @@ const characterScreen = document.querySelector('#menu-character');
 const placeholderScreen = document.querySelector('#menu-placeholder');
 const placeholderTitle = document.querySelector('#placeholder-title');
 const characterGrid = document.querySelector('#character-grid');
-const previewCanvas = document.querySelector('#character-preview');
 const startButton = document.querySelector('#menu-start');
 const characterButton = document.querySelector('#menu-character-button');
 const settingsButton = document.querySelector('#menu-settings');
 const ratingButton = document.querySelector('#menu-rating');
 const characterBack = document.querySelector('#character-back');
 const placeholderBack = document.querySelector('#placeholder-back');
-const foodCanvas = document.querySelector('#menu-food');
 
 function showScreen(screen) {
   mainScreen.hidden = screen !== 'main';
@@ -68,63 +66,10 @@ ratingButton.addEventListener('click', () => openPlaceholder('РЕЙТИНГ'));
 characterBack.addEventListener('click', openMenu);
 placeholderBack.addEventListener('click', openMenu);
 
-for (const [file, label] of characters) {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'character-card';
-  button.dataset.model = file;
-  button.innerHTML = `<span class="character-card-name">${label}</span><span class="character-card-mark">${file.includes('female') ? '♀' : '♂'}</span>`;
-  button.addEventListener('click', () => {
-    selectedModel = file;
-    localStorage.setItem(storageKey, selectedModel);
-    window.ECHO_SELECTED_MODEL = selectedModel;
-    renderCharacterState();
-    loadPreview(selectedModel);
-  });
-  characterGrid.appendChild(button);
-}
-
-function renderCharacterState() {
-  for (const card of characterGrid.children) {
-    card.classList.toggle('selected', card.dataset.model === selectedModel);
-  }
-}
-renderCharacterState();
-
-const renderer = new THREE.WebGLRenderer({ canvas: previewCanvas, alpha: true, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.setClearColor(0x000000, 0);
-const scene = new THREE.Scene();
-const camera = new THREE.OrthographicCamera(-100, 100, 100, -100, 0.1, 1000);
-camera.position.set(0, 40, 260);
-camera.lookAt(0, 40, 0);
-scene.add(new THREE.AmbientLight(0xffffff, 2.3));
-const light = new THREE.DirectionalLight(0xffffff, 3.2);
-light.position.set(-60, 100, 180);
-scene.add(light);
 const loader = new GLTFLoader();
-let previewRoot = null;
-let previewMixer = null;
-let previewRequest = 0;
+const cardViews = new Map();
 
-function resizePreview() {
-  const rect = previewCanvas.getBoundingClientRect();
-  const width = Math.max(1, rect.width);
-  const height = Math.max(1, rect.height);
-  renderer.setSize(width, height, false);
-  const halfHeight = 105;
-  const halfWidth = halfHeight * width / height;
-  camera.left = -halfWidth;
-  camera.right = halfWidth;
-  camera.top = halfHeight;
-  camera.bottom = -halfHeight;
-  camera.updateProjectionMatrix();
-}
-window.addEventListener('resize', resizePreview, { passive: true });
-resizePreview();
-
-function disposePreview(root) {
+function disposeScene(root) {
   if (!root) return;
   root.traverse((object) => {
     if (!object.isMesh) return;
@@ -134,51 +79,116 @@ function disposePreview(root) {
   });
 }
 
-function framePreview(root) {
+function frameCharacter(root, camera, width, height) {
   const box = new THREE.Box3().setFromObject(root);
-  const center = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3());
   const maxSize = Math.max(size.x, size.y, size.z) || 1;
-  const targetHeight = 145;
-  const scale = targetHeight / maxSize;
+  const scale = 82 / maxSize;
   root.scale.setScalar(scale);
   root.updateMatrixWorld(true);
+
   const framedBox = new THREE.Box3().setFromObject(root);
-  const framedCenter = framedBox.getCenter(new THREE.Vector3());
-  root.position.x -= framedCenter.x;
-  root.position.y -= framedCenter.y - 8;
-  root.position.z -= framedCenter.z;
+  const center = framedBox.getCenter(new THREE.Vector3());
+  root.position.x -= center.x;
+  root.position.y -= center.y - 5;
+  root.position.z -= center.z;
+
+  const halfHeight = 55;
+  const halfWidth = halfHeight * width / height;
+  camera.left = -halfWidth;
+  camera.right = halfWidth;
+  camera.top = halfHeight;
+  camera.bottom = -halfHeight;
+  camera.updateProjectionMatrix();
 }
 
-function loadPreview(file) {
-  const request = ++previewRequest;
+function createCharacterCard(file, label) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'character-card';
+  button.dataset.model = file;
+  button.setAttribute('aria-label', label);
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'character-card-preview';
+  canvas.setAttribute('aria-hidden', 'true');
+
+  const caption = document.createElement('span');
+  caption.className = 'character-card-name';
+  caption.textContent = label;
+
+  button.append(canvas, caption);
+  button.addEventListener('click', () => {
+    selectedModel = file;
+    localStorage.setItem(storageKey, selectedModel);
+    window.ECHO_SELECTED_MODEL = selectedModel;
+    renderCharacterState();
+  });
+  characterGrid.appendChild(button);
+
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.setClearColor(0x000000, 0);
+
+  const scene = new THREE.Scene();
+  scene.add(new THREE.AmbientLight(0xffffff, 2.3));
+  const light = new THREE.DirectionalLight(0xffffff, 3.2);
+  light.position.set(-60, 100, 180);
+  scene.add(light);
+
+  const camera = new THREE.OrthographicCamera(-40, 40, 55, -55, 0.1, 1000);
+  camera.position.set(0, 20, 260);
+  camera.lookAt(0, 20, 0);
+
+  const view = { button, canvas, renderer, scene, camera, root: null, mixer: null, request: 0 };
+  cardViews.set(file, view);
+
   loader.load(`./assets/models/${file}`, (gltf) => {
-    if (request !== previewRequest) {
-      disposePreview(gltf.scene);
+    const current = cardViews.get(file);
+    if (!current || current !== view) {
+      disposeScene(gltf.scene);
       return;
     }
-    if (previewRoot) {
-      scene.remove(previewRoot);
-      disposePreview(previewRoot);
-    }
-    previewRoot = gltf.scene;
-    framePreview(previewRoot);
-    scene.add(previewRoot);
-    previewMixer = gltf.animations?.length ? new THREE.AnimationMixer(previewRoot) : null;
+    view.root = gltf.scene;
+    frameCharacter(view.root, camera, Math.max(1, canvas.clientWidth), Math.max(1, canvas.clientHeight));
+    scene.add(view.root);
+
+    view.mixer = gltf.animations?.length ? new THREE.AnimationMixer(view.root) : null;
     const idle = gltf.animations?.find((clip) => /idle/i.test(clip.name));
-    if (previewMixer && idle) previewMixer.clipAction(idle).play();
-  }, undefined, (error) => console.error('[echo] character preview failed:', error));
+    if (view.mixer && idle) view.mixer.clipAction(idle).play();
+  }, undefined, (error) => {
+    console.error(`[echo] character card failed: ${file}`, error);
+  });
+
+  function resize() {
+    const width = Math.max(1, canvas.clientWidth);
+    const height = Math.max(1, canvas.clientHeight);
+    renderer.setSize(width, height, false);
+    if (view.root) frameCharacter(view.root, camera, width, height);
+  }
+  resize();
+  window.addEventListener('resize', resize, { passive: true });
+
+  function render(time) {
+    view.mixer?.update(0.016);
+    if (view.root) view.root.rotation.y = Math.sin(time * 0.00035 + file.length) * 0.08;
+    renderer.render(scene, camera);
+    view.request = requestAnimationFrame(render);
+  }
+  view.request = requestAnimationFrame(render);
 }
 
-function renderPreview(time) {
-  previewMixer?.update(0.016);
-  if (previewRoot) previewRoot.rotation.y = Math.sin(time * 0.00035) * 0.12;
-  renderer.render(scene, camera);
-  requestAnimationFrame(renderPreview);
+function renderCharacterState() {
+  for (const card of characterGrid.children) {
+    card.classList.toggle('selected', card.dataset.model === selectedModel);
+  }
 }
-loadPreview(selectedModel);
-requestAnimationFrame(renderPreview);
 
+for (const [file, label] of characters) createCharacterCard(file, label);
+renderCharacterState();
+
+const foodCanvas = document.querySelector('#menu-food');
 const food = Array.from({ length: 46 }, (_, index) => ({
   x: Math.random(), y: Math.random(), size: 1.8 + Math.random() * 2.6,
   phase: Math.random() * Math.PI * 2,
@@ -218,6 +228,4 @@ function drawFood(time) {
 requestAnimationFrame(drawFood);
 
 const params = new URLSearchParams(window.location.search);
-if (params.get('play') === '1') {
-  menu.classList.add('is-hidden');
-}
+if (params.get('play') === '1') menu.classList.add('is-hidden');
