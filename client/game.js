@@ -228,15 +228,13 @@ function updateModel(root, animation, x, y, vx, vy, time, label, isOther = false
   root.position.x = p.x - state.width / 2;
   root.position.y = -(p.y - state.height / 2) + Math.sin(time * .0028 + x * .02) * (Math.hypot(vx || 0, vy || 0) > 18 ? 1.3 : 1.8);
   root.position.z = 0;
+
+  // Calibration step: keep the character facing the camera in every direction.
+  // Once the model's natural front is confirmed, movement directions can be
+  // mapped onto this known baseline without guessing about the GLB's local axis.
+  root.rotation.y = 0;
+
   const moving = Math.hypot(vx || 0, vy || 0) > 18;
-  if (moving) {
-    // The world is isometric, but movement is defined in screen space.
-    // Projecting the actual world velocity back through the same isometric
-    // transform makes the character face exactly where it appears to move.
-    const screenVX = ((vx || 0) - (vy || 0)) * ISO.x;
-    const screenVY = ((vx || 0) + (vy || 0)) * ISO.y;
-    root.rotation.y = Math.atan2(screenVX, -screenVY) + Math.PI / 2;
-  }
   switchAnimation(animation, moving);
   drawEnergyLabel(x, y, label, isOther);
 }
@@ -287,17 +285,8 @@ function update(dt, time) {
   if (state.keys.has('ArrowUp') || state.keys.has('w')) iy -= 1;
   if (state.keys.has('ArrowDown') || state.keys.has('s')) iy += 1;
   const len = Math.hypot(ix, iy); if (len > 1) { ix /= len; iy /= len; }
-
-  // Keyboard/joystick directions are screen-space directions. Convert that
-  // desired screen vector back into world coordinates before moving on the
-  // isometric map. This makes Up actually move Up on the screen, while Up+Left
-  // moves at a true 45-degree screen angle.
-  const worldInputX = (ix / ISO.x + 2 * iy) * 0.5;
-  const worldInputY = (2 * iy - ix / ISO.x) * 0.5;
-
   const boosted = time < state.boostUntil; const speed = boosted ? 300 : 155; const smoothing = Math.min(1, dt * 12);
-  state.vx += (worldInputX * speed - state.vx) * smoothing;
-  state.vy += (worldInputY * speed - state.vy) * smoothing;
+  state.vx += (ix * speed - state.vx) * smoothing; state.vy += (iy * speed - state.vy) * smoothing;
   state.x += state.vx * dt; state.y += state.vy * dt;
   for (const point of points) if (!point.collected && Math.hypot(state.x - point.x, state.y - point.y) < 22) { point.collected = true; state.energy += 1; energyText.textContent = String(state.energy); }
   if (points.every((point) => point.collected)) for (const point of points) { point.collected = false; const angle = Math.random() * Math.PI * 2; const radius = 210 + Math.random() * 1200; point.x = Math.cos(angle) * radius; point.y = Math.sin(angle) * radius; }
