@@ -317,38 +317,54 @@ function update(dt, time) {
 function triggerBoost() {
   const now = performance.now();
   if (now < state.boostCooldownUntil) return;
+
   state.boostUntil = now + 700;
   state.boostCooldownUntil = now + 3000;
   boostButton.classList.remove('cooldown', 'ready');
   boostButton.classList.add('active');
-  setTimeout(() => boostButton.classList.remove('active'), 700);
+  window.setTimeout(() => boostButton.classList.remove('active'), 700);
 
+  // The cooldown has two soft countdown pulses with a deliberate 300ms blank gap.
   const countdown = document.createElement('span');
   countdown.className = 'ability-cooldown';
+  countdown.setAttribute('aria-hidden', 'true');
   boostButton.appendChild(countdown);
   boostButton.classList.add('cooldown');
 
-  let lastSecond = 0;
+  const phases = [
+    { value: '2', start: 0, duration: 850 },
+    { value: '1', start: 1150, duration: 850 },
+  ];
+  let lastPhase = -1;
+
   const updateCountdown = () => {
-    const remaining = state.boostCooldownUntil - performance.now();
-    if (remaining <= 0) {
+    const elapsed = performance.now() - now;
+    if (elapsed >= 3000) {
       countdown.remove();
       boostButton.classList.remove('cooldown');
       boostButton.classList.add('ready');
       window.setTimeout(() => boostButton.classList.remove('ready'), 450);
       return;
     }
-    const second = Math.ceil(remaining / 1000);
-    const display = Math.min(2, Math.max(1, second));
-    if (display !== lastSecond) {
-      countdown.textContent = String(display);
+
+    const phaseIndex = phases.findIndex((phase) =>
+      elapsed >= phase.start && elapsed < phase.start + phase.duration
+    );
+
+    if (phaseIndex !== lastPhase) {
+      lastPhase = phaseIndex;
       countdown.classList.remove('countdown-pop');
-      void countdown.offsetWidth;
-      countdown.classList.add('countdown-pop');
-      lastSecond = display;
+      if (phaseIndex >= 0) {
+        countdown.textContent = phases[phaseIndex].value;
+        void countdown.offsetWidth;
+        countdown.classList.add('countdown-pop');
+      } else {
+        countdown.textContent = '';
+      }
     }
     requestAnimationFrame(updateCountdown);
   };
+
   updateCountdown();
 }
 
