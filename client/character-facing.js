@@ -5,11 +5,11 @@
 const DEG = Math.PI / 180;
 
 export const CHARACTER_FACING = Object.freeze({
-  UP:           0 * DEG,
-  UP_RIGHT:    45 * DEG,
+  UP:           180 * DEG,
+  UP_RIGHT:    135 * DEG,
   RIGHT:       90 * DEG,
-  DOWN_RIGHT: 135 * DEG,
-  DOWN:       180 * DEG,
+  DOWN_RIGHT: 45 * DEG,
+  DOWN:       0 * DEG,
   DOWN_LEFT:  225 * DEG,
   LEFT:       270 * DEG,
   UP_LEFT:    315 * DEG,
