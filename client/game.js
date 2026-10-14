@@ -33,7 +33,6 @@ const state = {
 
 const WORLD = { spacing: 84 };
 const ISO = { x: 0.8660254, y: 0.5 };
-// Food pickup magnet radius is intentionally just under one grid cell.
 const FOOD_MAGNET_RADIUS = WORLD.spacing * 0.9;
 const FOOD_MAGNET_STRENGTH = 7.5;
 const FOOD_COLLECT_RADIUS = 22;
@@ -278,10 +277,6 @@ function drawModels(time, dt) {
 }
 
 function draw(time) {
-  // The world canvas is cleared here, inside the game renderer. Keeping this
-  // out of the global requestAnimationFrame wrapper prevents UI animations
-  // (such as boost cooldown) from erasing the game, while still giving every
-  // game frame a clean canvas.
   ctx.clearRect(0, 0, state.width, state.height);
   drawGrid(time);
   drawPoints(time);
@@ -329,7 +324,6 @@ function triggerBoost() {
   boostButton.classList.add('active');
   window.setTimeout(() => boostButton.classList.remove('active'), 700);
 
-  // The cooldown has two soft countdown pulses with a deliberate 300ms blank gap.
   const countdown = document.createElement('span');
   countdown.className = 'ability-cooldown';
   countdown.setAttribute('aria-hidden', 'true');
@@ -338,7 +332,7 @@ function triggerBoost() {
 
   const phases = [
     { value: '2', start: 0, duration: 850 },
-    { value: '1', start: 1150, duration: 850 },
+    { value: '1', start: 1150, duration: 1550 },
   ];
   let lastPhase = -1;
 
@@ -361,6 +355,7 @@ function triggerBoost() {
       countdown.classList.remove('countdown-pop');
       if (phaseIndex >= 0) {
         countdown.textContent = phases[phaseIndex].value;
+        countdown.style.animationDuration = `${phases[phaseIndex].duration}ms`;
         void countdown.offsetWidth;
         countdown.classList.add('countdown-pop');
       } else {
