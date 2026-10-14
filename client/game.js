@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { SkeletonUtils } from 'three/addons/utils/SkeletonUtils.js';
+import { bindPlayerControls, updatePlayerMovement } from './player-controls.js';
+import { updateCharacterFacing } from './character-facing.js';
 
 const canvas = document.querySelector('#world');
 const modelCanvas = document.querySelector('#models');
@@ -230,24 +232,7 @@ function updateModel(root, animation, x, y, vx, vy, time, label, isOther = false
   root.position.z = 0;
 
   const moving = Math.hypot(vx || 0, vy || 0) > 18;
-  if (moving) {
-    // Character orientation is based ONLY on the actual on-screen movement.
-    // Movement itself is untouched. The four cardinal directions are calibrated
-    // so that screen-up = back, screen-down = front, and left/right are profile.
-    const screenVX = ((vx || 0) - (vy || 0)) * ISO.x;
-    const screenVY = ((vx || 0) + (vy || 0)) * ISO.y;
-    const angle = Math.atan2(screenVX, screenVY);
-    const step = Math.PI / 4;
-    const snapped = Math.round(angle / step) * step;
-
-    // The model's neutral calibration gives the vertical pair correctly.
-    // For every direction containing horizontal movement, the model needs the
-    // opposite half-turn. This preserves the correct up/down views while fixing
-    // both side profiles and all four diagonal views.
-    const horizontal = Math.abs(Math.sin(snapped)) > 0.01;
-    root.rotation.y = -snapped + (horizontal ? Math.PI : 0);
-  }
-
+  updateCharacterFacing(root, vx, vy, ISO);
   switchAnimation(animation, moving);
   drawEnergyLabel(x, y, label, isOther);
 }
@@ -292,15 +277,7 @@ function draw(time) {
 }
 
 function update(dt, time) {
-  let ix = state.inputX, iy = state.inputY;
-  if (state.keys.has('ArrowLeft') || state.keys.has('a')) ix -= 1;
-  if (state.keys.has('ArrowRight') || state.keys.has('d')) ix += 1;
-  if (state.keys.has('ArrowUp') || state.keys.has('w')) iy -= 1;
-  if (state.keys.has('ArrowDown') || state.keys.has('s')) iy += 1;
-  const len = Math.hypot(ix, iy); if (len > 1) { ix /= len; iy /= len; }
-  const boosted = time < state.boostUntil; const speed = boosted ? 300 : 155; const smoothing = Math.min(1, dt * 12);
-  state.vx += (ix * speed - state.vx) * smoothing; state.vy += (iy * speed - state.vy) * smoothing;
-  state.x += state.vx * dt; state.y += state.vy * dt;
+  updatePlayerMovement(state, dt, time, ISO);
   for (const point of points) if (!point.collected && Math.hypot(state.x - point.x, state.y - point.y) < 22) { point.collected = true; state.energy += 1; energyText.textContent = String(state.energy); }
   if (points.every((point) => point.collected)) for (const point of points) { point.collected = false; const angle = Math.random() * Math.PI * 2; const radius = 210 + Math.random() * 1200; point.x = Math.cos(angle) * radius; point.y = Math.sin(angle) * radius; }
   state.cameraX = state.x; state.cameraY = state.y; coordsText.textContent = `${Math.round(state.x)} · ${Math.round(state.y)}`;
@@ -315,19 +292,7 @@ function triggerBoost() {
   setTimeout(() => boostButton.classList.remove('active'), 700);
 }
 
-function setJoystick(clientX, clientY) {
-  const rect = joystick.getBoundingClientRect(); const cx = rect.left + rect.width / 2; const cy = rect.top + rect.height / 2;
-  const max = rect.width * .31; let dx = clientX - cx, dy = clientY - cy; const len = Math.hypot(dx, dy); if (len > max) { dx *= max / len; dy *= max / len; }
-  stick.style.transform = `translate(${dx}px, ${dy}px)`; state.inputX = dx / max; state.inputY = dy / max;
-}
-function resetJoystick() { stick.style.transform = 'translate(0, 0)'; state.inputX = 0; state.inputY = 0; }
-let joystickActive = false;
-joystick.addEventListener('pointerdown', (e) => { joystickActive = true; joystick.setPointerCapture(e.pointerId); setJoystick(e.clientX, e.clientY); });
-joystick.addEventListener('pointermove', (e) => { if (joystickActive) setJoystick(e.clientX, e.clientY); });
-joystick.addEventListener('pointerup', resetJoystick); joystick.addEventListener('pointercancel', resetJoystick);
-boostButton.addEventListener('pointerdown', triggerBoost);
-window.addEventListener('keydown', (e) => { state.keys.add(e.key); if (e.code === 'Space') triggerBoost(); });
-window.addEventListener('keyup', (e) => state.keys.delete(e.key));
+bindPlayerControls({ state, joystick, stick, boostButton, triggerBoost });
 
 function frame(time) {
   const dt = state.lastTime ? Math.min((time - state.lastTime) / 1000, .05) : 0;
