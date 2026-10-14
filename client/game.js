@@ -375,14 +375,11 @@ function drawModels(time, dt) {
     if (!entry) continue;
     alive.add(player.id);
 
-    // Render slightly behind the newest snapshot so there is time to blend between samples.
-    const renderAt = time - 120;
-    const span = Math.max(1, player.snapshotAt - (player.previousSnapshotAt ?? player.snapshotAt - 80));
-    const alpha = Math.max(0, Math.min(1, (renderAt - (player.previousSnapshotAt ?? player.snapshotAt - 80)) / span));
-    const targetX = player.previousX + (player.targetX - player.previousX) * alpha;
-    const targetY = player.previousY + (player.targetY - player.previousY) * alpha;
-    player.displayX = targetX;
-    player.displayY = targetY;
+    // Smoothly follow the latest server target on every rendered frame.
+    // Exponential smoothing is frame-rate independent and avoids visible position snaps.
+    const smoothing = 1 - Math.exp(-12 * dt);
+    player.displayX += (player.targetX - player.displayX) * smoothing;
+    player.displayY += (player.targetY - player.displayY) * smoothing;
 
     updateModel(entry.root, entry.animation, player.displayX, player.displayY, player.vx || 0, player.vy || 0, time, player.energy || 0, true);
   }
