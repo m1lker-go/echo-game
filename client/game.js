@@ -230,10 +230,14 @@ function updateModel(root, animation, x, y, vx, vy, time, label, isOther = false
   root.position.z = 0;
   const moving = Math.hypot(vx || 0, vy || 0) > 18;
   if (moving) {
-    // Character heading is always exactly +90° from the actual movement vector.
-    // This is deliberately based on world velocity, not the isometric projection,
-    // so every two-key diagonal gets the same fixed quarter-turn relationship.
-    root.rotation.y = Math.atan2(vy || 0, vx || 0) + Math.PI / 2;
+    const screenVX = ((vx || 0) - (vy || 0)) * ISO.x;
+    const screenVY = ((vx || 0) + (vy || 0)) * ISO.y;
+    let facing = Math.atan2(screenVX, -screenVY) + Math.PI / 2;
+    // Preserve the previous single-key orientation correction. For diagonal
+    // movement, use the projected direction without the horizontal-only flip.
+    const diagonal = Math.abs(vx || 0) > 18 && Math.abs(vy || 0) > 18;
+    if (!diagonal && Math.abs(vx || 0) > Math.abs(vy || 0)) facing += Math.PI;
+    root.rotation.y = facing;
   }
   switchAnimation(animation, moving);
   drawEnergyLabel(x, y, label, isOther);
