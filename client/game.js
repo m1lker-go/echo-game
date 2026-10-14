@@ -11,6 +11,7 @@ const energyText = document.querySelector('#energy');
 const coordsText = document.querySelector('#coords');
 const connectionDot = document.querySelector('#connection-dot');
 const connectionLabel = document.querySelector('#connection-label');
+const gameExitButton = document.querySelector('#game-exit');
 const joystick = document.querySelector('#joystick');
 const stick = document.querySelector('#stick');
 const boostButton = document.querySelector('#boost');
@@ -167,6 +168,14 @@ function connectSocket() {
   } catch { setConnection('offline', 'режим без сервера'); }
 }
 connectSocket();
+
+function returnToMenu() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('play');
+  window.location.href = url.toString();
+}
+
+gameExitButton?.addEventListener('click', returnToMenu);
 
 function isoProject(x, y) { return { x: (x - y) * ISO.x, y: (x + y) * ISO.y }; }
 
