@@ -79,16 +79,17 @@ function disposeScene(root) {
   });
 }
 
-function frameCharacter(root, camera, width, height) {
-  // Fit by the real world-space bounds, then use a perspective camera.
-  // This is deliberately independent of the model's original GLB scale.
+function frameCharacter(root, camera, width, height, baseScale, basePosition) {
+  // Always start from the original GLB transform. Re-framing must not compound scale/position.
+  root.scale.copy(baseScale);
+  root.position.copy(basePosition);
   root.updateMatrixWorld(true);
 
   const initialBox = new THREE.Box3().setFromObject(root);
   const initialSize = initialBox.getSize(new THREE.Vector3());
   const initialMax = Math.max(initialSize.x, initialSize.y, initialSize.z) || 1;
   const targetHeight = 2.2;
-  root.scale.multiplyScalar(targetHeight / initialMax);
+  root.scale.copy(baseScale).multiplyScalar(targetHeight / initialMax);
   root.updateMatrixWorld(true);
 
   const box = new THREE.Box3().setFromObject(root);
@@ -96,17 +97,17 @@ function frameCharacter(root, camera, width, height) {
   const size = box.getSize(new THREE.Vector3());
   const radius = Math.max(size.length() * 0.5, 0.75);
 
-  // Put the model around the origin so every GLB gets the same framing.
-  root.position.x -= center.x;
-  root.position.y -= center.y - 0.15;
-  root.position.z -= center.z;
+  root.position.set(
+    basePosition.x - center.x,
+    basePosition.y - center.y + 0.15,
+    basePosition.z - center.z,
+  );
   root.updateMatrixWorld(true);
 
   const aspect = Math.max(0.5, width / Math.max(1, height));
   camera.aspect = aspect;
   camera.fov = 25;
 
-  // Fit the complete bounding sphere with comfortable margins.
   const verticalDistance = radius / Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5));
   const horizontalFov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * aspect);
   const horizontalDistance = radius / Math.tan(horizontalFov * 0.5);
@@ -155,8 +156,28 @@ function createCharacterCard(file, label) {
   scene.add(light);
 
   const camera = new THREE.PerspectiveCamera(25, 1, 0.01, 1000);
-  const view = { button, canvas, renderer, scene, camera, root: null, mixer: null, request: 0 };
+  const view = {
+    button,
+    canvas,
+    renderer,
+    scene,
+    camera,
+    root: null,
+    mixer: null,
+    request: 0,
+    baseScale: null,
+    basePosition: null,
+  };
   cardViews.set(file, view);
+
+  function resize() {
+    const width = Math.max(1, canvas.clientWidth);
+    const height = Math.max(1, canvas.clientHeight);
+    renderer.setSize(width, height, false);
+    if (view.root && view.baseScale && view.basePosition) {
+      frameCharacter(view.root, camera, width, height, view.baseScale, view.basePosition);
+    }
+  }
 
   loader.load(`./assets/models/${file}`, (gltf) => {
     const current = cardViews.get(file);
@@ -165,22 +186,24 @@ function createCharacterCard(file, label) {
       return;
     }
     view.root = gltf.scene;
+    view.baseScale = view.root.scale.clone();
+    view.basePosition = view.root.position.clone();
     scene.add(view.root);
-    frameCharacter(view.root, camera, Math.max(1, canvas.clientWidth), Math.max(1, canvas.clientHeight));
+    resize();
 
     view.mixer = gltf.animations?.length ? new THREE.AnimationMixer(view.root) : null;
     const idle = gltf.animations?.find((clip) => /idle/i.test(clip.name));
     if (view.mixer && idle) view.mixer.clipAction(idle).play();
+
+    // Wait for the grid/canvas layout to settle. F12 was accidentally triggering this via resize.
+    requestAnimationFrame(() => resize());
+    requestAnimationFrame(() => requestAnimationFrame(() => resize()));
   }, undefined, (error) => {
     console.error(`[echo] character card failed: ${file}`, error);
   });
 
-  function resize() {
-    const width = Math.max(1, canvas.clientWidth);
-    const height = Math.max(1, canvas.clientHeight);
-    renderer.setSize(width, height, false);
-    if (view.root) frameCharacter(view.root, camera, width, height);
-  }
+  const resizeObserver = new ResizeObserver(() => resize());
+  resizeObserver.observe(canvas);
   resize();
   window.addEventListener('resize', resize, { passive: true });
 
