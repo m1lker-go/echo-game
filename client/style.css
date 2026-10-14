@@ -42,7 +42,7 @@ body { color: var(--white); user-select: none; -webkit-user-select: none; -webki
 .ability-stack { pointer-events: auto; display: flex; align-items: flex-end; gap: 12px; }
 .ability { position: relative; width: 64px; height: 64px; color: #e9f5ff; border-radius: 50%; border: 1px solid rgba(210,228,247,.28); background: rgba(26,33,43,.35); display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 1px; box-shadow: inset 0 0 18px rgba(220,241,255,.04); touch-action: manipulation; transition: opacity .15s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease; }
 .ability span { font-size: 28px; line-height: 28px; font-weight: 250; text-shadow: 0 0 14px rgba(225,244,255,.75); }
-.jump-ability > span { font-size: 20px; line-height: 20px; }
+.jump-ability > span { transform: scale(.7); transform-origin: center; }
 .ability small { color: #8995a4; font-size: 7px; letter-spacing: .12em; }
 .ability:active, .ability.active { background: rgba(145,186,220,.22); }
 .ability.cooldown { opacity: 1; pointer-events: none; background: rgba(26,33,43,.09); border-color: rgba(210,228,247,.07); box-shadow: inset 0 0 12px rgba(220,241,255,.015); }
