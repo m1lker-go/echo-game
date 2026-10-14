@@ -32,6 +32,10 @@ const state = {
 
 const WORLD = { spacing: 84 };
 const ISO = { x: 0.8660254, y: 0.5 };
+// Food pickup magnet radius is intentionally just under one grid cell.
+const FOOD_MAGNET_RADIUS = WORLD.spacing * 0.9;
+const FOOD_MAGNET_STRENGTH = 7.5;
+const FOOD_COLLECT_RADIUS = 22;
 const points = Array.from({ length: 34 }, (_, i) => {
   const angle = i * 2.399963229728653;
   const radius = 170 + (i % 9) * 58 + Math.floor(i / 9) * 100;
@@ -276,9 +280,31 @@ function draw(time) {
   ctx.fillStyle = gradient; ctx.fillRect(0, 0, state.width, state.height);
 }
 
+function applyFoodMagnet(dt) {
+  // Pull every nearby uncollected food point smoothly toward the player.
+  // This only changes food coordinates; player movement and facing stay untouched.
+  const blend = 1 - Math.exp(-FOOD_MAGNET_STRENGTH * dt);
+  for (const point of points) {
+    if (point.collected) continue;
+    const dx = state.x - point.x;
+    const dy = state.y - point.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance < FOOD_COLLECT_RADIUS) {
+      point.collected = true;
+      state.energy += 1;
+      energyText.textContent = String(state.energy);
+      continue;
+    }
+    if (distance > 0 && distance < FOOD_MAGNET_RADIUS) {
+      point.x += dx * blend;
+      point.y += dy * blend;
+    }
+  }
+}
+
 function update(dt, time) {
   updatePlayerMovement(state, dt, time, ISO);
-  for (const point of points) if (!point.collected && Math.hypot(state.x - point.x, state.y - point.y) < 22) { point.collected = true; state.energy += 1; energyText.textContent = String(state.energy); }
+  applyFoodMagnet(dt);
   if (points.every((point) => point.collected)) for (const point of points) { point.collected = false; const angle = Math.random() * Math.PI * 2; const radius = 210 + Math.random() * 1200; point.x = Math.cos(angle) * radius; point.y = Math.sin(angle) * radius; }
   state.cameraX = state.x; state.cameraY = state.y; coordsText.textContent = `${Math.round(state.x)} · ${Math.round(state.y)}`;
   if (state.socket?.connected && time - state.lastSent > 80) { state.lastSent = time; state.socket.emit('echo:move', { x: Math.round(state.x), y: Math.round(state.y), energy: state.energy, vx: Math.round(state.vx), vy: Math.round(state.vy) }); }
