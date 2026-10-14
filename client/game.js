@@ -15,6 +15,7 @@ const gameExitButton = document.querySelector('#game-exit');
 const joystick = document.querySelector('#joystick');
 const stick = document.querySelector('#stick');
 const boostButton = document.querySelector('#boost');
+const jumpButton = document.querySelector('#jump');
 
 const state = {
   x: 0, y: 0, vx: 0, vy: 0,
@@ -26,6 +27,12 @@ const state = {
   lastTime: 0,
   boostUntil: 0,
   boostCooldownUntil: 0,
+  jumpUntil: 0,
+  jumpStart: 0,
+  jumpFromX: 0,
+  jumpFromY: 0,
+  jumpToX: 0,
+  jumpToY: 0,
   socket: null,
   others: new Map(),
   lastSent: 0,
@@ -36,6 +43,8 @@ const ISO = { x: 0.8660254, y: 0.5 };
 const FOOD_MAGNET_RADIUS = WORLD.spacing * 0.9;
 const FOOD_MAGNET_STRENGTH = 7.5;
 const FOOD_COLLECT_RADIUS = 22;
+const JUMP_DISTANCE = 60;
+const JUMP_DURATION = 200;
 const points = Array.from({ length: 34 }, (_, i) => {
   const angle = i * 2.399963229728653;
   const radius = 170 + (i % 9) * 58 + Math.floor(i / 9) * 100;
@@ -261,7 +270,9 @@ function ensureOtherModel(player) {
 
 function drawModels(time, dt) {
   if (!modelCache.ready) return;
-  updateModel(modelCache.local, modelCache.localAnimation, state.x, state.y, state.vx, state.vy, time, state.energy, false);
+  const jumping = time < state.jumpUntil;
+  modelCache.local.visible = !jumping;
+  if (!jumping) updateModel(modelCache.local, modelCache.localAnimation, state.x, state.y, state.vx, state.vy, time, state.energy, false);
   const alive = new Set();
   for (const player of state.others.values()) {
     const entry = ensureOtherModel(player); if (!entry) continue;
@@ -306,8 +317,35 @@ function applyFoodMagnet(dt) {
   }
 }
 
+function triggerJump() {
+  const now = performance.now();
+  if (now < state.jumpUntil) return;
+
+  const directionLength = Math.hypot(state.vx, state.vy);
+  if (directionLength < 1) return;
+
+  const dirX = state.vx / directionLength;
+  const dirY = state.vy / directionLength;
+  state.jumpStart = now;
+  state.jumpUntil = now + JUMP_DURATION;
+  state.jumpFromX = state.x;
+  state.jumpFromY = state.y;
+  state.jumpToX = state.x + dirX * JUMP_DISTANCE;
+  state.jumpToY = state.y + dirY * JUMP_DISTANCE;
+}
+
+jumpButton?.addEventListener('pointerdown', triggerJump);
+
 function update(dt, time) {
-  updatePlayerMovement(state, dt, time, ISO);
+  if (time < state.jumpUntil) {
+    const progress = Math.min(1, (time - state.jumpStart) / JUMP_DURATION);
+    state.x = state.jumpFromX + (state.jumpToX - state.jumpFromX) * progress;
+    state.y = state.jumpFromY + (state.jumpToY - state.jumpFromY) * progress;
+    state.vx = (state.jumpToX - state.jumpFromX) / (JUMP_DURATION / 1000);
+    state.vy = (state.jumpToY - state.jumpFromY) / (JUMP_DURATION / 1000);
+  } else {
+    updatePlayerMovement(state, dt, time, ISO);
+  }
   applyFoodMagnet(dt);
   if (points.every((point) => point.collected)) for (const point of points) { point.collected = false; const angle = Math.random() * Math.PI * 2; const radius = 210 + Math.random() * 1200; point.x = Math.cos(angle) * radius; point.y = Math.sin(angle) * radius; }
   state.cameraX = state.x; state.cameraY = state.y; coordsText.textContent = `${Math.round(state.x)} · ${Math.round(state.y)}`;
@@ -319,7 +357,7 @@ function triggerBoost() {
   if (now < state.boostCooldownUntil) return;
 
   state.boostUntil = now + 700;
-  state.boostCooldownUntil = now + 2900;
+  state.boostCooldownUntil = now + 3000;
   boostButton.classList.remove('cooldown', 'ready');
   boostButton.classList.add('active');
   window.setTimeout(() => boostButton.classList.remove('active'), 700);
@@ -331,14 +369,14 @@ function triggerBoost() {
   boostButton.classList.add('cooldown');
 
   const phases = [
-    { value: '2', start: 300, duration: 1000 },
-    { value: '1', start: 1600, duration: 1000 },
+    { value: '2', start: 0, duration: 850 },
+    { value: '1', start: 1150, duration: 1550 },
   ];
   let lastPhase = -1;
 
   const updateCountdown = () => {
     const elapsed = performance.now() - now;
-    if (elapsed >= 2900) {
+    if (elapsed >= 3000) {
       countdown.remove();
       boostButton.classList.remove('cooldown');
       boostButton.classList.add('ready');
