@@ -279,7 +279,7 @@ let joystickPointer = null;
 function updateJoystick(event) {
   const rect = joystick.getBoundingClientRect(); const cx = rect.left + rect.width / 2; const cy = rect.top + rect.height / 2;
   let dx = event.clientX - cx; let dy = event.clientY - cy; const max = rect.width * .31; const length = Math.hypot(dx, dy);
-  if (length > max) { dx = dx / length * max; dy = dy / length * max; } state.inputX = dx / max; state.inputY = dy / max; stick.style.transform = \`translate(\${dx}px, \${dy}px)\`;
+  if (length > max) { dx = dx / length * max; dy = dy / length * max; } state.inputX = dx / max; state.inputY = dy / max; stick.style.transform = `translate(${dx}px, ${dy}px)`;
 }
 joystick.addEventListener('pointerdown', (event) => { joystickPointer = event.pointerId; joystick.setPointerCapture(event.pointerId); updateJoystick(event); });
 joystick.addEventListener('pointermove', (event) => { if (event.pointerId === joystickPointer) updateJoystick(event); });
@@ -298,7 +298,7 @@ function update(dt, time) {
   state.vx += (input.x * speed - state.vx) * smoothing; state.vy += (input.y * speed - state.vy) * smoothing; state.x += state.vx * dt; state.y += state.vy * dt;
   for (const point of points) if (!point.collected && Math.hypot(state.x - point.x, state.y - point.y) < 22) { point.collected = true; state.energy += 1; energyText.textContent = String(state.energy); }
   if (points.every((point) => point.collected)) for (const point of points) { point.collected = false; const angle = Math.random() * Math.PI * 2; const radius = 210 + Math.random() * 1200; point.x = Math.cos(angle) * radius; point.y = Math.sin(angle) * radius; }
-  state.cameraX = state.x; state.cameraY = state.y; coordsText.textContent = \`\${Math.round(state.x)} · \${Math.round(state.y)}\`;
+  state.cameraX = state.x; state.cameraY = state.y; coordsText.textContent = `${Math.round(state.x)} · ${Math.round(state.y)}`;
   if (state.socket?.connected && time - state.lastSent > 80) { state.lastSent = time; state.socket.emit('echo:move', { x: Math.round(state.x), y: Math.round(state.y), energy: state.energy, vx: Math.round(state.vx), vy: Math.round(state.vy) }); }
 }
 
