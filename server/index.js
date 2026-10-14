@@ -45,6 +45,12 @@ app.get('/health', async (_req, res) => {
 const players = new Map();
 const MAX_COORDINATE = 1_000_000;
 const MAX_ENERGY = 1_000_000;
+const ALLOWED_SKINS = new Set([
+  'character-female-a.glb', 'character-female-b.glb', 'character-female-c.glb',
+  'character-female-d.glb', 'character-female-e.glb', 'character-female-f.glb',
+  'character-male-a.glb', 'character-male-b.glb', 'character-male-c.glb',
+  'character-male-d.glb', 'character-male-e.glb', 'character-male-f.glb',
+]);
 
 function finiteNumber(value, fallback = 0, min = -MAX_COORDINATE, max = MAX_COORDINATE) {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
@@ -60,20 +66,6 @@ io.on('connection', (socket) => {
 
   // Add the new player immediately so existing clients receive them as well.
   const requestedSkin = socket.handshake.auth?.skin;
-  const allowedSkins = new Set([
-    'character-female-a.glb',
-    'character-female-b.glb',
-    'character-female-c.glb',
-    'character-female-d.glb',
-    'character-female-e.glb',
-    'character-female-f.glb',
-    'character-male-a.glb',
-    'character-male-b.glb',
-    'character-male-c.glb',
-    'character-male-d.glb',
-    'character-male-e.glb',
-    'character-male-f.glb',
-  ]);
   players.set(socket.id, {
     id: socket.id,
     x: 0,
@@ -81,21 +73,15 @@ io.on('connection', (socket) => {
     vx: 0,
     vy: 0,
     energy: 0,
-    skin: allowedSkins.has(requestedSkin) ? requestedSkin : 'character-female-a.glb',
+    skin: ALLOWED_SKINS.has(requestedSkin) ? requestedSkin : 'character-female-a.glb',
   });
   broadcastPlayers();
 
   socket.on('echo:hello', (payload) => {
     // Keep the skin tied to this socket session; accept only known bundled model names.
     const requestedSkin = payload?.skin;
-    const allowedSkins = new Set([
-      'character-female-a.glb', 'character-female-b.glb', 'character-female-c.glb',
-      'character-female-d.glb', 'character-female-e.glb', 'character-female-f.glb',
-      'character-male-a.glb', 'character-male-b.glb', 'character-male-c.glb',
-      'character-male-d.glb', 'character-male-e.glb', 'character-male-f.glb',
-    ]);
     const current = players.get(socket.id);
-    if (current && allowedSkins.has(requestedSkin)) current.skin = requestedSkin;
+    if (current && ALLOWED_SKINS.has(requestedSkin)) current.skin = requestedSkin;
 
     // Send the current snapshot to the connecting client.
     socket.emit('echo:players', Array.from(players.values(), (player) => ({ ...player })));
@@ -117,7 +103,7 @@ io.on('connection', (socket) => {
 
     // Keep the chosen appearance tied to the session; never accept arbitrary asset paths.
     const requestedSkin = payload.skin;
-    if (allowedSkins.has(requestedSkin)) current.skin = requestedSkin;
+    if (ALLOWED_SKINS.has(requestedSkin)) current.skin = requestedSkin;
 
     broadcastPlayers();
   });
