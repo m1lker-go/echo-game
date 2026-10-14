@@ -28,7 +28,11 @@ const state = {
   lastSent: 0,
 };
 
-const WORLD = { spacing: 62 };
+const WORLD = { spacing: 84 };
+const ISO = {
+  x: 0.8660254,
+  y: 0.5,
+};
 const points = Array.from({ length: 34 }, (_, i) => {
   const angle = i * 2.399963229728653;
   const radius = 170 + (i % 9) * 58 + Math.floor(i / 9) * 100;
@@ -76,7 +80,7 @@ function prepareModel(root, isOther = false) {
       if ('metalness' in material) material.metalness = 0.05;
     }
   });
-  root.scale.setScalar(isOther ? 22 : 26);
+  root.scale.setScalar(isOther ? 44 : 52);
   return root;
 }
 
@@ -175,33 +179,70 @@ function connectSocket() {
 }
 connectSocket();
 
-// World-space grid is rendered with an integer pixel offset to prevent subpixel shimmer.
+// Isometric world projection. World movement stays on the same X/Y axes;
+// only the camera/rendering turns the world into an isometric diamond grid.
+function isoProject(x, y) {
+  return {
+    x: (x - y) * ISO.x,
+    y: (x + y) * ISO.y,
+  };
+}
+
+function drawIsoLine(a, b) {
+  const pa = isoProject(a.x - state.cameraX, a.y - state.cameraY);
+  const pb = isoProject(b.x - state.cameraX, b.y - state.cameraY);
+  ctx.moveTo(Math.round(state.width / 2 + pa.x) + 0.5, Math.round(state.height / 2 + pa.y) + 0.5);
+  ctx.lineTo(Math.round(state.width / 2 + pb.x) + 0.5, Math.round(state.height / 2 + pb.y) + 0.5);
+}
+
 function drawGrid(time) {
   const { width, height } = state;
   const spacing = WORLD.spacing;
-  const offsetX = ((-Math.round(state.cameraX) % spacing) + spacing) % spacing;
-  const offsetY = ((-Math.round(state.cameraY) % spacing) + spacing) % spacing;
-  const fade = ctx.createRadialGradient(width / 2, height / 2, 30, width / 2, height / 2, Math.max(width, height) * .68);
-  fade.addColorStop(0, 'rgba(169,198,228,0.14)');
+  const fade = ctx.createRadialGradient(width / 2, height / 2, 30, width / 2, height / 2, Math.max(width, height) * .7);
+  fade.addColorStop(0, 'rgba(169,198,228,0.15)');
   fade.addColorStop(.55, 'rgba(115,146,181,0.055)');
-  fade.addColorStop(1, 'rgba(80,105,140,0.006)');
+  fade.addColorStop(1, 'rgba(80,105,140,0.004)');
+
+  const worldRange = Math.ceil(Math.max(width, height) / Math.min(ISO.x, ISO.y)) + spacing * 2;
+  const centerX = Math.round(state.cameraX / spacing) * spacing;
+  const centerY = Math.round(state.cameraY / spacing) * spacing;
+  const diagonalCount = Math.ceil(worldRange / spacing);
+
   ctx.strokeStyle = fade;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let x = offsetX; x <= width; x += spacing) { ctx.moveTo(Math.round(x) + 0.5, 0); ctx.lineTo(Math.round(x) + 0.5, height); }
-  for (let y = offsetY; y <= height; y += spacing) { ctx.moveTo(0, Math.round(y) + 0.5); ctx.lineTo(width, Math.round(y) + 0.5); }
+
+  // Lines where X - Y is constant.
+  for (let i = -diagonalCount; i <= diagonalCount; i += 1) {
+    const delta = i * spacing;
+    const center = (centerX + centerY + delta) / 2;
+    drawIsoLine(
+      { x: center - worldRange, y: center - worldRange - delta },
+      { x: center + worldRange, y: center + worldRange - delta },
+    );
+  }
+
+  // Lines where X + Y is constant.
+  for (let i = -diagonalCount; i <= diagonalCount; i += 1) {
+    const delta = i * spacing;
+    const center = (centerX - centerY + delta) / 2;
+    drawIsoLine(
+      { x: center - worldRange, y: -center + worldRange + delta },
+      { x: center + worldRange, y: -center - worldRange + delta },
+    );
+  }
   ctx.stroke();
 
+  // Small glowing intersections make the grid feel like the original ECHO world.
   ctx.fillStyle = 'rgba(195,222,247,0.12)';
-  const startX = Math.floor((-Math.round(state.cameraX) - width / 2) / spacing) * spacing;
-  const startY = Math.floor((-Math.round(state.cameraY) - height / 2) / spacing) * spacing;
-  for (let wx = startX; wx < startX + width + spacing; wx += spacing) {
-    for (let wy = startY; wy < startY + height + spacing; wy += spacing) {
-      const sx = Math.round(width / 2 + wx + state.cameraX);
-      const sy = Math.round(height / 2 + wy + state.cameraY);
-      if (sx > -1 && sx < width + 1 && sy > -1 && sy < height + 1) {
-        ctx.globalAlpha = .3 + .1 * Math.sin(time * .0006 + (wx + wy) * .02);
-        ctx.fillRect(sx - 1, sy - 1, 2, 2);
+  const startX = Math.floor((state.cameraX - worldRange) / spacing) * spacing;
+  const startY = Math.floor((state.cameraY - worldRange) / spacing) * spacing;
+  for (let wx = startX; wx <= state.cameraX + worldRange; wx += spacing) {
+    for (let wy = startY; wy <= state.cameraY + worldRange; wy += spacing) {
+      const p = worldToScreen(wx, wy);
+      if (p.x > -2 && p.x < width + 2 && p.y > -2 && p.y < height + 2) {
+        ctx.globalAlpha = .25 + .1 * Math.sin(time * .0006 + (wx + wy) * .02);
+        ctx.fillRect(p.x - 1, p.y - 1, 2, 2);
       }
     }
   }
@@ -209,13 +250,14 @@ function drawGrid(time) {
 }
 
 function worldToScreen(x, y) {
+  const p = isoProject(x, y);
+  const camera = isoProject(state.cameraX, state.cameraY);
   return {
-    x: Math.round(state.width / 2 + x - state.cameraX),
-    y: Math.round(state.height / 2 + y - state.cameraY),
+    x: Math.round(state.width / 2 + p.x - camera.x),
+    y: Math.round(state.height / 2 + p.y - camera.y),
   };
 }
 
-// Keep collection points perfectly round and compact. Avoid stretched glow/blur artifacts.
 function drawPoints(time) {
   ctx.save();
   ctx.shadowBlur = 0;
@@ -225,9 +267,6 @@ function drawPoints(time) {
     if (p.x < -24 || p.y < -24 || p.x > state.width + 24 || p.y > state.height + 24) continue;
     const pulse = .65 + .35 * Math.sin(time * .002 + point.pulse);
     const radius = point.size * pulse;
-
-    // A small halo is drawn as a radial gradient instead of canvas shadowBlur,
-    // which can smear when the camera moves by fractional pixels.
     const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius * 4);
     halo.addColorStop(0, 'rgba(210,238,255,0.30)');
     halo.addColorStop(0.35, 'rgba(210,238,255,0.12)');
@@ -236,7 +275,6 @@ function drawPoints(time) {
     ctx.beginPath();
     ctx.arc(p.x, p.y, radius * 4, 0, Math.PI * 2);
     ctx.fill();
-
     ctx.fillStyle = `rgba(220,242,255,${.55 + .4 * pulse})`;
     ctx.beginPath();
     ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
@@ -253,7 +291,7 @@ function drawEnergyLabel(x, y, label, isOther = false) {
   ctx.fillStyle = isOther ? 'rgba(216,230,246,.68)' : 'rgba(244,250,255,.9)';
   ctx.shadowColor = 'rgba(193,226,255,.8)';
   ctx.shadowBlur = 7;
-  ctx.fillText(String(label), p.x, p.y - 39);
+  ctx.fillText(String(label), p.x, p.y - (isOther ? 58 : 70));
   ctx.restore();
 }
 
@@ -263,10 +301,13 @@ function updateModel(root, animation, x, y, vx, vy, time, label, isOther = false
   root.position.x = p.x - state.width / 2;
   root.position.y = -(p.y - state.height / 2) + Math.sin(time * .0028 + x * .02) * (Math.hypot(vx || 0, vy || 0) > 18 ? 1.3 : 1.8);
   root.position.z = 0;
-  // The model is already in a screen-space scene, so only rotate around its vertical axis when moving.
-  if (Math.hypot(vx || 0, vy || 0) > 18) root.rotation.y = Math.atan2(vx || 0, -(vy || 0));
+  if (Math.hypot(vx || 0, vy || 0) > 18) {
+    const screenVX = ((vx || 0) - (vy || 0)) * ISO.x;
+    const screenVY = ((vx || 0) + (vy || 0)) * ISO.y;
+    root.rotation.y = Math.atan2(screenVX, -screenVY);
+  }
   const moving = Math.hypot(vx || 0, vy || 0) > 18;
-  root.scale.setScalar(isOther ? 22 : 26);
+  root.scale.setScalar(isOther ? 44 : 52);
   switchAnimation(animation, moving);
   drawEnergyLabel(x, y, label, isOther);
 }
@@ -388,7 +429,7 @@ function update(dt, time) {
   }
 
   // Lock camera directly to the player: no lag between world layers.
-  // Using exact position avoids separate, drifting camera interpolation.
+  // The camera follows the player in world coordinates; rendering applies the isometric projection.
   state.cameraX = state.x;
   state.cameraY = state.y;
 
