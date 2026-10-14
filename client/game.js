@@ -68,7 +68,6 @@ function prepareModel(root, isOther = false) {
     const materials = Array.isArray(object.material) ? object.material : [object.material];
     for (const material of materials) {
       if (!material) continue;
-      // Keep Kenney's original material colors and texture; do not tint the preset.
       if ('emissive' in material) {
         material.emissive.set(0x000000);
         material.emissiveIntensity = 0;
@@ -288,8 +287,6 @@ function draw(time) {
 }
 
 function applyFoodMagnet(dt) {
-  // Pull every nearby uncollected food point smoothly toward the player.
-  // This only changes food coordinates; player movement and facing stay untouched.
   const blend = 1 - Math.exp(-FOOD_MAGNET_STRENGTH * dt);
   for (const point of points) {
     if (point.collected) continue;
@@ -320,9 +317,39 @@ function update(dt, time) {
 function triggerBoost() {
   const now = performance.now();
   if (now < state.boostCooldownUntil) return;
-  state.boostUntil = now + 700; state.boostCooldownUntil = now + 3500;
+  state.boostUntil = now + 700;
+  state.boostCooldownUntil = now + 3000;
+  boostButton.classList.remove('cooldown', 'ready');
   boostButton.classList.add('active');
   setTimeout(() => boostButton.classList.remove('active'), 700);
+
+  const countdown = document.createElement('span');
+  countdown.className = 'ability-cooldown';
+  boostButton.appendChild(countdown);
+  boostButton.classList.add('cooldown');
+
+  let lastSecond = 0;
+  const updateCountdown = () => {
+    const remaining = state.boostCooldownUntil - performance.now();
+    if (remaining <= 0) {
+      countdown.remove();
+      boostButton.classList.remove('cooldown');
+      boostButton.classList.add('ready');
+      window.setTimeout(() => boostButton.classList.remove('ready'), 450);
+      return;
+    }
+    const second = Math.ceil(remaining / 1000);
+    const display = Math.min(2, Math.max(1, second));
+    if (display !== lastSecond) {
+      countdown.textContent = String(display);
+      countdown.classList.remove('countdown-pop');
+      void countdown.offsetWidth;
+      countdown.classList.add('countdown-pop');
+      lastSecond = display;
+    }
+    requestAnimationFrame(updateCountdown);
+  };
+  updateCountdown();
 }
 
 bindPlayerControls({ state, joystick, stick, boostButton, triggerBoost });
