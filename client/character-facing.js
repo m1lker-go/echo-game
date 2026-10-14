@@ -1,10 +1,11 @@
-// Explicit 8-direction facing calibration. Each entry owns its yaw;
-// angles are spaced by exactly 45 degrees and cover one full 360-degree turn.
-// Tune individual values here after checking the model in-game; don't touch controls.
+// Explicit eight-direction facing table. Every direction has its own yaw.
+// The table contains one complete 360-degree revolution in 45-degree steps.
+// Calibrate individual entries here after visually testing the character model;
+// do not change movement/input logic for orientation tweaks.
 const DEG = Math.PI / 180;
 
 export const CHARACTER_FACING = Object.freeze({
-  UP:          0 * DEG,
+  UP:           0 * DEG,
   UP_RIGHT:    45 * DEG,
   RIGHT:       90 * DEG,
   DOWN_RIGHT: 135 * DEG,
@@ -14,6 +15,10 @@ export const CHARACTER_FACING = Object.freeze({
   UP_LEFT:    315 * DEG,
 });
 
+const MOVEMENT_THRESHOLD = 18;
+const DIRECTION_STEP = Math.PI / 4;
+
+// Index order mirrors CHARACTER_FACING's compass order clockwise from screen-up.
 const DIRECTION_ORDER = [
   'UP',
   'UP_RIGHT',
@@ -25,9 +30,6 @@ const DIRECTION_ORDER = [
   'UP_LEFT',
 ];
 
-const MOVEMENT_THRESHOLD = 18;
-const DIRECTION_STEP = Math.PI / 4;
-
 export function updateCharacterFacing(root, vx, vy, ISO) {
   if (!root) return;
 
@@ -35,15 +37,12 @@ export function updateCharacterFacing(root, vx, vy, ISO) {
   const worldVY = Number.isFinite(vy) ? vy : 0;
   if (Math.hypot(worldVX, worldVY) < MOVEMENT_THRESHOLD) return;
 
-  // Convert world velocity back to its visible screen-space direction.
+  // Convert isometric world velocity back to the visible screen direction.
   const screenX = (worldVX - worldVY) * ISO.x;
   const screenY = (worldVX + worldVY) * ISO.y;
   const angle = Math.atan2(screenX, -screenY);
   const index = ((Math.round(angle / DIRECTION_STEP) % 8) + 8) % 8;
-  const direction = DIRECTION_ORDER[index];
-
-  // Only this table controls the model yaw.
-  root.rotation.y = CHARACTER_FACING[direction];
+  root.rotation.y = CHARACTER_FACING[DIRECTION_ORDER[index]];
 }
 
 export { DIRECTION_ORDER };
