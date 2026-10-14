@@ -52,6 +52,25 @@ const ALLOWED_SKINS = new Set([
   'character-male-d.glb', 'character-male-e.glb', 'character-male-f.glb',
 ]);
 
+const FOOD_COUNT = 34;
+const FOOD_COLLECT_RADIUS = 22;
+const FOOD_RESPAWN_INTERVAL = 3000;
+
+function createFoodPoint(id) {
+  const angle = id * 2.399963229728653;
+  const radius = 170 + (id % 9) * 58 + Math.floor(id / 9) * 100;
+  return {
+    id,
+    x: Math.cos(angle) * radius,
+    y: Math.sin(angle) * radius,
+    size: 5 + (id % 3),
+    pulse: id * .7,
+    active: true,
+  };
+}
+
+const food = new Map(Array.from({ length: FOOD_COUNT }, (_, id) => [id, createFoodPoint(id)]));
+
 function finiteNumber(value, fallback = 0, min = -MAX_COORDINATE, max = MAX_COORDINATE) {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
   return Math.max(min, Math.min(max, value));
@@ -60,6 +79,39 @@ function finiteNumber(value, fallback = 0, min = -MAX_COORDINATE, max = MAX_COOR
 function broadcastPlayers() {
   io.emit('echo:players', Array.from(players.values(), (player) => ({ ...player })));
 }
+
+function broadcastFood() {
+  io.emit('echo:food', Array.from(food.values())
+    .filter((point) => point.active)
+    .map(({ id, x, y, size, pulse }) => ({ id, x, y, size, pulse })));
+}
+
+function collectFood(player) {
+  let collected = 0;
+
+  for (const point of food.values()) {
+    if (!point.active) continue;
+    const distance = Math.hypot(player.x - point.x, player.y - point.y);
+    if (distance >= FOOD_COLLECT_RADIUS) continue;
+
+    point.active = false;
+    collected += 1;
+  }
+
+  return collected;
+}
+
+function refillFood() {
+  let changed = false;
+  for (const point of food.values()) {
+    if (point.active) continue;
+    point.active = true;
+    changed = true;
+  }
+  if (changed) broadcastFood();
+}
+
+setInterval(refillFood, FOOD_RESPAWN_INTERVAL);
 
 io.on('connection', (socket) => {
   console.log(`[socket] connected: ${socket.id}`);
@@ -76,6 +128,9 @@ io.on('connection', (socket) => {
     skin: ALLOWED_SKINS.has(requestedSkin) ? requestedSkin : 'character-female-a.glb',
   });
   broadcastPlayers();
+  socket.emit('echo:food', Array.from(food.values())
+    .filter((point) => point.active)
+    .map(({ id, x, y, size, pulse }) => ({ id, x, y, size, pulse })));
 
   socket.on('echo:hello', (payload) => {
     // Keep the skin tied to this socket session; accept only known bundled model names.
@@ -85,6 +140,9 @@ io.on('connection', (socket) => {
 
     // Send the current snapshot to the connecting client.
     socket.emit('echo:players', Array.from(players.values(), (player) => ({ ...player })));
+    socket.emit('echo:food', Array.from(food.values())
+      .filter((point) => point.active)
+      .map(({ id, x, y, size, pulse }) => ({ id, x, y, size, pulse })));
     broadcastPlayers();
   });
 
@@ -99,13 +157,22 @@ io.on('connection', (socket) => {
     current.y = finiteNumber(payload.y, current.y);
     current.vx = finiteNumber(payload.vx, 0, -100_000, 100_000);
     current.vy = finiteNumber(payload.vy, 0, -100_000, 100_000);
-    current.energy = Math.round(finiteNumber(payload.energy, current.energy, 0, MAX_ENERGY));
+
+    // Shared food is collected from the server's canonical positions.
+    const collected = collectFood(current);
+    if (collected > 0) current.energy += collected;
+
+    // Keep compatibility with the existing client-side energy counter without allowing
+    // a stale client value to erase food already collected on the server.
+    const clientEnergy = Math.round(finiteNumber(payload.energy, current.energy, 0, MAX_ENERGY));
+    current.energy = Math.max(current.energy, clientEnergy);
 
     // Keep the chosen appearance tied to the session; never accept arbitrary asset paths.
     const requestedSkin = payload.skin;
     if (ALLOWED_SKINS.has(requestedSkin)) current.skin = requestedSkin;
 
     broadcastPlayers();
+    if (collected > 0) broadcastFood();
   });
 
   socket.on('disconnect', (reason) => {
