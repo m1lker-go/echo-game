@@ -41,11 +41,59 @@ app.get('/health', async (_req, res) => {
   }
 });
 
+// In-memory state for the current online players. Socket IDs identify active sessions.
+const players = new Map();
+const MAX_COORDINATE = 1_000_000;
+const MAX_ENERGY = 1_000_000;
+
+function finiteNumber(value, fallback = 0, min = -MAX_COORDINATE, max = MAX_COORDINATE) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(max, value));
+}
+
+function broadcastPlayers() {
+  io.emit('echo:players', Array.from(players.values(), (player) => ({ ...player })));
+}
+
 io.on('connection', (socket) => {
   console.log(`[socket] connected: ${socket.id}`);
 
+  // Add the new player immediately so existing clients receive them as well.
+  players.set(socket.id, {
+    id: socket.id,
+    x: 0,
+    y: 0,
+    vx: 0,
+    vy: 0,
+    energy: 0,
+  });
+  broadcastPlayers();
+
+  socket.on('echo:hello', () => {
+    // A reconnect may have replaced the entry; always send the current snapshot.
+    socket.emit('echo:players', Array.from(players.values(), (player) => ({ ...player })));
+  });
+
+  socket.on('echo:move', (payload) => {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return;
+
+    const current = players.get(socket.id);
+    if (!current) return;
+
+    // Accept only finite numeric movement data and clamp values to sane bounds.
+    current.x = finiteNumber(payload.x, current.x);
+    current.y = finiteNumber(payload.y, current.y);
+    current.vx = finiteNumber(payload.vx, 0, -100_000, 100_000);
+    current.vy = finiteNumber(payload.vy, 0, -100_000, 100_000);
+    current.energy = Math.round(finiteNumber(payload.energy, current.energy, 0, MAX_ENERGY));
+
+    broadcastPlayers();
+  });
+
   socket.on('disconnect', (reason) => {
+    players.delete(socket.id);
     console.log(`[socket] disconnected: ${socket.id} (${reason})`);
+    broadcastPlayers();
   });
 });
 
