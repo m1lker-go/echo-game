@@ -35,7 +35,6 @@ const points = Array.from({ length: 34 }, (_, i) => {
   return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius, size: 1.7 + (i % 3) * .6, pulse: i * .7, collected: false };
 });
 
-// 3D model layer. The existing GLB from the client is rendered above the 2D world.
 const modelScene = new THREE.Scene();
 const modelCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);
 modelCamera.position.z = 100;
@@ -43,9 +42,7 @@ const modelRenderer = new THREE.WebGLRenderer({ canvas: modelCanvas, alpha: true
 modelRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 modelRenderer.outputColorSpace = THREE.SRGBColorSpace;
 modelRenderer.setClearColor(0x000000, 0);
-
-const ambientLight = new THREE.AmbientLight(0xffffff, 2.2);
-modelScene.add(ambientLight);
+modelScene.add(new THREE.AmbientLight(0xffffff, 2.2));
 const keyLight = new THREE.DirectionalLight(0xd9eeff, 3.5);
 keyLight.position.set(-40, 80, 120);
 modelScene.add(keyLight);
@@ -55,13 +52,18 @@ modelScene.add(rimLight);
 
 const loader = new GLTFLoader();
 const MODEL_URL = './assets/models/character-female-a.glb';
-const modelCache = { source: null, mixer: null, local: null, others: new Map(), ready: false };
+const modelCache = {
+  source: null,
+  clips: [],
+  local: null,
+  localAnimation: null,
+  others: new Map(),
+  ready: false,
+};
 
 function prepareModel(root, isOther = false) {
   root.traverse((object) => {
     if (!object.isMesh) return;
-    object.castShadow = false;
-    object.receiveShadow = false;
     const materials = Array.isArray(object.material) ? object.material : [object.material];
     for (const material of materials) {
       if (!material) continue;
@@ -74,10 +76,7 @@ function prepareModel(root, isOther = false) {
       if ('metalness' in material) material.metalness = 0.05;
     }
   });
-
-  // The Kenney character is a normal humanoid; keep it slightly smaller than the old 2D ghost.
-  root.scale.setScalar(isOther ? 25 : 29);
-  root.position.z = 0;
+  root.scale.setScalar(isOther ? 22 : 26);
   return root;
 }
 
@@ -108,19 +107,20 @@ function switchAnimation(animation, moving) {
   animation.current = next;
 }
 
-function loadCharacter() {
-  loader.load(MODEL_URL, (gltf) => {
-    modelCache.source = gltf.scene;
-    const local = prepareModel(gltf.scene, false);
-    modelCache.local = local;
-    modelCache.mixer = setupAnimation(local, gltf.animations, false);
-    modelScene.add(local);
-    modelCache.ready = true;
-  }, undefined, (error) => {
-    console.error('[echo] failed to load character GLB:', error);
-  });
-}
-loadCharacter();
+loader.load(MODEL_URL, (gltf) => {
+  modelCache.source = gltf.scene;
+  modelCache.clips = gltf.animations || [];
+
+  const local = prepareModel(gltf.scene, false);
+  modelCache.local = local;
+  modelCache.localAnimation = setupAnimation(local, modelCache.clips, false);
+  local.userData.animation = modelCache.localAnimation;
+  modelScene.add(local);
+  modelCache.ready = true;
+  console.log(`[echo] GLB loaded: ${MODEL_URL}; animations: ${modelCache.clips.length}`);
+}, undefined, (error) => {
+  console.error('[echo] failed to load character GLB:', error);
+});
 
 function resize() {
   const rect = canvas.getBoundingClientRect();
@@ -130,7 +130,6 @@ function resize() {
   canvas.width = Math.round(state.width * state.dpr);
   canvas.height = Math.round(state.height * state.dpr);
   ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
-
   modelRenderer.setPixelRatio(state.dpr);
   modelRenderer.setSize(state.width, state.height, false);
   modelCamera.left = -state.width / 2;
@@ -191,7 +190,6 @@ function drawGrid(time) {
   for (let x = offsetX; x <= width; x += spacing) { ctx.moveTo(x, 0); ctx.lineTo(x, height); }
   for (let y = offsetY; y <= height; y += spacing) { ctx.moveTo(0, y); ctx.lineTo(width, y); }
   ctx.stroke();
-
   ctx.fillStyle = 'rgba(195,222,247,0.12)';
   const startX = Math.floor((-cameraX - width / 2) / spacing) * spacing;
   const startY = Math.floor((-cameraY - height / 2) / spacing) * spacing;
@@ -244,22 +242,17 @@ function drawEnergyLabel(x, y, label, isOther = false) {
   ctx.restore();
 }
 
-function updateModel(root, x, y, vx, vy, time, isOther = false) {
+function updateModel(root, animation, x, y, vx, vy, time, label, isOther = false) {
   if (!root) return;
   const p = worldToScreen(x, y);
   root.position.x = p.x - state.width / 2;
-  root.position.y = -(p.y - state.height / 2);
+  root.position.y = -(p.y - state.height / 2) + Math.sin(time * .0028 + x * .02) * (Math.hypot(vx || 0, vy || 0) > 18 ? 1.3 : 1.8);
   root.position.z = 0;
-  const moving = Math.hypot(vx || 0, vy || 0) > 18;
   root.rotation.y = Math.atan2(vx || 0, -(vy || 0));
-  const bob = Math.sin(time * .0028 + x * .02) * (moving ? 1.3 : 1.8);
-  root.position.y += bob;
-  const scale = isOther ? 22 : 26;
-  root.scale.setScalar(scale);
-  if (root.userData.animation) {
-    switchAnimation(root.userData.animation, moving);
-  }
-  if (root.userData.lastLabel !== undefined) drawEnergyLabel(x, y, root.userData.lastLabel, isOther);
+  const moving = Math.hypot(vx || 0, vy || 0) > 18;
+  root.scale.setScalar(isOther ? 22 : 26);
+  switchAnimation(animation, moving);
+  drawEnergyLabel(x, y, label, isOther);
 }
 
 function ensureOtherModel(player) {
@@ -268,35 +261,23 @@ function ensureOtherModel(player) {
   if (entry) return entry;
   const clone = SkeletonUtils.clone(modelCache.source);
   prepareModel(clone, true);
-  const animation = setupAnimation(clone, modelCache.source.userData?.animations || [], true);
-  // GLTF animations live on the original GLTF, so store them on the source template.
-  if (!animation && modelCache.animationClips) {
-    clone.userData.animation = setupAnimation(clone, modelCache.animationClips, true);
-  } else {
-    clone.userData.animation = animation;
-  }
+  const animation = setupAnimation(clone, modelCache.clips, true);
   modelScene.add(clone);
-  entry = { root: clone, animation: clone.userData.animation };
+  entry = { root: clone, animation };
   modelCache.others.set(player.id, entry);
   return entry;
 }
 
-function drawModels(time) {
+function drawModels(time, dt) {
   if (!modelCache.ready) return;
-
-  if (modelCache.local) {
-    modelCache.local.userData.animation = modelCache.mixer;
-    updateModel(modelCache.local, state.x, state.y, state.vx, state.vy, time, false);
-  }
+  updateModel(modelCache.local, modelCache.localAnimation, state.x, state.y, state.vx, state.vy, time, state.energy, false);
 
   const alive = new Set();
   for (const player of state.others.values()) {
     alive.add(player.id);
     const entry = ensureOtherModel(player);
     if (!entry) continue;
-    entry.root.userData.animation = entry.animation;
-    entry.root.userData.lastLabel = player.energy ?? 0;
-    updateModel(entry.root, player.x, player.y, player.vx ?? 0, player.vy ?? 0, time, true);
+    updateModel(entry.root, entry.animation, player.x, player.y, player.vx ?? 0, player.vy ?? 0, time, player.energy ?? 0, true);
   }
   for (const [id, entry] of modelCache.others) {
     if (!alive.has(id)) {
@@ -305,9 +286,8 @@ function drawModels(time) {
     }
   }
 
-  const delta = state.lastTime ? Math.min((time - state.lastTime) / 1000, .05) : 0;
-  if (modelCache.mixer) modelCache.mixer.update(delta);
-  for (const entry of modelCache.others.values()) entry.animation?.mixer.update(delta);
+  modelCache.localAnimation?.mixer.update(dt);
+  for (const entry of modelCache.others.values()) entry.animation?.mixer.update(dt);
   modelRenderer.render(modelScene, modelCamera);
 }
 
@@ -404,7 +384,7 @@ function frame(time) {
   update(dt, time);
   drawGrid(time);
   drawPoints(time);
-  drawModels(time);
+  drawModels(time, dt);
   state.lastTime = time;
   requestAnimationFrame(frame);
 }
