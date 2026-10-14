@@ -36,7 +36,7 @@ const ISO = {
 const points = Array.from({ length: 34 }, (_, i) => {
   const angle = i * 2.399963229728653;
   const radius = 170 + (i % 9) * 58 + Math.floor(i / 9) * 100;
-  return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius, size: 1.7 + (i % 3) * .6, pulse: i * .7, collected: false };
+  return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius, size: 5 + (i % 3), pulse: i * .7, collected: false };
 });
 
 const modelScene = new THREE.Scene();
@@ -179,8 +179,6 @@ function connectSocket() {
 }
 connectSocket();
 
-// Isometric world projection. World movement stays on the same X/Y axes;
-// only the camera/rendering turns the world into an isometric diamond grid.
 function isoProject(x, y) {
   return {
     x: (x - y) * ISO.x,
@@ -203,42 +201,37 @@ function drawGrid(time) {
   fade.addColorStop(.55, 'rgba(115,146,181,0.055)');
   fade.addColorStop(1, 'rgba(80,105,140,0.004)');
 
-  const worldRange = Math.ceil(Math.max(width, height) / Math.min(ISO.x, ISO.y)) + spacing * 2;
-  const centerX = Math.round(state.cameraX / spacing) * spacing;
-  const centerY = Math.round(state.cameraY / spacing) * spacing;
-  const diagonalCount = Math.ceil(worldRange / spacing);
+  const worldRangeX = Math.ceil(width / ISO.x) + spacing * 2;
+  const worldRangeY = Math.ceil(height / ISO.y) + spacing * 2;
+  const startX = Math.floor((state.cameraX - worldRangeX) / spacing) * spacing;
+  const endX = Math.ceil((state.cameraX + worldRangeX) / spacing) * spacing;
+  const startY = Math.floor((state.cameraY - worldRangeY) / spacing) * spacing;
+  const endY = Math.ceil((state.cameraY + worldRangeY) / spacing) * spacing;
 
   ctx.strokeStyle = fade;
   ctx.lineWidth = 1;
   ctx.beginPath();
 
-  // Lines where X - Y is constant.
-  for (let i = -diagonalCount; i <= diagonalCount; i += 1) {
-    const delta = i * spacing;
-    const center = (centerX + centerY + delta) / 2;
+  // Fixed X => one diagonal direction.
+  for (let wx = startX; wx <= endX; wx += spacing) {
     drawIsoLine(
-      { x: center - worldRange, y: center - worldRange - delta },
-      { x: center + worldRange, y: center + worldRange - delta },
+      { x: wx, y: state.cameraY - worldRangeY },
+      { x: wx, y: state.cameraY + worldRangeY },
     );
   }
 
-  // Lines where X + Y is constant.
-  for (let i = -diagonalCount; i <= diagonalCount; i += 1) {
-    const delta = i * spacing;
-    const center = (centerX - centerY + delta) / 2;
+  // Fixed Y => the crossing diagonal direction.
+  for (let wy = startY; wy <= endY; wy += spacing) {
     drawIsoLine(
-      { x: center - worldRange, y: -center + worldRange + delta },
-      { x: center + worldRange, y: -center - worldRange + delta },
+      { x: state.cameraX - worldRangeX, y: wy },
+      { x: state.cameraX + worldRangeX, y: wy },
     );
   }
   ctx.stroke();
 
-  // Small glowing intersections make the grid feel like the original ECHO world.
   ctx.fillStyle = 'rgba(195,222,247,0.12)';
-  const startX = Math.floor((state.cameraX - worldRange) / spacing) * spacing;
-  const startY = Math.floor((state.cameraY - worldRange) / spacing) * spacing;
-  for (let wx = startX; wx <= state.cameraX + worldRange; wx += spacing) {
-    for (let wy = startY; wy <= state.cameraY + worldRange; wy += spacing) {
+  for (let wx = startX; wx <= endX; wx += spacing) {
+    for (let wy = startY; wy <= endY; wy += spacing) {
       const p = worldToScreen(wx, wy);
       if (p.x > -2 && p.x < width + 2 && p.y > -2 && p.y < height + 2) {
         ctx.globalAlpha = .25 + .1 * Math.sin(time * .0006 + (wx + wy) * .02);
@@ -264,18 +257,18 @@ function drawPoints(time) {
   for (const point of points) {
     if (point.collected) continue;
     const p = worldToScreen(point.x, point.y);
-    if (p.x < -24 || p.y < -24 || p.x > state.width + 24 || p.y > state.height + 24) continue;
+    if (p.x < -30 || p.y < -30 || p.x > state.width + 30 || p.y > state.height + 30) continue;
     const pulse = .65 + .35 * Math.sin(time * .002 + point.pulse);
     const radius = point.size * pulse;
-    const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius * 4);
-    halo.addColorStop(0, 'rgba(210,238,255,0.30)');
-    halo.addColorStop(0.35, 'rgba(210,238,255,0.12)');
+    const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius * 3.2);
+    halo.addColorStop(0, 'rgba(210,238,255,0.38)');
+    halo.addColorStop(0.35, 'rgba(210,238,255,0.15)');
     halo.addColorStop(1, 'rgba(210,238,255,0)');
     ctx.fillStyle = halo;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, radius * 4, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, radius * 3.2, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = `rgba(220,242,255,${.55 + .4 * pulse})`;
+    ctx.fillStyle = `rgba(220,242,255,${.65 + .35 * pulse})`;
     ctx.beginPath();
     ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
     ctx.fill();
@@ -383,6 +376,7 @@ function updateJoystick(event) {
 }
 joystick.addEventListener('pointerdown', (event) => { joystickPointer = event.pointerId; joystick.setPointerCapture(event.pointerId); updateJoystick(event); });
 joystick.addEventListener('pointermove', (event) => { if (event.pointerId === joystickPointer) updateJoystick(event); });
+
 function releaseJoystick(event) {
   if (event.pointerId !== joystickPointer) return;
   joystickPointer = null; state.inputX = 0; state.inputY = 0; stick.style.transform = 'translate(0,0)';
@@ -428,8 +422,6 @@ function update(dt, time) {
     }
   }
 
-  // Lock camera directly to the player: no lag between world layers.
-  // The camera follows the player in world coordinates; rendering applies the isometric projection.
   state.cameraX = state.x;
   state.cameraY = state.y;
 
