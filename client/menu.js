@@ -265,4 +265,7 @@ function drawFood(time) {
 requestAnimationFrame(drawFood);
 
 const params = new URLSearchParams(window.location.search);
-if (params.get('play') === '1') menu.classList.add('is-hidden');
+if (params.get('play') === '1') {
+  menu.classList.add('is-hidden');
+  window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+}
