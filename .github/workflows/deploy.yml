@@ -5,7 +5,7 @@ on:
     branches: [ main ]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: echo-production-deploy
@@ -21,33 +21,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Repair generated JS escaping
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('client/game.js')
-          text = path.read_text(encoding='utf-8')
-          bad = r'\`rgba(220,242,255,\${.65 + .35 * pulse})\`'
-          good = '`rgba(220,242,255,${.65 + .35 * pulse})`'
-          if bad in text:
-              path.write_text(text.replace(bad, good), encoding='utf-8')
-              print('Fixed escaped template literal in client/game.js')
-          else:
-              print('No generated escaping issue found')
-          PY
-
-      - name: Commit source repair
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add client/game.js
-          if git diff --cached --quiet; then
-            echo "No source repair commit needed"
-          else
-            git commit -m "Fix escaped template literal in game.js"
-            git push origin HEAD:main
-          fi
 
       - name: Validate deploy source
         run: |
