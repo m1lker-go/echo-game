@@ -115,9 +115,12 @@ loader.load(MODEL_URL, (gltf) => {
   modelCache.source = gltf.scene;
   modelCache.clips = gltf.animations || [];
 
-  const local = prepareModel(gltf.scene, false);
+  // A separate holder applies facing rotation after the model's own transforms
+  // and animation tracks, so the correction cannot be overwritten by animation.
+  const local = new THREE.Group();
+  local.add(prepareModel(gltf.scene, false));
   modelCache.local = local;
-  modelCache.localAnimation = setupAnimation(local, modelCache.clips, false);
+  modelCache.localAnimation = setupAnimation(gltf.scene, modelCache.clips, false);
   local.userData.animation = modelCache.localAnimation;
   modelScene.add(local);
   modelCache.ready = true;
@@ -212,15 +215,12 @@ function drawGrid(time) {
   ctx.lineWidth = 1;
   ctx.beginPath();
 
-  // Fixed X => one diagonal direction.
   for (let wx = startX; wx <= endX; wx += spacing) {
     drawIsoLine(
       { x: wx, y: state.cameraY - worldRangeY },
       { x: wx, y: state.cameraY + worldRangeY },
     );
   }
-
-  // Fixed Y => the crossing diagonal direction.
   for (let wy = startY; wy <= endY; wy += spacing) {
     drawIsoLine(
       { x: state.cameraX - worldRangeX, y: wy },
@@ -294,12 +294,16 @@ function updateModel(root, animation, x, y, vx, vy, time, label, isOther = false
   root.position.x = p.x - state.width / 2;
   root.position.y = -(p.y - state.height / 2) + Math.sin(time * .0028 + x * .02) * (Math.hypot(vx || 0, vy || 0) > 18 ? 1.3 : 1.8);
   root.position.z = 0;
-  if (Math.hypot(vx || 0, vy || 0) > 18) {
+
+  // Rotate the holder, not the animated GLB root, so animation tracks cannot
+  // reset or cancel the facing correction. A quarter turn compensates the
+  // Kenney Mini Characters model's local forward axis.
+  const moving = Math.hypot(vx || 0, vy || 0) > 18;
+  if (moving) {
     const screenVX = ((vx || 0) - (vy || 0)) * ISO.x;
     const screenVY = ((vx || 0) + (vy || 0)) * ISO.y;
-    root.rotation.y = Math.atan2(screenVX, -screenVY);
+    root.rotation.y = Math.atan2(screenVX, -screenVY) + Math.PI / 2;
   }
-  const moving = Math.hypot(vx || 0, vy || 0) > 18;
   root.scale.setScalar(isOther ? 44 : 52);
   switchAnimation(animation, moving);
   drawEnergyLabel(x, y, label, isOther);
@@ -309,11 +313,13 @@ function ensureOtherModel(player) {
   if (!modelCache.source) return null;
   let entry = modelCache.others.get(player.id);
   if (entry) return entry;
+  const holder = new THREE.Group();
   const clone = SkeletonUtils.clone(modelCache.source);
   prepareModel(clone, true);
+  holder.add(clone);
   const animation = setupAnimation(clone, modelCache.clips, true);
-  modelScene.add(clone);
-  entry = { root: clone, animation };
+  modelScene.add(holder);
+  entry = { root: holder, animation };
   modelCache.others.set(player.id, entry);
   return entry;
 }
