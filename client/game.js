@@ -212,7 +212,7 @@ function drawPoints(time) {
     const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius * 3.2);
     halo.addColorStop(0, 'rgba(210,238,255,0.38)'); halo.addColorStop(0.35, 'rgba(210,238,255,0.15)'); halo.addColorStop(1, 'rgba(210,238,255,0)');
     ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(p.x, p.y, radius * 3.2, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = \`rgba(220,242,255,\${.65 + .35 * pulse})\`; ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = `rgba(220,242,255,${.65 + .35 * pulse})`; ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
 }
