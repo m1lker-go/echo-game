@@ -227,6 +227,12 @@ function connectSocket() {
           vx: Number.isFinite(player.vx) ? player.vx : 0,
           vy: Number.isFinite(player.vy) ? player.vy : 0,
         };
+        // On the very first snapshot there is no previous sample, so start at the real coordinates.
+        if (!previous) {
+          target.previousSnapshotAt = now - 120;
+          target.previousX = player.x;
+          target.previousY = player.y;
+        }
 
         // Retain the currently rendered location if the target moves to a new point.
         if (previous) {
