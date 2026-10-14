@@ -344,6 +344,11 @@ function update(dt, time) {
     state.vx = (state.jumpToX - state.jumpFromX) / (JUMP_DURATION / 1000);
     state.vy = (state.jumpToY - state.jumpFromY) / (JUMP_DURATION / 1000);
   } else {
+    if (state.jumpStart) {
+      state.vx = 0;
+      state.vy = 0;
+      state.jumpStart = 0;
+    }
     updatePlayerMovement(state, dt, time, ISO);
   }
   applyFoodMagnet(dt);
