@@ -42,10 +42,47 @@ export function bindPlayerControls({ state, joystick, stick, boostButton, trigge
   joystick.addEventListener('pointerup', resetJoystick);
   joystick.addEventListener('pointercancel', resetJoystick);
 
-  boostButton.addEventListener('pointerdown', triggerBoost);
+  const cooldownLabel = boostButton.querySelector('.ability-cooldown');
+  let cooldownTimer = 0;
+
+  function showBoostCooldown(until) {
+    window.clearInterval(cooldownTimer);
+    boostButton.classList.add('cooldown');
+
+    const tick = () => {
+      const remaining = Math.max(0, until - performance.now());
+      if (remaining <= 0) {
+        window.clearInterval(cooldownTimer);
+        boostButton.classList.remove('cooldown');
+        boostButton.classList.add('ready');
+        if (cooldownLabel) cooldownLabel.textContent = '';
+        window.setTimeout(() => boostButton.classList.remove('ready'), 420);
+        return;
+      }
+
+      // Three-second cooldown: 2, then 1, then the button returns.
+      const number = remaining > 2000 ? '2' : remaining > 1000 ? '1' : '';
+      if (cooldownLabel) cooldownLabel.textContent = number;
+    };
+
+    tick();
+    cooldownTimer = window.setInterval(tick, 70);
+  }
+
+  function activateBoost() {
+    const before = state.boostCooldownUntil;
+    triggerBoost();
+    if (state.boostCooldownUntil !== before) {
+      // The ability's gameplay cooldown is exactly 3 seconds.
+      state.boostCooldownUntil = performance.now() + 3000;
+      showBoostCooldown(state.boostCooldownUntil);
+    }
+  }
+
+  boostButton.addEventListener('pointerdown', activateBoost);
   window.addEventListener('keydown', (e) => {
     state.keys.add(e.key);
-    if (e.code === 'Space') triggerBoost();
+    if (e.code === 'Space') activateBoost();
   });
   window.addEventListener('keyup', (e) => state.keys.delete(e.key));
 }
