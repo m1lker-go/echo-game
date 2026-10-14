@@ -74,20 +74,6 @@
     }
   </script>
   <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" crossorigin="anonymous"></script>
-  <script>
-    (() => {
-      const world = document.querySelector('#world');
-      const originalRequestAnimationFrame = window.requestAnimationFrame.bind(window);
-      window.requestAnimationFrame = (callback) => originalRequestAnimationFrame((time) => {
-        if (world) {
-          const worldCtx = world.getContext('2d');
-          const rect = world.getBoundingClientRect();
-          worldCtx.clearRect(0, 0, rect.width, rect.height);
-        }
-        callback(time);
-      });
-    })();
-  </script>
   <script type="module" src="./asset-loader-patch.js"></script>
   <script type="module" src="./menu.js"></script>
   <script type="module" src="./game.js"></script>
