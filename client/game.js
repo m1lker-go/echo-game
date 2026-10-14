@@ -286,12 +286,23 @@ function draw(time) {
 }
 
 function update(dt, time) {
-  let ix = state.inputX, iy = state.inputY;
-  if (state.keys.has('ArrowLeft') || state.keys.has('a')) ix -= 1;
-  if (state.keys.has('ArrowRight') || state.keys.has('d')) ix += 1;
-  if (state.keys.has('ArrowUp') || state.keys.has('w')) iy -= 1;
-  if (state.keys.has('ArrowDown') || state.keys.has('s')) iy += 1;
-  const len = Math.hypot(ix, iy); if (len > 1) { ix /= len; iy /= len; }
+  // Controls are screen-space. Convert the requested screen direction back
+  // through the inverse isometric projection so the character moves exactly
+  // where the player presses: up/down/left/right and true 45° diagonals.
+  let screenX = state.inputX, screenY = state.inputY;
+  if (state.keys.has('ArrowLeft') || state.keys.has('a')) screenX -= 1;
+  if (state.keys.has('ArrowRight') || state.keys.has('d')) screenX += 1;
+  if (state.keys.has('ArrowUp') || state.keys.has('w')) screenY -= 1;
+  if (state.keys.has('ArrowDown') || state.keys.has('s')) screenY += 1;
+  const screenLen = Math.hypot(screenX, screenY);
+  if (screenLen > 1) { screenX /= screenLen; screenY /= screenLen; }
+
+  // Inverse of:
+  // screenX = (worldX - worldY) * ISO.x
+  // screenY = (worldX + worldY) * ISO.y
+  const ix = screenX / (2 * ISO.x) + screenY / (2 * ISO.y);
+  const iy = -screenX / (2 * ISO.x) + screenY / (2 * ISO.y);
+
   const boosted = time < state.boostUntil; const speed = boosted ? 300 : 155; const smoothing = Math.min(1, dt * 12);
   state.vx += (ix * speed - state.vx) * smoothing; state.vy += (iy * speed - state.vy) * smoothing;
   state.x += state.vx * dt; state.y += state.vy * dt;
