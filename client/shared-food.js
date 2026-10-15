@@ -1,7 +1,6 @@
 const foodCanvas = document.querySelector('#shared-food');
 const energyText = document.querySelector('#energy');
 
-const FOOD_COUNT = 1000;
 // The magnet is visual only; collection and disappearance remain server-authoritative.
 const FOOD_MAGNET_RADIUS = 84 * 0.9;
 const FOOD_MAGNET_SPEED = 520;
@@ -27,7 +26,8 @@ function syncFood(snapshot) {
   const nextIds = new Set();
 
   for (const item of snapshot) {
-    if (!item || !Number.isInteger(item.id) || item.id < 0 || item.id >= FOOD_COUNT ||
+    // Validate payload shape only; quantity and valid IDs belong to the server.
+    if (!item || !Number.isSafeInteger(item.id) || item.id < 0 ||
         !Number.isFinite(item.x) || !Number.isFinite(item.y)) continue;
     nextIds.add(item.id);
     const point = food.get(item.id);
