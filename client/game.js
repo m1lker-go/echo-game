@@ -21,8 +21,8 @@ const TREE_MODEL_URL = './assets/models/objects/tree.glb';
 // The server's tree.scale is a per-tree size factor, not a world-unit scale.
 // Apply one deterministic server-generated factor uniformly on all axes.
 const TREE_BASE_SCALE = 50;
-const TREE_SCALE_MIN = 0.7;
-const TREE_SCALE_MAX = 1.0;
+const TREE_SCALE_MIN = 1.5;
+const TREE_SCALE_MAX = 2.5;
 const MODEL_DEPTH_SCALE = 0.12;
 function createTreeGradientMaterial() {
   return new THREE.ShaderMaterial({
