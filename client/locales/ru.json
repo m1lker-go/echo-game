@@ -34,7 +34,18 @@
     "placeholder_preparing": "Этот экран пока готовится",
     "rating_title": "РЕЙТИНГ",
     "cache_clearing_status": "ОЧИЩАЕМ КЭШ…",
-    "cache_preparing_status": "Подготавливаем обновление…"
+    "cache_preparing_status": "Подготавливаем обновление…",
+    "game_aria_label": "Игра ECHO",
+    "world_aria_label": "Игровое поле",
+    "mobile_controls_aria_label": "Сенсорное управление",
+    "joystick_aria_label": "Джойстик",
+    "prototype_label": "ПРОТОТИП 01",
+    "main_aria_label": "Главное меню",
+    "main_screen_aria_label": "Главный экран меню",
+    "character_screen_aria_label": "Выбор персонажа",
+    "placeholder_screen_aria_label": "Раздел меню",
+    "settings_screen_aria_label": "Настройки игры",
+    "language_options_aria_label": "Выбор языка"
   },
   "game": {
     "connection_pending": "подключение…",
@@ -51,6 +62,9 @@
     "defeat_subtitle": "Ваша энергия закончилась",
     "replay": "Сыграть ещё",
     "back_to_menu": "Назад в меню",
-    "coords_zero": "0 · 0"
+    "coords_zero": "0 · 0",
+    "boost_aria_label": "Ускорение",
+    "jump_aria_label": "Прыжок",
+    "defeat_aria_label": "Поражение"
   }
 }
