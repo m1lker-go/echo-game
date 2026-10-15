@@ -339,6 +339,11 @@ io.on('connection', (socket) => {
     const now = Date.now();
     if (activityProfileId && !socket.data.activityPaused && lastPingAt && now - lastPingAt <= ACTIVE_PING_MAX_GAP_MS) {
       collectElapsedTime(now);
+    } else if (lastPingAt && now - lastPingAt > ACTIVE_PING_MAX_GAP_MS) {
+      // Drop one stale session once; the next ping starts a fresh interval.
+      lastPingAt = 0;
+      lastPersistedAt = now;
+      dayKey = dailyDateKey(new Date(now));
     } else {
       lastPersistedAt = now;
       dayKey = dailyDateKey(new Date(now));
