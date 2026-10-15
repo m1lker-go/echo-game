@@ -299,24 +299,41 @@ io.on('connection', (socket) => {
     }
   };
   const receiveActivityPing = (payload) => {
-    socket.data.activityPaused = payload?.active === false;
     const now = Date.now();
-    if (!activityProfileId) {
-      activityProfileId = normalizeActivityProfileId(payload?.activityProfileId);
-      if (!activityProfileId) return;
+    const today = dailyDateKey(new Date(now));
+    const requestedProfileId = normalizeActivityProfileId(payload?.activityProfileId);
+
+    if (requestedProfileId && requestedProfileId !== activityProfileId) {
+      activityProfileId = requestedProfileId;
       dailyActivityProfileIds.set(socket.id, activityProfileId);
-      dayKey = dailyDateKey(new Date(now));
+      dayKey = today;
       lastPersistedAt = now;
-      enqueueWrite(() => ensureDailyActivityRow(activityProfileId, dayKey));
+      lastPingAt = 0;
+      socket.data.activityPaused = payload?.active === false;
+      enqueueWrite(() => ensureDailyActivityRow(activityProfileId, today));
     }
-    if (lastPingAt && now - lastPingAt > ACTIVE_PING_MAX_GAP_MS) {
+
+    if (!activityProfileId) return;
+    if (today !== dayKey) {
+      dayKey = today;
       lastPersistedAt = now;
-      dayKey = dailyDateKey(new Date(now));
+      enqueueWrite(() => ensureDailyActivityRow(activityProfileId, today));
+    } else if (payload?.active === false) {
+      // Save the elapsed visible-session time once, then pause until a visible ping returns.
+      if (lastPingAt && now - lastPingAt <= ACTIVE_PING_MAX_GAP_MS) collectElapsedTime(now);
+      else lastPersistedAt = now;
+    } else if (lastPingAt && now - lastPingAt > ACTIVE_PING_MAX_GAP_MS) {
+      // A long gap means the tab was suspended or disconnected; don't count the gap.
+      lastPersistedAt = now;
+    } else if (!lastPingAt) {
+      lastPersistedAt = now;
     } else {
       collectElapsedTime(now);
     }
+
+    socket.data.activityPaused = payload?.active === false;
     lastPingAt = now;
-    socket.emit('echo:dailyActivity', { date: dailyDateKey(new Date(now)), active: true });
+    socket.emit('echo:dailyActivity', { date: today, active: !socket.data.activityPaused });
   };
   const activityInterval = setInterval(() => {
     const now = Date.now();
