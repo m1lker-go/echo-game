@@ -274,6 +274,7 @@ io.on('connection', (socket) => {
     }
   };
   const receiveActivityPing = (payload) => {
+    socket.data.activityPaused = payload?.active === false;
     const now = Date.now();
     if (!activityProfileId) {
       activityProfileId = normalizeActivityProfileId(payload?.activityProfileId);
@@ -294,8 +295,12 @@ io.on('connection', (socket) => {
   };
   const activityInterval = setInterval(() => {
     const now = Date.now();
-    if (activityProfileId && lastPingAt && now - lastPingAt <= ACTIVE_PING_MAX_GAP_MS) collectElapsedTime(now);
-    else { lastPersistedAt = now; dayKey = dailyDateKey(new Date(now)); }
+    if (activityProfileId && !socket.data.activityPaused && lastPingAt && now - lastPingAt <= ACTIVE_PING_MAX_GAP_MS) {
+      collectElapsedTime(now);
+    } else {
+      lastPersistedAt = now;
+      dayKey = dailyDateKey(new Date(now));
+    }
   }, 15000);
 
   console.log(`[socket] connected: ${socket.id}`);
