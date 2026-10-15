@@ -170,6 +170,7 @@ function createWorldTrees() {
       placementRadius: 100 * scale,
     };
     // Keep the spawn area clear and allow modest visual overlap between trees.
+    // Keep the initial player spawn at the origin clear; also avoid overly dense clumps.
     if (Math.hypot(tree.x, tree.y) < 440) continue;
     if (trees.some(other => overlapsCircle(tree, other, tree.placementRadius, other.placementRadius,
       Math.min(tree.placementRadius, other.placementRadius) * 0.4))) continue;
