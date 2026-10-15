@@ -41,7 +41,6 @@ app.get('/health', async (_req, res) => {
   }
 });
 
-
 app.get('/api/daily-activity', async (req, res) => {
   const profileId = normalizeActivityProfileId(req.query.profileId);
   if (!profileId) return res.status(400).json({ error: 'Invalid profileId' });
@@ -66,7 +65,6 @@ app.get('/api/daily-activity', async (req, res) => {
     return res.status(500).json({ error: 'Daily activity unavailable' });
   }
 });
-
 
 const DAILY_TIME_ZONE = process.env.DAILY_TIME_ZONE || 'Europe/Moscow';
 const ACTIVE_PING_MAX_GAP_MS = 45000;
@@ -115,6 +113,9 @@ async function addDailyPlaySeconds(profileId, seconds, dateKey) {
 const players = new Map();
 const activeFights = new Map();
 const MAX_COORDINATE = 1_000_000;
+const WORLD_CELL_SIZE = 84;
+const WORLD_SIZE_CELLS = 100;
+const WORLD_HALF_SIZE = (WORLD_CELL_SIZE * WORLD_SIZE_CELLS) / 2;
 const MAX_ENERGY = 1_000_000;
 const FIGHT_DISTANCE = 72;
 const FIGHT_DURATION = 1000;
@@ -337,11 +338,9 @@ io.on('connection', (socket) => {
       lastPersistedAt = now;
       enqueueWrite(() => ensureDailyActivityRow(activityProfileId, today));
     } else if (payload?.active === false) {
-      // Save the elapsed visible-session time once, then pause until a visible ping returns.
       if (lastPingAt && now - lastPingAt <= ACTIVE_PING_MAX_GAP_MS) collectElapsedTime(now);
       else lastPersistedAt = now;
     } else if (lastPingAt && now - lastPingAt > ACTIVE_PING_MAX_GAP_MS) {
-      // A long gap means the tab was suspended or disconnected; don't count the gap.
       lastPersistedAt = now;
     } else if (!lastPingAt) {
       lastPersistedAt = now;
@@ -358,7 +357,6 @@ io.on('connection', (socket) => {
     if (activityProfileId && !socket.data.activityPaused && lastPingAt && now - lastPingAt <= ACTIVE_PING_MAX_GAP_MS) {
       collectElapsedTime(now);
     } else if (lastPingAt && now - lastPingAt > ACTIVE_PING_MAX_GAP_MS) {
-      // Drop one stale session once; the next ping starts a fresh interval.
       lastPingAt = 0;
       lastPersistedAt = now;
       dayKey = dailyDateKey(new Date(now));
@@ -406,8 +404,8 @@ io.on('connection', (socket) => {
     const current = players.get(socket.id);
     if (!current || current.defeated || current.fightingWith) return;
 
-    current.x = finiteNumber(payload.x, current.x);
-    current.y = finiteNumber(payload.y, current.y);
+    current.x = finiteNumber(payload.x, current.x, -WORLD_HALF_SIZE, WORLD_HALF_SIZE);
+    current.y = finiteNumber(payload.y, current.y, -WORLD_HALF_SIZE, WORLD_HALF_SIZE);
     current.vx = finiteNumber(payload.vx, 0, -100_000, 100_000);
     current.vy = finiteNumber(payload.vy, 0, -100_000, 100_000);
 
