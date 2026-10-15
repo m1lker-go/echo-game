@@ -8,8 +8,12 @@ const ISO = { x: 0.8660254, y: 0.5 };
 let socket = null;
 let playerX = 0;
 let playerY = 0;
+let targetX = 0;
+let targetY = 0;
 let playerVx = 0;
 let playerVy = 0;
+let lastSnapshotAt = 0;
+let lastFrameAt = 0;
 
 function bindSocket() {
   const current = window.echoSocket;
@@ -20,11 +24,35 @@ function bindSocket() {
     if (!Array.isArray(players) || !socket?.id) return;
     const me = players.find((player) => player?.id === socket.id);
     if (!me || !Number.isFinite(me.x) || !Number.isFinite(me.y)) return;
-    playerX = me.x;
-    playerY = me.y;
+
+    targetX = me.x;
+    targetY = me.y;
     playerVx = Number.isFinite(me.vx) ? me.vx : 0;
     playerVy = Number.isFinite(me.vy) ? me.vy : 0;
+
+    if (!lastSnapshotAt) {
+      playerX = targetX;
+      playerY = targetY;
+    }
+    lastSnapshotAt = performance.now();
   });
+}
+
+function updatePlayerPosition(time) {
+  const dt = lastFrameAt ? Math.min((time - lastFrameAt) / 1000, 0.05) : 0;
+  lastFrameAt = time;
+
+  if (!lastSnapshotAt) return;
+
+  // Keep the boundary camera smooth like the other remote-player rendering.
+  // Network snapshots update the target, while the boundary itself follows it
+  // continuously instead of jumping to every snapshot position.
+  const since = Math.min(Math.max((time - lastSnapshotAt) / 1000, 0), 0.25);
+  const predictedX = targetX + playerVx * since;
+  const predictedY = targetY + playerVy * since;
+  const blend = 1 - Math.exp(-18 * dt);
+  playerX += (predictedX - playerX) * blend;
+  playerY += (predictedY - playerY) * blend;
 }
 
 function worldToScreen(x, y, cameraX, cameraY, width, height) {
@@ -34,8 +62,9 @@ function worldToScreen(x, y, cameraX, cameraY, width, height) {
   };
 }
 
-function drawBoundary() {
+function drawBoundary(time = performance.now()) {
   bindSocket();
+  updatePlayerPosition(time);
 
   if (!canvas) {
     requestAnimationFrame(drawBoundary);
@@ -59,18 +88,18 @@ function drawBoundary() {
     worldToScreen(-FIELD_HALF, FIELD_HALF, playerX, playerY, width, height),
   ];
 
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    requestAnimationFrame(drawBoundary);
+    return;
+  }
+
   const boundaryPath = () => {
     ctx.beginPath();
     ctx.moveTo(corners[0].x, corners[0].y);
     for (let i = 1; i < corners.length; i += 1) ctx.lineTo(corners[i].x, corners[i].y);
     ctx.closePath();
   };
-
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    requestAnimationFrame(drawBoundary);
-    return;
-  }
 
   ctx.save();
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
