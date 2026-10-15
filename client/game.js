@@ -49,7 +49,6 @@ function loadWorldTreeModel() {
   if (worldObjects.treeLoading || worldObjects.treeSource) return;
   worldObjects.treeLoading = true;
   treeLoader.load(TREE_MODEL_URL, gltf => {
-    // Normalize the model origin to the center of its footprint and its bottom to Y=0.
     const bounds = new THREE.Box3().setFromObject(gltf.scene);
     const centerX = (bounds.min.x + bounds.max.x) / 2;
     const centerZ = (bounds.min.z + bounds.max.z) / 2;
@@ -66,7 +65,50 @@ function loadWorldTreeModel() {
     worldObjects.treeLoading = false;
     for (const tree of worldObjects.trees) addTreeModel(tree);
     console.log(`[echo] tree model loaded; instances: ${worldObjects.trees.length}; texture: ./assets/textures/colormap.png`);
-    if (state.socket?.connected && !worldObjects.worldReceived) state.socket.emit('echo:hello',{version:1,skin:selectedModel,activityProfileId});
+    if (state.socket?.connected && !worldObjects.worldReceived) {
+      state.socket.emit('echo:hello', { version: 1, skin: selectedModel, activityProfileId });
+    }
+  }, undefined, error => {
+    worldObjects.treeLoading = false;
+    console.error('[echo] failed to load tree GLB', error);
+  });
+}
+function updateWorldTreePositions() {
+  for (const tree of worldObjects.trees) {
+    if (!tree.root) continue;
+    const p = worldToScreenPrecise(tree.x, tree.y);
+    tree.root.position.x = p.x - state.width / 2;
+    tree.root.position.y = -(p.y - state.height / 2);
+    tree.root.position.z = 0;
+  }
+}
+const TREE_MODEL_URL = './assets/models/objects/tree.glb';
+function addTreeModel(tree) {
+  if (!worldObjects.treeSource || tree.root) return;
+  const root = cloneSkeleton(worldObjects.treeSource);
+  root.scale.setScalar(tree.scale);
+  root.rotation.y = Number.isFinite(tree.rotation) ? tree.rotation : 0;
+  tree.root = root;
+  modelScene.add(root);
+}
+function renderWorldTrees(snapshot) {
+  if (!Array.isArray(snapshot)) return;
+  for (const tree of worldObjects.trees) if (tree.root) modelScene.remove(tree.root);
+  worldObjects.trees = snapshot.filter(tree =>
+    tree && typeof tree.id === 'string' && Number.isFinite(tree.x) &&
+    Number.isFinite(tree.y) && Number.isFinite(tree.scale) &&
+    tree.scale >= 0.7 && tree.scale <= 1
+  ).map(tree => ({ ...tree, root: null }));
+  for (const tree of worldObjects.trees) addTreeModel(tree);
+}
+function loadWorldTreeModel() {
+  if (worldObjects.treeLoading || worldObjects.treeSource) return;
+  worldObjects.treeLoading = true;
+  loader.load(TREE_MODEL_URL, gltf => {
+    worldObjects.treeSource = gltf.scene;
+    worldObjects.treeLoading = false;
+    for (const tree of worldObjects.trees) addTreeModel(tree);
+    console.log('[echo] tree model loaded');
   }, undefined, error => {
     worldObjects.treeLoading = false;
     console.error('[echo] failed to load tree GLB', error);
@@ -111,10 +153,14 @@ document.addEventListener('visibilitychange', () => {
 });
 function returnToMenu(){const u=new URL(location.href);u.searchParams.delete('play');location.href=u.toString();}gameExitButton?.addEventListener('click',returnToMenu);
 function isoProject(x,y){return{x:(x-y)*ISO.x,y:(x+y)*ISO.y};}function drawIsoLine(a,b){const pa=isoProject(a.x-state.cameraX,a.y-state.cameraY),pb=isoProject(b.x-state.cameraX,b.y-state.cameraY);ctx.moveTo(Math.round(state.width/2+pa.x)+.5,Math.round(state.height/2+pa.y)+.5);ctx.lineTo(Math.round(state.width/2+pb.x)+.5,Math.round(state.height/2+pb.y)+.5);}function worldToScreen(x,y){const p=isoProject(x,y),c=isoProject(state.cameraX,state.cameraY);return{x:Math.round(state.width/2+p.x-c.x),y:Math.round(state.height/2+p.y-c.y)}}function worldToScreenPrecise(x,y){const p=isoProject(x,y),c=isoProject(state.cameraX,state.cameraY);return{x:state.width/2+p.x-c.x,y:state.height/2+p.y-c.y}}
-function drawGrid(time){const{width,height}=state,s=84,fade=ctx.createRadialGradient(width/2,height/2,30,width/2,height/2,Math.max(width,height)*.7);fade.addColorStop(0,'rgba(169,198,228,.15)');fade.addColorStop(1,'rgba(8,14,24,.05)');ctx.clearRect(0,0,width,height);ctx.fillStyle='rgba(7,12,20,.9)';ctx.fillRect(0,0,width,height);ctx.fillStyle=fade;ctx.fillRect(0,0,width,height);const half=4200,minX=Math.floor((state.cameraX-width/(2*ISO.x))/s)-2,maxX=Math.ceil((state.cameraX+width/(2*ISO.x))/s)+2,minY=Math.floor((state.cameraY-height/(2*ISO.y))/s)-2,maxY=Math.ceil((state.cameraY+height/(2*ISO.y))/s)+2;ctx.lineWidth=1;for(let gx=minX;gx<=maxX;gx++){for(let gy=minY;gy<=maxY;gy++){const x=gx*s,y=gy*s;if(Math.abs(x)>half||Math.abs(y)>half)continue;ctx.beginPath();drawIsoLine({x,y},{x:x+s,y});drawIsoLine({x:x+s,y},{x:x+s,y:y+s});drawIsoLine({x:x+s,y:y+s},{x,y:y+s});drawIsoLine({x,y:y+s},{x,y});ctx.strokeStyle='rgba(120,150,180,.09)';ctx.stroke();}}}
-function drawWorldObjects(){for(const tree of worldObjects.trees){if(tree.root)continue;}}
-function drawFood(){const now=performance.now();/* food is drawn by shared-food.js elsewhere */}
-function updateCamera(){state.cameraX=state.x;state.cameraY=state.y;}
-function drawModels(time,dt){updateWorldTreePositions();if(!modelCache.ready){modelRenderer.render(modelScene,modelCamera);return;}const jumping=state.jumpUntil>time;const p=jumping?(()=>{const t=Math.min(1,(time-state.jumpStart)/JUMP_DURATION),e=t*t*(3-2*t);return{x:state.jumpFromX+(state.jumpToX-state.jumpFromX)*e,y:state.jumpFromY+(state.jumpToY-state.jumpFromY)*e,z:Math.sin(Math.PI*t)*80}})():{x:state.x,y:state.y,z:0};const lp=worldToScreenPrecise(p.x,p.y);modelCache.local.position.x=lp.x-state.width/2;modelCache.local.position.y=-(lp.y-state.height/2)+p.z;modelCache.local.position.z=0;const moving=Math.abs(state.vx)+Math.abs(state.vy)>.5;updateCharacterFacing(modelCache.local,state.vx,state.vy);switchAnimation(modelCache.localAnimation,moving,time);modelCache.localAnimation?.mixer.update(dt);for(const p2 of state.others.values()){let m=modelCache.others.get(p2.id);if(!m){const src=modelCache.otherSources.get(p2.skin);if(!src){loadCharacterModel(p2.skin,(g)=>{modelCache.otherSources.set(p2.skin,g);},()=>{});continue;}const group=new THREE.Group(),visible=prepareModel(cloneSkeleton(src.scene),true);group.add(visible);m={group,animation:setupAnimation(visible,src.animations||[],true)};modelCache.others.set(p2.id,m);modelScene.add(group);}const pp=worldToScreenPrecise(p2.displayX??p2.targetX,p2.displayY??p2.targetY);m.group.position.x=pp.x-state.width/2;m.group.position.y=-(pp.y-state.height/2);m.group.position.z=0;const moving2=Math.abs(p2.vx)+Math.abs(p2.vy)>.5;updateCharacterFacing(m.group,p2.vx,p2.vy);switchAnimation(m.animation,moving2,time);m.animation?.mixer.update(dt);}modelRenderer.render(modelScene,modelCamera);}
-function sendMove(time){if(!state.socket?.connected||state.defeated)return;if(time-state.lastSent<50)return;state.lastSent=time;state.socket.emit('echo:move',{x:state.x,y:state.y,vx:state.vx,vy:state.vy,skin:selectedModel});}
-function frame(time){if(!state.lastTime)state.lastTime=time;const dt=Math.min(.05,(time-state.lastTime)/1000);state.lastTime=time;updatePlayerMovement(state,dt,time,ISO,worldObjects.trees);if(state.jumpUntil&&time>=state.jumpUntil)state.jumpUntil=0;updateCamera();drawGrid(time);drawModels(time,dt);drawWorldObjects();drawFood();sendMove(time);coordsText.textContent=`${Math.round(state.x)} / ${Math.round(state.y)}`;energyText.textContent=String(Math.max(0,Math.round(state.energy)));requestAnimationFrame(frame);}loadWorldTreeModel();bindPlayerControls({state,joystick,stick,boostButton,triggerBoost});function frameStart(){requestAnimationFrame(frame);}frameStart();
+function drawGrid(time){const{width,height}=state,s=84,fade=ctx.createRadialGradient(width/2,height/2,30,width/2,height/2,Math.max(width,height)*.7);fade.addColorStop(0,'rgba(169,198,228,.15)');fade.addColorStop(.55,'rgba(115,146,181,.055)');fade.addColorStop(1,'rgba(80,105,140,.004)');const rx=Math.ceil(width/ISO.x)+s*2,ry=Math.ceil(height/ISO.y)+s*2,sx=Math.floor((state.cameraX-rx)/s)*s,ex=Math.ceil((state.cameraX+rx)/s)*s,sy=Math.floor((state.cameraY-ry)/s)*s,ey=Math.ceil((state.cameraY+ry)/s)*s;ctx.strokeStyle=fade;ctx.lineWidth=1;ctx.beginPath();for(let x=sx;x<=ex;x+=s)drawIsoLine({x,y:state.cameraY-ry},{x,y:state.cameraY+ry});for(let y=sy;y<=ey;y+=s)drawIsoLine({x:state.cameraX-rx,y},{x:state.cameraX+rx,y});ctx.stroke();ctx.fillStyle='rgba(195,222,247,.12)';for(let x=sx;x<=ex;x+=s)for(let y=sy;y<=ey;y+=s){const p=worldToScreen(x,y);if(p.x>-2&&p.x<width+2&&p.y>-2&&p.y<height+2){ctx.globalAlpha=.25+.1*Math.sin(time*.0006+(x+y)*.02);ctx.fillRect(p.x-1,p.y-1,2,2)}}ctx.globalAlpha=1;}
+function drawEnergyLabel(x,y,label,other=false){const p=worldToScreen(x,y);ctx.save();ctx.font='500 11px Inter,system-ui,sans-serif';ctx.textAlign='center';ctx.fillStyle=other?'rgba(216,230,246,.68)':'rgba(244,250,255,.9)';ctx.shadowColor='rgba(193,226,255,.8)';ctx.shadowBlur=7;ctx.fillText(String(label),p.x,p.y-(other?58:70));ctx.restore();}
+function updateModel(root,a,x,y,vx,vy,time,label,other=false,fx=vx,fy=vy){if(!root)return;const p=worldToScreenPrecise(x,y);root.position.x=p.x-state.width/2;root.position.y=-(p.y-state.height/2)+Math.sin(time*.0028+x*.02)*(Math.hypot(vx||0,vy||0)>18?1.3:1.8);root.position.z=0;const moving=Math.hypot(vx||0,vy||0)>18;updateCharacterFacing(root,fx,fy,ISO);switchAnimation(a,moving,time);drawEnergyLabel(x,y,label,other);}
+function ensureOtherModel(p){let e=modelCache.others.get(p.id);if(e&&e.skin===p.skin)return e;if(e){modelScene.remove(e.root);modelCache.others.delete(p.id);}const source=modelCache.otherSources.get(p.skin);if(!source){if(!modelCache.otherSources.has(p.skin)){modelCache.otherSources.set(p.skin,null);loadCharacterModel(p.skin,(g,f)=>modelCache.otherSources.set(f,{scene:g.scene,clips:g.animations||[]}));}return null;}const holder=new THREE.Group(),clone=cloneSkeleton(source.scene);clone.scale.setScalar(1);prepareModel(clone,true);holder.add(clone);const animation=setupAnimation(clone,source.clips,true);modelScene.add(holder);e={root:holder,animation,skin:p.skin};modelCache.others.set(p.id,e);return e;}
+function getCombatFacing(x,y,id,fx,fy){const o=getPlayerPosition(id);if(!o)return{x:fx,y:fy};const dx=o.x-x,dy=o.y-y,l=Math.hypot(dx,dy);return l<.001?{x:fx,y:fy}:{x:dx/l,y:dy/l};}
+function drawModels(time,dt){updateWorldTreePositions();if(!modelCache.ready){modelRenderer.render(modelScene,modelCamera);return;}const jumping=time<state.jumpUntil,combat=!state.defeated&&time<state.combatUntil;modelCache.local.visible=!jumping&&!state.defeated;if(!jumping&&!state.defeated){const f=combat?getCombatFacing(state.x,state.y,state.combatOpponentId,state.vx,state.vy):{x:state.vx,y:state.vy};updateModel(modelCache.local,modelCache.localAnimation,state.x,state.y,state.vx,state.vy,time,state.energy,false,f.x,f.y);if(combat)startAttackAnimation(modelCache.localAnimation,'right',state.combatUntil);}const alive=new Set();for(const p of state.others.values()){const e=ensureOtherModel(p);if(!e)continue;alive.add(p.id);const since=Math.min(Math.max(0,(performance.now()-p.snapshotAt)/1000),.25),px=p.targetX+p.vx*since,py=p.targetY+p.vy*since,c=1-Math.exp(-18*dt);p.displayX+=(px-p.displayX)*c;p.displayY+=(py-p.displayY)*c;const fighting=p.combatUntil>time||!!p.fightingWith,f=fighting?getCombatFacing(p.displayX,p.displayY,p.fightingWith,p.vx,p.vy):{x:p.vx||0,y:p.vy||0};if(fighting)startAttackAnimation(e.animation,p.id.charCodeAt(0)%2?'left':'right',p.combatUntil||time+FIGHT_DURATION);updateModel(e.root,e.animation,p.displayX,p.displayY,p.vx||0,p.vy||0,time,p.energy||0,true,f.x,f.y);}for(const[id,e]of modelCache.others)if(!alive.has(id)){modelScene.remove(e.root);modelCache.others.delete(id)}for(const e of modelCache.others.values())e.animation?.mixer.update(dt);modelCache.localAnimation?.mixer.update(dt);modelRenderer.render(modelScene,modelCamera);}
+function draw(time){ctx.clearRect(0,0,state.width,state.height);drawGrid(time);drawModels(time,state.lastTime?Math.min((time-state.lastTime)/1000,.05):0);const g=ctx.createRadialGradient(state.width/2,state.height/2,Math.min(state.width,state.height)*.22,state.width/2,state.height/2,Math.max(state.width,state.height)*.7);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(.58,'rgba(0,0,0,.1)');g.addColorStop(1,'rgba(0,0,0,.82)');ctx.fillStyle=g;ctx.fillRect(0,0,state.width,state.height);}
+function triggerJump(){const now=performance.now();if(now<state.jumpUntil||state.defeated||state.combatUntil>now)return;const l=Math.hypot(state.vx,state.vy);if(l<1)return;const dx=state.vx/l,dy=state.vy/l;state.jumpStart=now;state.jumpUntil=now+JUMP_DURATION;state.jumpFromX=state.x;state.jumpFromY=state.y;state.jumpToX=state.x+dx*420;state.jumpToY=state.y+dy*420;}jumpButton?.addEventListener('pointerdown',triggerJump);
+function update(dt,time){sendDailyActivityPing(time);if(state.defeated){state.vx=0;state.vy=0}else if(time<state.combatUntil){state.vx=0;state.vy=0}else if(time<state.jumpUntil){const p=Math.min(1,(time-state.jumpStart)/200);state.x=state.jumpFromX+(state.jumpToX-state.jumpFromX)*p;state.y=state.jumpFromY+(state.jumpToY-state.jumpFromY)*p;state.vx=(state.jumpToX-state.jumpFromX)/.2;state.vy=(state.jumpToY-state.jumpFromY)/.2}else{if(state.jumpStart){state.vx=0;state.vy=0;state.jumpStart=0}updatePlayerMovement(state,dt,time,ISO,worldObjects.trees)}state.cameraX=state.x;state.cameraY=state.y;coordsText.textContent=`${Math.round(state.x)} · ${Math.round(state.y)}`;if(state.socket?.connected&&!state.defeated&&time-state.lastSent>80){state.lastSent=time;state.socket.emit('echo:move',{x:state.x,y:state.y,energy:state.energy,vx:state.vx,vy:state.vy,skin:selectedModel});}}
+function triggerBoost(){const now=performance.now();if(now<state.boostCooldownUntil||state.defeated||state.combatUntil>now)return;state.boostUntil=now+700;state.boostCooldownUntil=now+3000;boostButton.classList.remove('cooldown','ready');boostButton.classList.add('active');setTimeout(()=>boostButton.classList.remove('active'),700);const countdown=document.createElement('span');countdown.className='ability-cooldown';countdown.setAttribute('aria-hidden','true');boostButton.appendChild(countdown);boostButton.classList.add('cooldown');const phases=[{value:'2',start:0,duration:850},{value:'1',start:1150,duration:1550}];let last=-1;const tick=()=>{const elapsed=performance.now()-now;if(elapsed>=3000){countdown.remove();boostButton.classList.remove('cooldown');boostButton.classList.add('ready');setTimeout(()=>boostButton.classList.remove('ready'),450);return;}const i=phases.findIndex(p=>elapsed>=p.start&&elapsed<p.start+p.duration);if(i!==last){last=i;countdown.classList.remove('countdown-pop');if(i>=0){countdown.textContent=phases[i].value;countdown.style.animationDuration=`${phases[i].duration}ms`;void countdown.offsetWidth;countdown.classList.add('countdown-pop')}else countdown.textContent='';}requestAnimationFrame(tick)};tick();}
+loadWorldTreeModel();bindPlayerControls({state,joystick,stick,boostButton,triggerBoost});function frame(time){const dt=state.lastTime?Math.min((time-state.lastTime)/1000,.05):0;update(dt,time);draw(time);state.lastTime=time;requestAnimationFrame(frame)}requestAnimationFrame(frame);
