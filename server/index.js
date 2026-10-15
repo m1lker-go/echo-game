@@ -133,12 +133,13 @@ const FOOD_RESPAWN_MAX_MS = 25_000;
 
 // The server creates one stable seeded layout shared by every player.
 const WORLD_SEED = 847291;
-const TREE_COUNT = 55;
+const TREE_COUNT = 42;
 const TREE_SCALE_MIN = 0.7;
 const TREE_SCALE_MAX = 1.0;
 const TREE_COLLISION_RADIUS = 48;
 const TREE_FOOD_CLEARANCE = 32;
 const TREE_PLAYER_CLEARANCE = 24;
+const PLAYER_COLLISION_RADIUS = 24;
 function createSeededRandom(seed) {
   let value = seed >>> 0;
   return () => {
@@ -169,7 +170,7 @@ function createWorldTrees() {
       placementRadius: 100 * scale,
     };
     // Keep the spawn area clear and allow modest visual overlap between trees.
-    if (Math.hypot(tree.x, tree.y) < 340) continue;
+    if (Math.hypot(tree.x, tree.y) < 440) continue;
     if (trees.some(other => overlapsCircle(tree, other, tree.placementRadius, other.placementRadius,
       Math.min(tree.placementRadius, other.placementRadius) * 0.4))) continue;
     trees.push(tree);
@@ -186,6 +187,21 @@ function isValidFoodPosition(position) {
   return Math.abs(position.x) <= WORLD_HALF_SIZE - 40 &&
     Math.abs(position.y) <= WORLD_HALF_SIZE - 40 &&
     !isBlockedByTree(position, TREE_FOOD_CLEARANCE);
+}
+function isValidPlayerPosition(position) {
+  return Math.abs(position.x) <= WORLD_HALF_SIZE &&
+    Math.abs(position.y) <= WORLD_HALF_SIZE &&
+    !isBlockedByTree(position, TREE_PLAYER_CLEARANCE);
+}
+function findOpenPlayerSpawn() {
+  for (let attempt = 0; attempt < 1000; attempt += 1) {
+    const point = {
+      x: randomBetween(-WORLD_HALF_SIZE + 80, WORLD_HALF_SIZE - 80),
+      y: randomBetween(-WORLD_HALF_SIZE + 80, WORLD_HALF_SIZE - 80),
+    };
+    if (isValidPlayerPosition(point)) return point;
+  }
+  return { x: 0, y: 0 };
 }
 function createFoodPoint(id) {
   for (let attempt = 0; attempt < 500; attempt += 1) {
@@ -206,8 +222,8 @@ function respawnFoodPoint(point) {
   const replacement = createFoodPoint(point.id);
   point.x = replacement.x;
   point.y = replacement.y;
-  point.active = true;
-  point.respawnAt = 0;
+  point.active = replacement.active;
+  point.respawnAt = replacement.respawnAt;
 }
 const food = new Map(Array.from({ length: FOOD_COUNT }, (_, id) => [id, createFoodPoint(id)]));
 
@@ -430,10 +446,11 @@ io.on('connection', (socket) => {
   console.log(`[socket] connected: ${socket.id}`);
 
   const requestedSkin = socket.handshake.auth?.skin;
+  const spawn = findOpenPlayerSpawn();
   players.set(socket.id, {
     id: socket.id,
-    x: 0,
-    y: 0,
+    x: spawn.x,
+    y: spawn.y,
     vx: 0,
     vy: 0,
     energy: 0,
@@ -472,12 +489,12 @@ io.on('connection', (socket) => {
       y: finiteNumber(payload.y, current.y, -WORLD_HALF_SIZE, WORLD_HALF_SIZE),
     };
     const oldPosition = { x: current.x, y: current.y };
-    if (isBlockedByTree(desired, TREE_PLAYER_CLEARANCE)) {
+    if (!isValidPlayerPosition(desired)) {
       const slideX = { x: desired.x, y: oldPosition.y };
       const slideY = { x: oldPosition.x, y: desired.y };
-      if (!isBlockedByTree(slideX, TREE_PLAYER_CLEARANCE)) {
+      if (isValidPlayerPosition(slideX)) {
         current.x = slideX.x; current.y = slideX.y;
-      } else if (!isBlockedByTree(slideY, TREE_PLAYER_CLEARANCE)) {
+      } else if (isValidPlayerPosition(slideY)) {
         current.x = slideY.x; current.y = slideY.y;
       } else {
         current.x = oldPosition.x; current.y = oldPosition.y;
