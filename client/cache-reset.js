@@ -5,11 +5,18 @@ const status = document.querySelector('#settings-cache-status');
 if (clearButton) {
   async function clearGameCacheAndReload() {
     if (clearButton.disabled) return;
-    const confirmed = window.confirm('Очистить кэш ECHO и перезагрузить игру? Профиль и выбранный персонаж не будут удалены.');
+
+    const confirmed = await window.ECHOModal.confirm({
+      title: 'СБРОС КЭША',
+      text: 'Вы уверены, что хотите сбросить кэш?',
+      confirmText: 'ДА',
+      cancelText: 'НЕТ',
+      closeOnBackdrop: false,
+    });
     if (!confirmed) return;
 
     clearButton.disabled = true;
-    clearButton.textContent = 'Очищаем кэш…';
+    clearButton.textContent = 'ОЧИЩАЕМ КЭШ…';
     if (status) status.textContent = 'Подготавливаем обновление…';
 
     try {
