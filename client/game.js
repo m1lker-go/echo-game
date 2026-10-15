@@ -23,9 +23,10 @@ const TREE_MODEL_URL = './assets/models/objects/tree.glb';
 const TREE_BASE_SCALE = 50;
 const TREE_SCALE_MIN = 0.7;
 const TREE_SCALE_MAX = 1.0;
+const MODEL_DEPTH_SCALE = 0.12;
 function createTreeGradientMaterial() {
   return new THREE.ShaderMaterial({
-    uniforms: { uOpacity: { value: 0.3 } }, // 70% transparent
+    uniforms: { uOpacity: { value: 0.45 } },
     vertexShader: `
       varying vec3 vTreeNormal;
       void main() {
@@ -40,21 +41,27 @@ function createTreeGradientMaterial() {
         vec3 normalDirection = normalize(vTreeNormal);
         if (!gl_FrontFacing) normalDirection = -normalDirection;
 
-        // Stable front-biased lighting for the fixed isometric camera:
-        // front surfaces stay bright; side/rear surfaces fall into a soft cool shadow.
-        vec3 lightDirection = normalize(vec3(-0.10, 0.18, 0.98));
+        // Light comes from the camera/front and slightly from the right:
+        // the front stays bright while the left and rear fall into shadow.
+        vec3 lightDirection = normalize(vec3(0.42, 0.24, 0.88));
         float diffuse = max(dot(normalDirection, lightDirection), 0.0);
-        float gradient = smoothstep(0.08, 0.82, diffuse);
-        float brightness = mix(0.10, 1.0, gradient);
+        float gradient = smoothstep(0.12, 0.82, diffuse);
+        float brightness = mix(0.16, 1.0, gradient);
 
-        gl_FragColor = vec4(vec3(brightness), uOpacity);
+        // Keep the tree neutral, but give the shadow a subtle cool tint so
+        // the lighting reads as volume instead of a flat gray fill.
+        vec3 lightColor = vec3(0.98, 0.99, 1.0);
+        vec3 shadowColor = vec3(0.16, 0.19, 0.23);
+        vec3 treeColor = mix(shadowColor, lightColor, brightness);
+        gl_FragColor = vec4(treeColor, uOpacity);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }
     `,
     transparent: true,
-    opacity: 0.3,
+    opacity: 0.45,
     depthWrite: false,
+    depthTest: true,
     side: THREE.DoubleSide
   });
 }
@@ -62,8 +69,6 @@ function createTreeGradientMaterial() {
 function prepareTreeMaterials(root) {
   root.traverse(child => {
     if (!child.isMesh) return;
-    // Use a solid gradient fill instead of the barely visible GLB texture.
-    // Each mesh gets its own material instance so all trees share the same look.
     child.material = Array.isArray(child.material)
       ? child.material.map(() => createTreeGradientMaterial())
       : createTreeGradientMaterial();
@@ -78,6 +83,7 @@ function addTreeModel(tree) {
   const scaleFactor = Math.max(TREE_SCALE_MIN, Math.min(TREE_SCALE_MAX, tree.scale));
   root.scale.setScalar(TREE_BASE_SCALE * scaleFactor);
   root.rotation.y = Number.isFinite(tree.rotation) ? tree.rotation : 0;
+  root.renderOrder = 10;
   tree.root = root;
   modelScene.add(root);
 }
@@ -110,7 +116,7 @@ function updateWorldTreePositions() {
     const p = worldToScreenPrecise(tree.x, tree.y);
     tree.root.position.x = p.x - state.width / 2;
     tree.root.position.y = -(p.y - state.height / 2);
-    tree.root.position.z = 0;
+    tree.root.position.z = p.y * MODEL_DEPTH_SCALE;
   }
 }
 
@@ -145,7 +151,7 @@ function returnToMenu(){const u=new URL(location.href);u.searchParams.delete('pl
 function isoProject(x,y){return{x:(x-y)*ISO.x,y:(x+y)*ISO.y};}function drawIsoLine(a,b){const pa=isoProject(a.x-state.cameraX,a.y-state.cameraY),pb=isoProject(b.x-state.cameraX,b.y-state.cameraY);ctx.moveTo(Math.round(state.width/2+pa.x)+.5,Math.round(state.height/2+pa.y)+.5);ctx.lineTo(Math.round(state.width/2+pb.x)+.5,Math.round(state.height/2+pb.y)+.5);}function worldToScreen(x,y){const p=isoProject(x,y),c=isoProject(state.cameraX,state.cameraY);return{x:Math.round(state.width/2+p.x-c.x),y:Math.round(state.height/2+p.y-c.y)}}function worldToScreenPrecise(x,y){const p=isoProject(x,y),c=isoProject(state.cameraX,state.cameraY);return{x:state.width/2+p.x-c.x,y:state.height/2+p.y-c.y}}
 function drawGrid(time){const{width,height}=state,s=84,fade=ctx.createRadialGradient(width/2,height/2,30,width/2,height/2,Math.max(width,height)*.7);fade.addColorStop(0,'rgba(169,198,228,.15)');fade.addColorStop(.55,'rgba(115,146,181,.055)');fade.addColorStop(1,'rgba(80,105,140,.004)');const rx=Math.ceil(width/ISO.x)+s*2,ry=Math.ceil(height/ISO.y)+s*2,sx=Math.floor((state.cameraX-rx)/s)*s,ex=Math.ceil((state.cameraX+rx)/s)*s,sy=Math.floor((state.cameraY-ry)/s)*s,ey=Math.ceil((state.cameraY+ry)/s)*s;ctx.strokeStyle=fade;ctx.lineWidth=1;ctx.beginPath();for(let x=sx;x<=ex;x+=s)drawIsoLine({x,y:state.cameraY-ry},{x,y:state.cameraY+ry});for(let y=sy;y<=ey;y+=s)drawIsoLine({x:state.cameraX-rx,y},{x:state.cameraX+rx,y});ctx.stroke();ctx.fillStyle='rgba(195,222,247,.12)';for(let x=sx;x<=ex;x+=s)for(let y=sy;y<=ey;y+=s){const p=worldToScreen(x,y);if(p.x>-2&&p.x<width+2&&p.y>-2&&p.y<height+2){ctx.globalAlpha=.25+.1*Math.sin(time*.0006+(x+y)*.02);ctx.fillRect(p.x-1,p.y-1,2,2)}}ctx.globalAlpha=1;}
 function drawEnergyLabel(x,y,label,other=false){const p=worldToScreen(x,y);ctx.save();ctx.font='500 11px Inter,system-ui,sans-serif';ctx.textAlign='center';ctx.fillStyle=other?'rgba(216,230,246,.68)':'rgba(244,250,255,.9)';ctx.shadowColor='rgba(193,226,255,.8)';ctx.shadowBlur=7;ctx.fillText(String(label),p.x,p.y-(other?58:70));ctx.restore();}
-function updateModel(root,a,x,y,vx,vy,time,label,other=false,fx=vx,fy=vy){if(!root)return;const p=worldToScreenPrecise(x,y);root.position.x=p.x-state.width/2;root.position.y=-(p.y-state.height/2)+Math.sin(time*.0028+x*.02)*(Math.hypot(vx||0,vy||0)>18?1.3:1.8);root.position.z=0;const moving=Math.hypot(vx||0,vy||0)>18;updateCharacterFacing(root,fx,fy,ISO);switchAnimation(a,moving,time);drawEnergyLabel(x,y,label,other);}
+function updateModel(root,a,x,y,vx,vy,time,label,other=false,fx=vx,fy=vy){if(!root)return;const p=worldToScreenPrecise(x,y);root.position.x=p.x-state.width/2;root.position.y=-(p.y-state.height/2)+Math.sin(time*.0028+x*.02)*(Math.hypot(vx||0,vy||0)>18?1.3:1.8);root.position.z=p.y*MODEL_DEPTH_SCALE;const moving=Math.hypot(vx||0,vy||0)>18;updateCharacterFacing(root,fx,fy,ISO);switchAnimation(a,moving,time);drawEnergyLabel(x,y,label,other);}
 function ensureOtherModel(p){let e=modelCache.others.get(p.id);if(e&&e.skin===p.skin)return e;if(e){modelScene.remove(e.root);modelCache.others.delete(p.id);}const source=modelCache.otherSources.get(p.skin);if(!source){if(!modelCache.otherSources.has(p.skin)){modelCache.otherSources.set(p.skin,null);loadCharacterModel(p.skin,(g,f)=>modelCache.otherSources.set(f,{scene:g.scene,clips:g.animations||[]}));}return null;}const holder=new THREE.Group(),clone=cloneSkeleton(source.scene);clone.scale.setScalar(1);prepareModel(clone,true);holder.add(clone);const animation=setupAnimation(clone,source.clips,true);modelScene.add(holder);e={root:holder,animation,skin:p.skin};modelCache.others.set(p.id,e);return e;}
 function getCombatFacing(x,y,id,fx,fy){const o=getPlayerPosition(id);if(!o)return{x:fx,y:fy};const dx=o.x-x,dy=o.y-y,l=Math.hypot(dx,dy);return l<.001?{x:fx,y:fy}:{x:dx/l,y:dy/l};}
 function drawModels(time,dt){updateWorldTreePositions();if(!modelCache.ready){modelRenderer.render(modelScene,modelCamera);return;}const jumping=time<state.jumpUntil,combat=!state.defeated&&time<state.combatUntil;modelCache.local.visible=!jumping&&!state.defeated;if(!jumping&&!state.defeated){const f=combat?getCombatFacing(state.x,state.y,state.combatOpponentId,state.vx,state.vy):{x:state.vx,y:state.vy};updateModel(modelCache.local,modelCache.localAnimation,state.x,state.y,state.vx,state.vy,time,state.energy,false,f.x,f.y);if(combat)startAttackAnimation(modelCache.localAnimation,'right',state.combatUntil);}const alive=new Set();for(const p of state.others.values()){const e=ensureOtherModel(p);if(!e)continue;alive.add(p.id);const since=Math.min(Math.max(0,(performance.now()-p.snapshotAt)/1000),.25),px=p.targetX+p.vx*since,py=p.targetY+p.vy*since,c=1-Math.exp(-18*dt);p.displayX+=(px-p.displayX)*c;p.displayY+=(py-p.displayY)*c;const fighting=p.combatUntil>time||!!p.fightingWith,f=fighting?getCombatFacing(p.displayX,p.displayY,p.fightingWith,p.vx,p.vy):{x:p.vx||0,y:p.vy||0};if(fighting)startAttackAnimation(e.animation,p.id.charCodeAt(0)%2?'left':'right',p.combatUntil||time+FIGHT_DURATION);updateModel(e.root,e.animation,p.displayX,p.displayY,p.vx||0,p.vy||0,time,p.energy||0,true,f.x,f.y);}for(const[id,e]of modelCache.others)if(!alive.has(id)){modelScene.remove(e.root);modelCache.others.delete(id)}for(const e of modelCache.others.values())e.animation?.mixer.update(dt);modelCache.localAnimation?.mixer.update(dt);modelRenderer.render(modelScene,modelCamera);}
