@@ -2,27 +2,18 @@
 
 function createFoodPoint(id, {
   isValidFoodPosition,
-  random = Math.random,
-  worldHalfSize = 4200,
   maxAttempts = 5000,
   createCandidate,
 } = {}) {
   if (typeof isValidFoodPosition !== 'function') {
     throw new TypeError('createFoodPoint requires the server world-position validator');
   }
+  if (typeof createCandidate !== 'function') {
+    throw new TypeError('createFoodPoint requires the server candidate factory');
+  }
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const point = typeof createCandidate === 'function'
-      ? createCandidate(id)
-      : {
-          id,
-          x: -worldHalfSize + 60 + random() * (worldHalfSize * 2 - 120),
-          y: -worldHalfSize + 60 + random() * (worldHalfSize * 2 - 120),
-          size: 5 + (id % 3),
-          pulse: id * 0.7,
-          active: true,
-          respawnAt: 0,
-        };
+    const point = createCandidate(id);
     if (isValidFoodPosition(point)) return point;
   }
   throw new Error(`Unable to place food point ${id} in a valid world position after ${maxAttempts} attempts`);
@@ -55,6 +46,8 @@ function refillFood(food, { now = Date.now(), createFoodPoint }) {
     const replacement = createFoodPoint(point.id);
     point.x = replacement.x;
     point.y = replacement.y;
+    point.size = replacement.size;
+    point.pulse = replacement.pulse;
     point.active = replacement.active;
     point.respawnAt = replacement.respawnAt;
     changed = true;
