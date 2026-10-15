@@ -42,6 +42,31 @@ app.get('/health', async (_req, res) => {
 });
 
 
+app.get('/api/daily-activity', async (req, res) => {
+  const profileId = normalizeActivityProfileId(req.query.profileId);
+  if (!profileId) return res.status(400).json({ error: 'Invalid profileId' });
+  const today = dailyDateKey();
+  try {
+    await ensureDailyActivityRow(profileId, today);
+    const result = await pool.query(
+      'SELECT activity_date, play_seconds, food_collected, pvp_wins FROM echo_daily_activity WHERE profile_id = $1 AND activity_date = $2::date',
+      [profileId, today]
+    );
+    const activity = result.rows[0];
+    return res.json({
+      date: today,
+      timezone: DAILY_TIME_ZONE,
+      playSeconds: Number(activity?.play_seconds || 0),
+      foodCollected: Number(activity?.food_collected || 0),
+      pvpWins: Number(activity?.pvp_wins || 0),
+    });
+  } catch (error) {
+    console.error('[daily-activity] read failed:', error.message);
+    return res.status(500).json({ error: 'Daily activity unavailable' });
+  }
+});
+
+
 const DAILY_TIME_ZONE = process.env.DAILY_TIME_ZONE || 'Europe/Moscow';
 const ACTIVE_PING_MAX_GAP_MS = 45000;
 const DAILY_ACTIVITY_FIELDS = new Set(['food_collected', 'pvp_wins']);
