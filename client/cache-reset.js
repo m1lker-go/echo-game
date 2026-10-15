@@ -7,17 +7,17 @@ if (clearButton) {
     if (clearButton.disabled) return;
 
     const confirmed = await window.ECHOModal.confirm({
-      title: 'СБРОС КЭША',
-      text: 'Вы уверены, что хотите сбросить кэш?',
-      confirmText: 'ДА',
-      cancelText: 'НЕТ',
+      title: window.$t('menu:clear_cache_confirm_title', 'СБРОС КЭША'),
+      text: window.$t('menu:clear_cache_confirm_text', 'Вы уверены, что хотите сбросить кэш?'),
+      confirmText: window.$t('menu:yes', 'ДА'),
+      cancelText: window.$t('menu:no', 'НЕТ'),
       closeOnBackdrop: false,
     });
     if (!confirmed) return;
 
     clearButton.disabled = true;
-    clearButton.textContent = 'ОЧИЩАЕМ КЭШ…';
-    if (status) status.textContent = 'Подготавливаем обновление…';
+    clearButton.textContent = window.$t('menu:clear_cache', 'Очистить кэш игры') + '…';
+    if (status) status.textContent = window.$t('menu:settings_note', 'Подготавливаем обновление…');
 
     try {
       // Leave localStorage, sessionStorage, cookies, and IndexedDB intact.
