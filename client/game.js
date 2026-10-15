@@ -35,7 +35,10 @@ function sendDailyActivityPing(now = performance.now()) {
  state.socket.emit('echo:dailyPing', { activityProfileId });
 }
 document.addEventListener('visibilitychange', () => {
- if (!document.hidden) {
+ if (!state.socket?.connected) return;
+ if (document.hidden) {
+   state.socket.emit('echo:dailyPing', { activityProfileId, active: false });
+ } else {
    lastDailyPing = -15000;
    sendDailyActivityPing();
  }
