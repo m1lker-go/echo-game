@@ -12,7 +12,7 @@ function sequenceRandom(values) {
 test('food placement only accepts a position passed by the server validator', () => {
   const point = createFoodPoint(7, {
     isValidFoodPosition: (candidate) => candidate.x === 10 && candidate.y === 10,
-    random: sequenceRandom([0.5, 0.5]),
+    random: sequenceRandom([0.5, 0.5, 0.5, 0.5]),
     worldHalfSize: 100,
     maxAttempts: 5,
   });
