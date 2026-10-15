@@ -168,6 +168,7 @@ function createWaterHighlights(water, surface) {
     glint.rotation.z = -0.16 + Math.random() * 0.32;
     glint.renderOrder = -0.8;
     glint.userData.waterGlint = spec;
+    glint.userData.baseX = glint.position.x;
     group.add(glint);
   }
   surface.add(group);
@@ -180,7 +181,7 @@ function updateWaterHighlights(time) {
     for (const glint of water.highlightLayer.children) {
       const spec = glint.userData.waterGlint;
       glint.material.opacity = spec.opacity * (0.62 + 0.38 * Math.sin(phaseBase + spec.phase));
-      glint.position.x += Math.sin(phaseBase + spec.phase) * 0.018;
+      glint.position.x = glint.userData.baseX + Math.sin(phaseBase + spec.phase) * 1.2;
     }
   }
 }
