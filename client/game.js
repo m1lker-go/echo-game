@@ -102,17 +102,21 @@ function prepareWaterMaterials(root) {
       : createWaterMaterial(child.material);
     child.castShadow = false;
     child.receiveShadow = false;
-    child.renderOrder = -1;
+    child.renderOrder = 1;
   });
 }
 function createWaterMaterial(sourceMaterial) {
-  const material = sourceMaterial?.clone?.() || new THREE.MeshStandardMaterial();
-  material.color.set(0xffffff);
-  material.transparent = true;
-  material.opacity = 0.20;
-  material.depthWrite = false;
-  material.depthTest = false;
-  material.side = THREE.DoubleSide;
+  // The GLB's atlas contains yellow base colors; use a plain neutral material
+  // so the water renders grey instead of inheriting the texture tint.
+  const material = new THREE.MeshBasicMaterial({
+    color: 0x858585,
+    transparent: true,
+    opacity: 0.20,
+    depthWrite: false,
+    depthTest: false,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+  });
   material.needsUpdate = true;
   return material;
 }
@@ -145,7 +149,7 @@ function addWaterModel(water) {
 
   holder.traverse(child => {
     if (!child.isMesh) return;
-    child.renderOrder = -1;
+    child.renderOrder = 1;
     if (child.material) {
       child.material.depthTest = false;
       child.material.depthWrite = false;
@@ -153,7 +157,7 @@ function addWaterModel(water) {
       child.material.needsUpdate = true;
     }
   });
-  holder.renderOrder = -1;
+  holder.renderOrder = 1;
   water.root = holder;
   modelScene.add(holder);
 }
@@ -192,7 +196,7 @@ function updateWorldWaterPositions() {
     water.root.position.x = p.x - state.width / 2;
     water.root.position.y = -(p.y - state.height / 2);
     water.root.position.z = -1;
-    water.root.renderOrder = -1;
+    water.root.renderOrder = 1;
   }
 }
 function isPlayerInWater(x = state.x, y = state.y) {
