@@ -2,8 +2,8 @@ const foodCanvas = document.querySelector('#shared-food');
 const energyText = document.querySelector('#energy');
 
 const FOOD_COUNT = 34;
-const FOOD_MAGNET_RADIUS = 84 * 0.9;
-const FOOD_MAGNET_STRENGTH = 7.5;
+// Food positions are server-authoritative. Do not locally pull food toward players;
+// collected points disappear only when the server snapshot removes them.
 const ISO_X = 0.8660254;
 const ISO_Y = 0.5;
 
@@ -16,7 +16,7 @@ let cameraY = 0;
 let isConnected = false;
 
 function getPoint(id, x = 0, y = 0, size = 6, pulse = 0) {
-  return { id, x, y, displayX: x, displayY: y, size, pulse };
+  return { id, x, y, size, pulse };
 }
 
 function syncFood(snapshot) {
@@ -105,7 +105,6 @@ function readCamera() {
 }
 
 function draw(time) {
-  const dt = Math.min(Math.max((time - lastTime) / 1000, 0), 0.05);
   lastTime = time;
   readCamera();
 
@@ -119,24 +118,11 @@ function draw(time) {
     if (ctx) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
-      const blend = 1 - Math.exp(-FOOD_MAGNET_STRENGTH * dt);
-
       for (const id of activeIds) {
         const point = food.get(id);
         if (!point) continue;
 
-        const dx = cameraX - point.displayX;
-        const dy = cameraY - point.displayY;
-        const distance = Math.hypot(dx, dy);
-        if (distance > 0 && distance < FOOD_MAGNET_RADIUS) {
-          point.displayX += dx * blend;
-          point.displayY += dy * blend;
-        } else {
-          point.displayX += (point.x - point.displayX) * blend;
-          point.displayY += (point.y - point.displayY) * blend;
-        }
-
-        const p = worldToScreen(point.displayX, point.displayY, cameraX, cameraY, width, height);
+        const p = worldToScreen(point.x, point.y, cameraX, cameraY, width, height);
         if (p.x < -30 || p.y < -30 || p.x > width + 30 || p.y > height + 30) continue;
 
         const pulse = 0.65 + 0.35 * Math.sin(time * 0.002 + point.pulse);
