@@ -28,8 +28,7 @@ const mainScreen = document.querySelector('#menu-main');
 const characterScreen = document.querySelector('#menu-character');
 const placeholderScreen = document.querySelector('#menu-placeholder');
 const placeholderTitle = document.querySelector('#placeholder-title');
-const placeholderDescription = document.querySelector('#placeholder-description');
-const settingsActions = document.querySelector('#settings-actions');
+const settingsScreen = document.querySelector('#menu-settings-screen');
 const characterGrid = document.querySelector('#character-grid');
 const startButton = document.querySelector('#menu-start');
 const characterButton = document.querySelector('#menu-character-button');
@@ -37,13 +36,13 @@ const settingsButton = document.querySelector('#menu-settings');
 const ratingButton = document.querySelector('#menu-rating');
 const characterBack = document.querySelector('#character-back');
 const placeholderBack = document.querySelector('#placeholder-back');
+const settingsBack = document.querySelector('#settings-back');
 
 function showScreen(screen) {
   mainScreen.hidden = screen !== 'main';
   characterScreen.hidden = screen !== 'character';
   placeholderScreen.hidden = screen !== 'placeholder';
-  if (settingsActions) settingsActions.hidden = screen !== 'settings';
-  if (placeholderDescription) placeholderDescription.hidden = screen === 'settings';
+  if (settingsScreen) settingsScreen.hidden = screen !== 'settings';
 }
 
 function openMenu() {
@@ -64,7 +63,6 @@ function openPlaceholder(title) {
 }
 
 function openSettings() {
-  placeholderTitle.textContent = 'НАСТРОЙКИ';
   showScreen('settings');
 }
 
@@ -74,6 +72,7 @@ settingsButton.addEventListener('click', openSettings);
 ratingButton.addEventListener('click', () => openPlaceholder('РЕЙТИНГ'));
 characterBack.addEventListener('click', openMenu);
 placeholderBack.addEventListener('click', openMenu);
+settingsBack?.addEventListener('click', openMenu);
 
 const loader = new GLTFLoader();
 const cardViews = new Map();
