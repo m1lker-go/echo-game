@@ -34,7 +34,18 @@
     "placeholder_preparing": "This screen is not ready yet",
     "rating_title": "LEADERBOARD",
     "cache_clearing_status": "CLEARING CACHE…",
-    "cache_preparing_status": "Preparing update…"
+    "cache_preparing_status": "Preparing update…",
+    "game_aria_label": "ECHO game",
+    "world_aria_label": "Game field",
+    "mobile_controls_aria_label": "Touch controls",
+    "joystick_aria_label": "Joystick",
+    "prototype_label": "PROTOTYPE 01",
+    "main_aria_label": "Main menu",
+    "main_screen_aria_label": "Main menu screen",
+    "character_screen_aria_label": "Character selection",
+    "placeholder_screen_aria_label": "Menu section",
+    "settings_screen_aria_label": "Game settings",
+    "language_options_aria_label": "Language selection"
   },
   "game": {
     "connection_pending": "connecting…",
@@ -51,6 +62,9 @@
     "defeat_subtitle": "Your energy has run out",
     "replay": "Play again",
     "back_to_menu": "Back to menu",
-    "coords_zero": "0 · 0"
+    "coords_zero": "0 · 0",
+    "boost_aria_label": "Boost",
+    "jump_aria_label": "Jump",
+    "defeat_aria_label": "Defeat"
   }
 }
