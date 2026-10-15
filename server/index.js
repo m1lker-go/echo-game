@@ -55,7 +55,9 @@ const ALLOWED_SKINS = new Set([
 ]);
 
 const FOOD_COUNT = 34;
-const FOOD_COLLECT_RADIUS = 32;
+// Food visually attracts inside 75.6 units. Collect slightly before its center
+// reaches the player so server snapshots remove it before it appears to stick.
+const FOOD_COLLECT_RADIUS = 60;
 const FOOD_RESPAWN_INTERVAL = 3000;
 const FOOD_RESPAWN_BATCH = 4;
 
