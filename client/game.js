@@ -109,7 +109,7 @@ function createWaterMaterial(sourceMaterial) {
   const material = sourceMaterial?.clone?.() || new THREE.MeshStandardMaterial();
   material.color.set(0xffffff);
   material.transparent = true;
-  material.opacity = 0.65;
+  material.opacity = 0.20;
   material.depthWrite = false;
   material.depthTest = false;
   material.side = THREE.DoubleSide;
