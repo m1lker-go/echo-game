@@ -278,6 +278,66 @@ function createWorldTrees() {
   return trees;
 }
 const WORLD_TREES = createWorldTrees();
+
+// Seven shared water patches. Their placement uses a separate seeded RNG so
+// adding water does not change the existing tree/food layout.
+const WATER_COUNT = 7;
+const WATER_DAMAGE_INTERVAL_MS = 300;
+const WATER_DAMAGE_AMOUNT = 1;
+const WATER_SMALL_RADIUS = 90;
+const WATER_LARGE_RADIUS = 135;
+function createWorldWaters() {
+  const waters = [];
+  const waterRandom = createSeededRandom(WORLD_SEED + 918273);
+  const randomWaterBetween = (min, max) => min + waterRandom() * (max - min);
+  const variants = ['patch-water.glb', 'patch-water.glb', 'patch-water.glb', 'patch-water-large.glb', 'patch-water-large.glb', 'patch-water-large.glb', 'patch-water-large.glb'];
+
+  for (let index = 0; index < WATER_COUNT; index += 1) {
+    const model = variants[index];
+    const scale = randomWaterBetween(0.8, 1.35);
+    const radius = (model === 'patch-water-large.glb' ? WATER_LARGE_RADIUS : WATER_SMALL_RADIUS) * scale;
+    let candidate = null;
+
+    for (let attempt = 0; attempt < 1000; attempt += 1) {
+      const point = {
+        x: randomWaterBetween(-WORLD_HALF_SIZE + radius + 100, WORLD_HALF_SIZE - radius - 100),
+        y: randomWaterBetween(-WORLD_HALF_SIZE + radius + 100, WORLD_HALF_SIZE - radius - 100),
+      };
+      if (waters.some(other => Math.hypot(point.x - other.x, point.y - other.y) < radius + other.collisionRadius + 20)) continue;
+      candidate = {
+        id: `water_${String(index + 1).padStart(2, '0')}`,
+        type: 'water',
+        model,
+        x: point.x,
+        y: point.y,
+        scale,
+        rotation: randomWaterBetween(0, Math.PI * 2),
+        collisionRadius: radius,
+      };
+      break;
+    }
+
+    if (candidate) waters.push(candidate);
+  }
+
+  if (waters.length !== WATER_COUNT) {
+    throw new Error(`[echo-server] could only place ${waters.length}/${WATER_COUNT} water patches`);
+  }
+  return waters;
+}
+const WORLD_WATERS = createWorldWaters();
+function isInWater(position) {
+  return WORLD_WATERS.some(water =>
+    Math.hypot(position.x - water.x, position.y - water.y) < water.collisionRadius
+  );
+}
+function createWorldSnapshot() {
+  return {
+    seed: WORLD_SEED,
+    trees: WORLD_TREES.map(({ id, type, x, y, scale, rotation, collisionRadius }) => ({ id, type, x, y, scale, rotation, collisionRadius })),
+    waters: WORLD_WATERS.map(({ id, type, model, x, y, scale, rotation, collisionRadius }) => ({ id, type, model, x, y, scale, rotation, collisionRadius })),
+  };
+}
 function isBlockedByTree(position, clearance = 0) {
   return WORLD_TREES.some(tree =>
     Math.hypot(position.x - tree.x, position.y - tree.y) < tree.collisionRadius + clearance
@@ -432,6 +492,10 @@ function startFight(a, b) {
   a.vy = 0;
   b.vx = 0;
   b.vy = 0;
+  a.inWater = false;
+  a.lastWaterDamageAt = 0;
+  b.inWater = false;
+  b.lastWaterDamageAt = 0;
   activeFights.set(fight.id, fight);
   emitFightState(fight);
   broadcastPlayers();
@@ -542,6 +606,8 @@ io.on('connection', (socket) => {
     vx: 0,
     vy: 0,
     energy: 0,
+    inWater: false,
+    lastWaterDamageAt: 0,
     skin: ALLOWED_SKINS.has(requestedSkin) ? requestedSkin : 'character-female-a.glb',
     fightingWith: null,
     fightId: null,
@@ -549,7 +615,7 @@ io.on('connection', (socket) => {
   });
   broadcastPlayers();
   broadcastFood();
-  socket.emit('echo:world', { seed: WORLD_SEED, trees: WORLD_TREES.map(({ id, type, x, y, scale, rotation, collisionRadius }) => ({ id, type, x, y, scale, rotation, collisionRadius })) });
+  socket.emit('echo:world', createWorldSnapshot());
 
   socket.on('echo:dailyPing', receiveActivityPing);
 
@@ -560,7 +626,7 @@ io.on('connection', (socket) => {
     const current = players.get(socket.id);
     if (current && ALLOWED_SKINS.has(requestedSkin)) current.skin = requestedSkin;
 
-    socket.emit('echo:world', { seed: WORLD_SEED, trees: WORLD_TREES.map(({ id, type, x, y, scale, rotation, collisionRadius }) => ({ id, type, x, y, scale, rotation, collisionRadius })) });
+    socket.emit('echo:world', createWorldSnapshot());
     socket.emit('echo:players', Array.from(players.values(), (player) => ({ ...player })));
     broadcastFood();
     broadcastPlayers();
@@ -592,6 +658,20 @@ io.on('connection', (socket) => {
       current.x = desired.x; current.y = desired.y;
       current.vx = finiteNumber(payload.vx, 0, -100_000, 100_000);
       current.vy = finiteNumber(payload.vy, 0, -100_000, 100_000);
+    }
+
+    const now = Date.now();
+    const inWater = isInWater(current);
+    if (!inWater) {
+      current.inWater = false;
+      current.lastWaterDamageAt = 0;
+    } else if (!current.inWater) {
+      current.inWater = true;
+      current.lastWaterDamageAt = now;
+    } else if (now - current.lastWaterDamageAt >= WATER_DAMAGE_INTERVAL_MS) {
+      const damageTicks = Math.floor((now - current.lastWaterDamageAt) / WATER_DAMAGE_INTERVAL_MS);
+      current.energy = Math.max(0, current.energy - damageTicks * WATER_DAMAGE_AMOUNT);
+      current.lastWaterDamageAt += damageTicks * WATER_DAMAGE_INTERVAL_MS;
     }
 
     const collected = collectFood(current);
