@@ -27,21 +27,17 @@ const MODEL_DEPTH_SCALE = 0.12;
 function createTreeGradientMaterial() {
   return new THREE.ShaderMaterial({
     uniforms: {
-      uOpacity: { value: 0.45 },
-      // Draw the tree as a screen-space occluder: its foliage keeps normal
-      // shape/light shading, but all fragments share one stable depth.
-      uDepth: { value: 0.0 }
+      uOpacity: { value: 0.45 }
     },
     vertexShader: `
       varying vec3 vTreeNormal;
-      uniform float uDepth;
       void main() {
         vTreeNormal = normalize(normalMatrix * normal);
+        // Preserve the tree's exact screen-space silhouette, but flatten its
+        // depth range to the object's root plane so front/back mesh sections
+        // cannot reveal animated player parts unpredictably.
         vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
-        // Move all tree surfaces onto the root's depth plane while preserving
-        // their projected X/Y shape. This prevents animated limbs/faces
-        // leaking through front/back parts of the tree mesh.
-        viewPosition.z = -uDepth;
+        viewPosition.z = modelViewMatrix[3].z;
         gl_Position = projectionMatrix * viewPosition;
       }
     `,
