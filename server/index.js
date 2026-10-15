@@ -133,7 +133,7 @@ const FOOD_RESPAWN_MAX_MS = 25_000;
 
 // The server creates one stable seeded layout shared by every player.
 const WORLD_SEED = 847291;
-const TREE_COUNT = 90;
+const TREE_COUNT = 42;
 const TREE_SCALE_MIN = 1.5;
 const TREE_SCALE_MAX = 2.5;
 // tree.glb bounding box: X=0.650015, Z=0.651140 model units.
@@ -163,78 +163,25 @@ function overlapsCircle(a, b, radiusA, radiusB, allowedOverlap = 0) {
 }
 function createWorldTrees() {
   const trees = [];
-  const clusterSizes = [2, 3, 5, 7];
-  const clusterCount = 18;
-  const clusteredTreeCount = clusterCount * 3;
-  const singleTreeCount = TREE_COUNT - clusteredTreeCount;
-  let nextId = 1;
-
-  const addTree = (x, y, scale) => {
-    trees.push({
-      id: `tree_${String(nextId++).padStart(3, '0')}`,
+  for (let attempt = 0; attempt < TREE_COUNT * 100 && trees.length < TREE_COUNT; attempt += 1) {
+    const scale = randomBetween(TREE_SCALE_MIN, TREE_SCALE_MAX);
+    const tree = {
+      id: `tree_${String(trees.length + 1).padStart(3, '0')}`,
       type: 'tree',
-      x,
-      y,
+      x: randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
+      y: randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
       scale,
       collisionRadius: TREE_COLLISION_RADIUS * scale,
       placementRadius: 100 * scale,
       rotation: randomBetween(0, Math.PI * 2),
-    });
-  };
-
-  const isOpenForTree = (x, y, scale, allowNearby = false) => {
-    const point = { x, y };
-    if (Math.hypot(x, y) < 440) return false;
-    const placementRadius = 100 * scale;
-    return !trees.some(other => overlapsCircle(
-      point,
-      other,
-      placementRadius,
-      other.placementRadius,
-      allowNearby ? Math.min(placementRadius, other.placementRadius) * 0.75 : Math.min(placementRadius, other.placementRadius) * 0.4
-    ));
-  };
-
-  // Most trees remain spread across the map, while a portion is deliberately
-  // placed in natural-looking groups of 2, 3, 5 or 7 trees.
-  for (let clusterIndex = 0; clusterIndex < clusterCount; clusterIndex += 1) {
-    const size = clusterSizes[Math.floor(worldRandom() * clusterSizes.length)];
-    let placed = false;
-    for (let attempt = 0; attempt < 300 && !placed; attempt += 1) {
-      const centerX = randomBetween(-WORLD_HALF_SIZE + 240, WORLD_HALF_SIZE - 240);
-      const centerY = randomBetween(-WORLD_HALF_SIZE + 240, WORLD_HALF_SIZE - 240);
-      if (Math.hypot(centerX, centerY) < 500) continue;
-
-      const group = [];
-      let failed = false;
-      for (let i = 0; i < size; i += 1) {
-        const angle = worldRandom() * Math.PI * 2;
-        const distance = randomBetween(90, 250);
-        const scale = randomBetween(TREE_SCALE_MIN, TREE_SCALE_MAX);
-        const x = centerX + Math.cos(angle) * distance;
-        const y = centerY + Math.sin(angle) * distance;
-        if (Math.abs(x) > WORLD_HALF_SIZE - 160 || Math.abs(y) > WORLD_HALF_SIZE - 160 ||
-            !isOpenForTree(x, y, scale, true) ||
-            group.some(other => overlapsCircle({ x, y }, other, 100 * scale, other.placementRadius, 0.2 * Math.min(100 * scale, other.placementRadius)))) {
-          failed = true;
-          break;
-        }
-        group.push({ x, y, scale, placementRadius: 100 * scale });
-      }
-      if (failed) continue;
-      group.forEach(tree => addTree(tree.x, tree.y, tree.scale));
-      placed = true;
-    }
+    };
+    // Keep the spawn area clear and allow modest visual overlap between trees.
+    // Keep the initial player spawn at the origin clear; also avoid overly dense clumps.
+    if (Math.hypot(tree.x, tree.y) < 440) continue;
+    if (trees.some(other => overlapsCircle(tree, other, tree.placementRadius, other.placementRadius,
+      Math.min(tree.placementRadius, other.placementRadius) * 0.4))) continue;
+    trees.push(tree);
   }
-
-  while (trees.length < TREE_COUNT && singleTreeCount > 0 && nextId <= TREE_COUNT) {
-    const scale = randomBetween(TREE_SCALE_MIN, TREE_SCALE_MAX);
-    const x = randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160);
-    const y = randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160);
-    if (!isOpenForTree(x, y, scale)) continue;
-    addTree(x, y, scale);
-  }
-
   return trees;
 }
 const WORLD_TREES = createWorldTrees();
@@ -310,3 +257,306 @@ function collectFood(player) {
     respawnMaxMs: FOOD_RESPAWN_MAX_MS,
   });
 }
+
+function refillFood() {
+  const changed = refillFoodCore(food, { createFoodPoint });
+  if (changed) broadcastFood();
+}
+
+setInterval(refillFood, 1000);
+
+function emitFightState(fight) {
+  const base = { fightId: fight.id, duration: FIGHT_DURATION };
+  io.to(fight.a.id).emit('echo:fight', { ...base, playerA: fight.a.id, playerB: fight.b.id });
+  io.to(fight.b.id).emit('echo:fight', { ...base, playerA: fight.b.id, playerB: fight.a.id });
+}
+
+function finishFight(fight) {
+  if (!activeFights.has(fight.id)) return;
+  activeFights.delete(fight.id);
+
+  const a = players.get(fight.a.id);
+  const b = players.get(fight.b.id);
+  if (!a || !b) {
+    if (a) a.fightingWith = null;
+    if (b) b.fightingWith = null;
+    broadcastPlayers();
+    return;
+  }
+
+  const winner = fight.a.energy > fight.b.energy ? fight.a : fight.b;
+  const loser = winner === fight.a ? fight.b : fight.a;
+  const winnerState = players.get(winner.id);
+  const loserState = players.get(loser.id);
+  if (!winnerState || !loserState) return;
+  const winnerProfileId = dailyActivityProfileIds.get(winnerState.id);
+  if (winnerProfileId) addDailyActivity(winnerProfileId, 'pvp_wins', 1).catch((error) => console.error('[daily-activity] PvP write failed:', error.message));
+
+  const winnerEnergyBefore = winnerState.energy;
+  const loserEnergy = loserState.energy;
+  winnerState.energy = Math.min(MAX_ENERGY, winnerState.energy + loserEnergy);
+  loserState.energy = 0;
+  winnerState.fightingWith = null;
+  winnerState.fightId = null;
+  loserState.fightingWith = null;
+  loserState.fightId = null;
+
+  io.to(winnerState.id).emit('echo:combatResult', {
+    fightId: fight.id,
+    result: 'win',
+    energy: winnerState.energy,
+    gained: loserEnergy,
+    opponentId: loserState.id,
+    previousEnergy: winnerEnergyBefore,
+  });
+  io.to(loserState.id).emit('echo:combatResult', {
+    fightId: fight.id,
+    result: 'lose',
+    energy: 0,
+    opponentId: winnerState.id,
+  });
+
+  players.delete(loserState.id);
+  broadcastPlayers();
+}
+
+function startFight(a, b) {
+  if (!a || !b || a.id === b.id) return false;
+  if (a.fightingWith || b.fightingWith || a.defeated || b.defeated) return false;
+  if (a.energy === b.energy) return false;
+
+  const fight = {
+    id: `${a.id}:${b.id}:${Date.now()}`,
+    a: { id: a.id, energy: a.energy },
+    b: { id: b.id, energy: b.energy },
+  };
+
+  a.fightingWith = b.id;
+  b.fightingWith = a.id;
+  a.fightId = fight.id;
+  b.fightId = fight.id;
+  a.vx = 0;
+  a.vy = 0;
+  b.vx = 0;
+  b.vy = 0;
+  activeFights.set(fight.id, fight);
+  emitFightState(fight);
+  broadcastPlayers();
+  setTimeout(() => finishFight(fight), FIGHT_DURATION);
+  return true;
+}
+
+function checkForFights(source) {
+  if (!source || source.fightingWith || source.defeated) return;
+  for (const opponent of players.values()) {
+    if (opponent.id === source.id || opponent.fightingWith || opponent.defeated) continue;
+    if (opponent.energy === source.energy) continue;
+    const distance = Math.hypot(source.x - opponent.x, source.y - opponent.y);
+    if (distance > FIGHT_DISTANCE) continue;
+    if (startFight(source, opponent)) return;
+  }
+}
+
+io.on('connection', (socket) => {
+  let activityProfileId = normalizeActivityProfileId(socket.handshake.auth?.activityProfileId);
+  if (activityProfileId) claimActivityProfileSocket(socket, activityProfileId);
+  let lastPingAt = 0;
+  let lastPersistedAt = Date.now();
+  let dayKey = dailyDateKey();
+  let writeQueue = Promise.resolve();
+  const enqueueWrite = (operation) => {
+    writeQueue = writeQueue.then(operation).catch((error) => console.error('[daily-activity] write failed:', error.message));
+    return writeQueue;
+  };
+  const collectElapsedTime = (now = Date.now()) => {
+    if (!activityProfileId) { lastPersistedAt = now; return; }
+    const today = dailyDateKey(new Date(now));
+    if (today !== dayKey) {
+      lastPersistedAt = now;
+      dayKey = today;
+      const profileId = activityProfileId;
+      enqueueWrite(() => ensureDailyActivityRow(profileId, today));
+      return;
+    }
+    const elapsed = Math.floor((now - lastPersistedAt) / 1000);
+    lastPersistedAt = now;
+    if (elapsed > 0 && elapsed <= 60) {
+      const profileId = activityProfileId;
+      const intervalDate = dayKey;
+      enqueueWrite(() => addDailyPlaySeconds(profileId, elapsed, intervalDate));
+    }
+  };
+  const receiveActivityPing = (payload) => {
+    const now = Date.now();
+    const today = dailyDateKey(new Date(now));
+    const requestedProfileId = normalizeActivityProfileId(payload?.activityProfileId);
+
+    if (requestedProfileId && requestedProfileId !== activityProfileId) {
+      const previousProfileId = activityProfileId;
+      if (previousProfileId && activityProfileSockets.get(previousProfileId) === socket.id) activityProfileSockets.delete(previousProfileId);
+      activityProfileId = requestedProfileId;
+      claimActivityProfileSocket(socket, activityProfileId);
+      dailyActivityProfileIds.set(socket.id, activityProfileId);
+      dayKey = today;
+      lastPersistedAt = now;
+      lastPingAt = 0;
+      socket.data.activityPaused = payload?.active === false;
+      enqueueWrite(() => ensureDailyActivityRow(activityProfileId, today));
+    }
+
+    if (!activityProfileId) return;
+    if (today !== dayKey) {
+      dayKey = today;
+      lastPersistedAt = now;
+      enqueueWrite(() => ensureDailyActivityRow(activityProfileId, today));
+    } else if (payload?.active === false) {
+      if (lastPingAt && now - lastPingAt <= ACTIVE_PING_MAX_GAP_MS) collectElapsedTime(now);
+      else lastPersistedAt = now;
+    } else if (lastPingAt && now - lastPingAt > ACTIVE_PING_MAX_GAP_MS) {
+      lastPersistedAt = now;
+    } else if (!lastPingAt) {
+      lastPersistedAt = now;
+    } else {
+      collectElapsedTime(now);
+    }
+
+    socket.data.activityPaused = payload?.active === false;
+    lastPingAt = now;
+    socket.emit('echo:dailyActivity', { date: today, active: !socket.data.activityPaused });
+  };
+  const activityInterval = setInterval(() => {
+    const now = Date.now();
+    if (activityProfileId && !socket.data.activityPaused && lastPingAt && now - lastPingAt <= ACTIVE_PING_MAX_GAP_MS) {
+      collectElapsedTime(now);
+    } else if (lastPingAt && now - lastPingAt > ACTIVE_PING_MAX_GAP_MS) {
+      lastPingAt = 0;
+      lastPersistedAt = now;
+      dayKey = dailyDateKey(new Date(now));
+    } else {
+      lastPersistedAt = now;
+      dayKey = dailyDateKey(new Date(now));
+    }
+  }, 15000);
+
+  console.log(`[socket] connected: ${socket.id}`);
+
+  const requestedSkin = socket.handshake.auth?.skin;
+  const spawn = findOpenPlayerSpawn();
+  players.set(socket.id, {
+    id: socket.id,
+    x: spawn.x,
+    y: spawn.y,
+    vx: 0,
+    vy: 0,
+    energy: 0,
+    skin: ALLOWED_SKINS.has(requestedSkin) ? requestedSkin : 'character-female-a.glb',
+    fightingWith: null,
+    fightId: null,
+    defeated: false,
+  });
+  broadcastPlayers();
+  broadcastFood();
+  socket.emit('echo:world', { seed: WORLD_SEED, trees: WORLD_TREES.map(({ id, type, x, y, scale, rotation, collisionRadius }) => ({ id, type, x, y, scale, rotation, collisionRadius })) });
+
+  socket.on('echo:dailyPing', receiveActivityPing);
+
+  socket.on('echo:hello', (payload) => {
+    const helloProfileId = normalizeActivityProfileId(payload?.activityProfileId);
+    if (helloProfileId && !activityProfileId) receiveActivityPing({ activityProfileId: helloProfileId });
+    const requestedSkin = payload?.skin;
+    const current = players.get(socket.id);
+    if (current && ALLOWED_SKINS.has(requestedSkin)) current.skin = requestedSkin;
+
+    socket.emit('echo:world', { seed: WORLD_SEED, trees: WORLD_TREES.map(({ id, type, x, y, scale, rotation, collisionRadius }) => ({ id, type, x, y, scale, rotation, collisionRadius })) });
+    socket.emit('echo:players', Array.from(players.values(), (player) => ({ ...player })));
+    broadcastFood();
+    broadcastPlayers();
+  });
+
+  socket.on('echo:move', (payload) => {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return;
+
+    const current = players.get(socket.id);
+    if (!current || current.defeated || current.fightingWith) return;
+
+    const desired = {
+      x: finiteNumber(payload.x, current.x, -WORLD_HALF_SIZE, WORLD_HALF_SIZE),
+      y: finiteNumber(payload.y, current.y, -WORLD_HALF_SIZE, WORLD_HALF_SIZE),
+    };
+    const oldPosition = { x: current.x, y: current.y };
+    if (!isValidPlayerPosition(desired)) {
+      const slideX = { x: desired.x, y: oldPosition.y };
+      const slideY = { x: oldPosition.x, y: desired.y };
+      if (isValidPlayerPosition(slideX)) {
+        current.x = slideX.x; current.y = slideX.y;
+      } else if (isValidPlayerPosition(slideY)) {
+        current.x = slideY.x; current.y = slideY.y;
+      } else {
+        current.x = oldPosition.x; current.y = oldPosition.y;
+      }
+      current.vx = 0; current.vy = 0;
+    } else {
+      current.x = desired.x; current.y = desired.y;
+      current.vx = finiteNumber(payload.vx, 0, -100_000, 100_000);
+      current.vy = finiteNumber(payload.vy, 0, -100_000, 100_000);
+    }
+
+    const collected = collectFood(current);
+    if (collected > 0) {
+      current.energy = Math.min(MAX_ENERGY, current.energy + collected);
+      const profileId = dailyActivityProfileIds.get(socket.id);
+      if (profileId) addDailyActivity(profileId, 'food_collected', collected).catch((error) => console.error('[daily-activity] food write failed:', error.message));
+    }
+
+    const requestedSkin = payload.skin;
+    if (ALLOWED_SKINS.has(requestedSkin)) current.skin = requestedSkin;
+
+    checkForFights(current);
+    broadcastPlayers();
+    if (collected > 0) broadcastFood();
+  });
+
+  socket.on('disconnect', (reason) => {
+    collectElapsedTime();
+    clearInterval(activityInterval);
+    dailyActivityProfileIds.delete(socket.id);
+    if (activityProfileId && activityProfileSockets.get(activityProfileId) === socket.id) activityProfileSockets.delete(activityProfileId);
+    const current = players.get(socket.id);
+    if (current?.fightingWith) {
+      const opponent = players.get(current.fightingWith);
+      if (opponent) {
+        opponent.fightingWith = null;
+        opponent.fightId = null;
+      }
+      if (current.fightId) activeFights.delete(current.fightId);
+    }
+    players.delete(socket.id);
+    console.log(`[socket] disconnected: ${socket.id} (${reason})`);
+    broadcastPlayers();
+  });
+});
+
+server.listen(port, '0.0.0.0', async () => {
+  console.log(`[echo-server] listening on port ${port}`);
+  try {
+    await checkDatabase();
+    await ensureDailyActivitySchema();
+    console.log('[echo-server] database connection OK');
+    console.log('[daily-activity] ready; timezone=' + DAILY_TIME_ZONE);
+  } catch (error) {
+    console.error('[echo-server] database connection failed:', error.message);
+  }
+});
+
+async function shutdown(signal) {
+  console.log(`[echo-server] received ${signal}; shutting down`);
+  io.close();
+  server.close(async () => {
+    await pool.end();
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(1), 10000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
