@@ -119,36 +119,45 @@ function createWaterMaterial(sourceMaterial) {
 function addWaterModel(water) {
   const source = worldObjects.waterSources.get(water.model);
   if (!source || water.root) return;
-  const root = cloneSkeleton(source);
-  prepareWaterMaterials(root);
 
-  // Normalize model-local transforms first: water assets may be authored with
-  // an origin below/above the actual surface or with a non-ground-facing plane.
-  root.rotation.set(0, 0, 0);
-  root.scale.setScalar(1);
-  root.updateMatrixWorld(true);
-  const bounds = new THREE.Box3().setFromObject(root);
-  const size = bounds.getSize(new THREE.Vector3());
+  // The world renderer uses X/Y for the isometric ground plane and Z for depth.
+  // GLB assets are usually authored Y-up with ground patches lying in X/Z,
+  // which makes them edge-on unless we rotate that plane into X/Y.
+  const surface = cloneSkeleton(source);
+  prepareWaterMaterials(surface);
+  surface.rotation.set(0, 0, 0);
+  surface.scale.setScalar(1);
+  surface.updateMatrixWorld(true);
+
+  const sourceBounds = new THREE.Box3().setFromObject(surface);
+  const sourceSize = sourceBounds.getSize(new THREE.Vector3());
+  const smallestAxis = Math.min(sourceSize.x, sourceSize.y, sourceSize.z);
+
+  // Rotate whichever thin axis is the asset's thickness so it becomes depth (Z).
+  const epsilon = Math.max(sourceSize.x, sourceSize.y, sourceSize.z) * 0.02;
+  if (Math.abs(sourceSize.y - smallestAxis) <= epsilon) {
+    surface.rotation.x = Math.PI / 2; // common GLB ground plane: X/Z
+  } else if (Math.abs(sourceSize.x - smallestAxis) <= epsilon) {
+    surface.rotation.y = Math.PI / 2; // ground plane: Y/Z
+  } // If Z is thinnest, the model is already in X/Y.
+
+  surface.scale.setScalar(WATER_MODEL_BASE_SCALE * water.scale);
+  surface.rotation.z = Number.isFinite(water.rotation) ? water.rotation : 0;
+  surface.updateMatrixWorld(true);
+
+  const bounds = new THREE.Box3().setFromObject(surface);
   const center = bounds.getCenter(new THREE.Vector3());
+  const holder = new THREE.Group();
+  holder.add(surface);
 
-  // Lay the broadest horizontal face flat in our 2D isometric scene (X/Y plane),
-  // scale the GLB by the shared ×50 convention, and move its center onto ground.
-  if (size.y > size.z && size.y >= size.x) root.rotation.x = Math.PI / 2;
-  else if (size.z > size.x && size.z >= size.y) root.rotation.x = 0;
+  // Center the patch on its authoritative server coordinate and rest its lowest
+  // point just above the ground/depth plane.
+  surface.position.x -= center.x;
+  surface.position.y -= center.y;
+  surface.position.z -= bounds.min.z;
+  holder.position.z = 0.5;
 
-  root.scale.setScalar(WATER_MODEL_BASE_SCALE * water.scale);
-  root.rotation.z = Number.isFinite(water.rotation) ? water.rotation : 0;
-  root.updateMatrixWorld(true);
-
-  const flatBounds = new THREE.Box3().setFromObject(root);
-  const flatCenter = flatBounds.getCenter(new THREE.Vector3());
-  const flatSize = flatBounds.getSize(new THREE.Vector3());
-  root.position.x = -flatCenter.x;
-  root.position.y = -flatCenter.y;
-  root.position.z = -flatBounds.min.z + 0.5;
-
-  // Render puddles above the ground-layer silhouettes, but below the players.
-  root.traverse(child => {
+  holder.traverse(child => {
     if (!child.isMesh) return;
     child.renderOrder = 1;
     if (child.material) {
@@ -157,10 +166,9 @@ function addWaterModel(water) {
       child.material.needsUpdate = true;
     }
   });
-  root.renderOrder = 1;
-  water.root = root;
-  water.localGroundOffset = root.position.z;
-  modelScene.add(root);
+  holder.renderOrder = 1;
+  water.root = holder;
+  modelScene.add(holder);
 }
 function renderWorldWaters(snapshot) {
   if (!Array.isArray(snapshot)) return;
@@ -196,7 +204,7 @@ function updateWorldWaterPositions() {
     const p = worldToScreenPrecise(water.x, water.y);
     water.root.position.x = p.x - state.width / 2;
     water.root.position.y = -(p.y - state.height / 2);
-    water.root.position.z = water.localGroundOffset ?? 0.5;
+    water.root.position.z = 0.5;
     water.root.renderOrder = 1;
   }
 }
