@@ -73,7 +73,12 @@
 
       <div id="menu-placeholder" class="menu-screen placeholder-screen" hidden>
         <h1 id="placeholder-title">РАЗДЕЛ</h1>
-        <p>Этот экран пока готовится</p>
+        <p id="placeholder-description">Этот экран пока готовится</p>
+        <div id="settings-actions" class="settings-actions" hidden>
+          <button id="settings-clear-cache" class="menu-button settings-cache-button" type="button">Очистить кэш игры</button>
+          <p class="settings-note">Перезагрузит ECHO и запросит свежие файлы. Профиль и выбранный персонаж сохранятся.</p>
+          <p id="settings-cache-status" class="settings-status" role="status" aria-live="polite"></p>
+        </div>
         <button id="placeholder-back" class="menu-back" type="button">Назад</button>
       </div>
     </section>
