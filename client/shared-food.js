@@ -177,9 +177,6 @@ function draw(time) {
         const p = worldToScreen(point.displayX, point.displayY, cameraX, cameraY, width, height);
         // Offscreen points are normal; keep them in the snapshot and only skip drawing here.
         if (p.x < -30 || p.y < -30 || p.x > width + 30 || p.y > height + 30) continue;
-        if (point.id < 8 && time - lastDebugLog > 5000) {
-          console.debug('[echo:food] sample point:', point.id, 'world:', point.x, point.y, 'screen:', p.x, p.y, 'camera:', cameraX, cameraY);
-        }
         const pulse = 0.65 + 0.35 * Math.sin(time * 0.002 + point.pulse);
         const radius = point.size * pulse;
         const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius * 3.2);
