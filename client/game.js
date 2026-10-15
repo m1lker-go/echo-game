@@ -16,7 +16,16 @@ const state={x:0,y:0,vx:0,vy:0,energy:0,cameraX:0,cameraY:0,inputX:0,inputY:0,wi
 const WORLD={spacing:84},ISO={x:.8660254,y:.5},JUMP_DISTANCE=420,JUMP_DURATION=200,FIGHT_DURATION=1000;
 const modelScene=new THREE.Scene(),modelCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,1000);modelCamera.position.z=100;const modelRenderer=new THREE.WebGLRenderer({canvas:modelCanvas,alpha:true,antialias:true});modelRenderer.setPixelRatio(Math.min(devicePixelRatio||1,2));modelRenderer.outputColorSpace=THREE.SRGBColorSpace;modelRenderer.setClearColor(0,0);const ambientLight=new THREE.AmbientLight(0xffffff,2.0);modelScene.add(ambientLight);const keyLight=new THREE.DirectionalLight(0xffffff,3.6);keyLight.position.set(-100,57.735,0);modelScene.add(keyLight);
 const loader=new GLTFLoader(),DEFAULT_MODEL='character-female-a.glb',ALLOWED_MODELS=new Set(['character-female-a.glb','character-female-b.glb','character-female-c.glb','character-female-d.glb','character-female-e.glb','character-female-f.glb','character-male-a.glb','character-male-b.glb','character-male-c.glb','character-male-d.glb','character-male-e.glb','character-male-f.glb']),selectedModel=ALLOWED_MODELS.has(localStorage.getItem('echo.selectedModel'))?localStorage.getItem('echo.selectedModel'):DEFAULT_MODEL,modelCache={source:null,clips:[],local:null,localAnimation:null,others:new Map(),otherSources:new Map(),ready:false};
-const worldObjects = { trees: [], treeSource: null, treeLoading: false };
+const worldObjects = {
+  trees: [],
+  treeSource: null,
+  treeLoading: false,
+  waters: [],
+  waterSources: new Map(),
+  waterLoading: new Set(),
+};
+const WATER_MODEL_BASE_SCALE = 50;
+const WATER_MODEL_URLS = ['./assets/models/objects/patch-water.glb', './assets/models/objects/patch-water-large.glb'];
 const TREE_MODEL_URL = './assets/models/objects/tree.glb';
 const TREE_BASE_SCALE = 50;
 const TREE_SCALE_MIN = 1.5;
@@ -85,6 +94,80 @@ function updateWorldTreePositions() {
     tree.root.renderOrder = 0;
   }
 }
+function prepareWaterMaterials(root) {
+  root.traverse(child => {
+    if (!child.isMesh) return;
+    child.material = Array.isArray(child.material)
+      ? child.material.map(material => createWaterMaterial(material))
+      : createWaterMaterial(child.material);
+    child.castShadow = false;
+    child.receiveShadow = false;
+    child.renderOrder = -1;
+  });
+}
+function createWaterMaterial(sourceMaterial) {
+  const material = sourceMaterial?.clone?.() || new THREE.MeshStandardMaterial();
+  material.color.set(0xffffff);
+  material.transparent = true;
+  material.opacity = 0.3;
+  material.depthWrite = false;
+  material.depthTest = false;
+  material.side = THREE.DoubleSide;
+  material.needsUpdate = true;
+  return material;
+}
+function addWaterModel(water) {
+  const source = worldObjects.waterSources.get(water.model);
+  if (!source || water.root) return;
+  const root = cloneSkeleton(source);
+  prepareWaterMaterials(root);
+  root.scale.setScalar(WATER_MODEL_BASE_SCALE * water.scale);
+  root.rotation.set(0, 0, Number.isFinite(water.rotation) ? water.rotation : 0);
+  root.renderOrder = -1;
+  water.root = root;
+  modelScene.add(root);
+}
+function renderWorldWaters(snapshot) {
+  if (!Array.isArray(snapshot)) return;
+  for (const water of worldObjects.waters) if (water.root) modelScene.remove(water.root);
+  worldObjects.waters = snapshot.filter(water =>
+    water && typeof water.id === 'string' &&
+    (water.model === 'patch-water.glb' || water.model === 'patch-water-large.glb') &&
+    Number.isFinite(water.x) && Number.isFinite(water.y) &&
+    Number.isFinite(water.scale) && water.scale > 0 &&
+    Number.isFinite(water.collisionRadius) && water.collisionRadius > 0
+  ).map(water => ({ ...water, root: null }));
+  for (const water of worldObjects.waters) addWaterModel(water);
+}
+function loadWorldWaterModels() {
+  for (const url of WATER_MODEL_URLS) {
+    const file = url.split('/').pop();
+    if (worldObjects.waterSources.has(file) || worldObjects.waterLoading.has(file)) continue;
+    worldObjects.waterLoading.add(file);
+    loader.load(url, gltf => {
+      worldObjects.waterSources.set(file, gltf.scene);
+      worldObjects.waterLoading.delete(file);
+      for (const water of worldObjects.waters) if (water.model === file) addWaterModel(water);
+      console.log(`[echo] water model loaded: ${file}`);
+    }, undefined, error => {
+      worldObjects.waterLoading.delete(file);
+      console.error(`[echo] failed to load water model: ${file}`, error);
+    });
+  }
+}
+function updateWorldWaterPositions() {
+  for (const water of worldObjects.waters) {
+    if (!water.root) continue;
+    const p = worldToScreenPrecise(water.x, water.y);
+    water.root.position.x = p.x - state.width / 2;
+    water.root.position.y = -(p.y - state.height / 2);
+    water.root.position.z = -1;
+    water.root.renderOrder = -1;
+  }
+}
+function isPlayerInWater(x = state.x, y = state.y) {
+  return worldObjects.waters.some(water => Math.hypot(x - water.x, y - water.y) < water.collisionRadius);
+}
 
 function prepareModel(root,isOther=false){root.traverse(child=>{if(!child.isMesh)return;child.castShadow=false;child.receiveShadow=false;if(child.material){child.material=child.material.clone();if('emissiveIntensity' in child.material)child.material.emissiveIntensity=isOther?0.9:1.1;}});root.scale.setScalar(isOther?42:50);return root;}
 function findClip(clips,names){const wanted=names.map(n=>n.toLowerCase());return clips.find(c=>wanted.some(n=>c.name.toLowerCase()===n))||clips.find(c=>wanted.some(n=>c.name.toLowerCase().includes(n)));}
@@ -97,7 +180,7 @@ function resize(){const r=canvas.getBoundingClientRect();state.dpr=Math.min(devi
 function setConnection(s,l){connectionDot.classList.toggle('online',s==='online');connectionDot.classList.toggle('offline',s==='offline');connectionLabel.textContent=window.$t?window.$t(l,l):l;}function getPlayerPosition(id){if(!id)return null;if(id===state.socket?.id)return{x:state.x,y:state.y};const p=state.others.get(id);return p?{x:p.displayX??p.targetX,y:p.displayY??p.targetY}:null;}
 function beginCombatVisual(a,b,fid){const now=performance.now(),local=a===state.socket?.id||b===state.socket?.id,oid=a===state.socket?.id?b:a===state.socket?.id?a:null;if(!local){const x=state.others.get(a),y=state.others.get(b);if(x){x.combatUntil=now+FIGHT_DURATION;x.combatFightId=fid;x.fightingWith=b;}if(y){y.combatUntil=now+FIGHT_DURATION;y.combatFightId=fid;y.fightingWith=a;}return;}state.combatUntil=now+FIGHT_DURATION;state.combatOpponentId=oid;state.combatFightId=fid;state.vx=0;state.vy=0;const o=state.others.get(oid);if(o)o.combatUntil=now+FIGHT_DURATION;}
 function showDefeat(){state.defeated=true;state.combatUntil=0;state.combatOpponentId=null;state.vx=0;state.vy=0;energyText.textContent='0';defeatScreen.hidden=false;}function startNewGame(){const u=new URL(location.href);u.searchParams.set('play','1');location.href=u.toString();}defeatReplay?.addEventListener('click',startNewGame);defeatMenu?.addEventListener('click',returnToMenu);
-function connectSocket(){if(!window.io){setConnection('offline','game:connection_local');return;}try{state.socket=window.io(window.ECHO_SERVER_URL||location.origin,{path:'/echo/socket.io/',transports:['websocket','polling'],reconnection:true,timeout:5000,auth:{skin:selectedModel,activityProfileId}});window.echoSocket=state.socket;state.socket.on('echo:world',world=>{if(world&&Array.isArray(world.trees))renderWorldTrees(world.trees);});state.socket.on('connect',()=>{setConnection('online','game:connection_online');state.socket.emit('echo:hello',{version:1,skin:selectedModel,activityProfileId});lastDailyPing=-15000;sendDailyActivityPing();});state.socket.on('disconnect',()=>setConnection('offline','game:connection_offline'));state.socket.on('connect_error',()=>setConnection('offline','game:connection_pending'));state.socket.on('echo:fight',({fightId,playerA,playerB})=>beginCombatVisual(playerA,playerB,fightId));state.socket.on('echo:combatResult',({fightId,result,energy})=>{if(fightId!==state.combatFightId)return;state.combatUntil=0;state.combatOpponentId=null;state.combatFightId=null;if(result==='lose'){state.energy=0;showDefeat();}else{state.energy=Number.isFinite(energy)?energy:state.energy;energyText.textContent=String(state.energy);}});state.socket.on('echo:players',players=>{if(!Array.isArray(players))return;const now=performance.now(),next=new Map();for(const p of players){if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;if(p.id===state.socket.id){if(Number.isFinite(p.energy))state.energy=Math.max(0,Math.round(p.energy));continue;}const old=state.others.get(p.id),skin=ALLOWED_MODELS.has(p.skin)?p.skin:DEFAULT_MODEL,t={...p,skin,previousX:old?.targetX??p.x,previousY:old?.targetY??p.y,targetX:p.x,targetY:p.y,previousSnapshotAt:old?.snapshotAt??now-80,snapshotAt:now,displayX:old?.displayX??p.x,displayY:old?.displayY??p.y,vx:Number.isFinite(p.vx)?p.vx:0,vy:Number.isFinite(p.vy)?p.vy:0,combatUntil:old?.combatUntil??(p.fightingWith?now+FIGHT_DURATION:0),combatFightId:old?.combatFightId??p.fightId??null};if(!old){t.previousSnapshotAt=now-120;t.previousX=p.x;t.previousY=p.y;}next.set(p.id,t);}state.others=next;state.lastSnapshotAt=now;});}catch{setConnection('offline','game:connection_local');}}connectSocket();
+function connectSocket(){if(!window.io){setConnection('offline','game:connection_local');return;}try{state.socket=window.io(window.ECHO_SERVER_URL||location.origin,{path:'/echo/socket.io/',transports:['websocket','polling'],reconnection:true,timeout:5000,auth:{skin:selectedModel,activityProfileId}});window.echoSocket=state.socket;state.socket.on('echo:world',world=>{if(world&&Array.isArray(world.trees))renderWorldTrees(world.trees);if(world&&Array.isArray(world.waters))renderWorldWaters(world.waters);});state.socket.on('connect',()=>{setConnection('online','game:connection_online');state.socket.emit('echo:hello',{version:1,skin:selectedModel,activityProfileId});lastDailyPing=-15000;sendDailyActivityPing();});state.socket.on('disconnect',()=>setConnection('offline','game:connection_offline'));state.socket.on('connect_error',()=>setConnection('offline','game:connection_pending'));state.socket.on('echo:fight',({fightId,playerA,playerB})=>beginCombatVisual(playerA,playerB,fightId));state.socket.on('echo:combatResult',({fightId,result,energy})=>{if(fightId!==state.combatFightId)return;state.combatUntil=0;state.combatOpponentId=null;state.combatFightId=null;if(result==='lose'){state.energy=0;showDefeat();}else{state.energy=Number.isFinite(energy)?energy:state.energy;energyText.textContent=String(state.energy);}});state.socket.on('echo:players',players=>{if(!Array.isArray(players))return;const now=performance.now(),next=new Map();for(const p of players){if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;if(p.id===state.socket.id){if(Number.isFinite(p.energy)){state.energy=Math.max(0,Math.round(p.energy));energyText.textContent=String(state.energy);}continue;}const old=state.others.get(p.id),skin=ALLOWED_MODELS.has(p.skin)?p.skin:DEFAULT_MODEL,t={...p,skin,previousX:old?.targetX??p.x,previousY:old?.targetY??p.y,targetX:p.x,targetY:p.y,previousSnapshotAt:old?.snapshotAt??now-80,snapshotAt:now,displayX:old?.displayX??p.x,displayY:old?.displayY??p.y,vx:Number.isFinite(p.vx)?p.vx:0,vy:Number.isFinite(p.vy)?p.vy:0,combatUntil:old?.combatUntil??(p.fightingWith?now+FIGHT_DURATION:0),combatFightId:old?.combatFightId??p.fightId??null};if(!old){t.previousSnapshotAt=now-120;t.previousX=p.x;t.previousY=p.y;}next.set(p.id,t);}state.others=next;state.lastSnapshotAt=now;});}catch{setConnection('offline','game:connection_local');}}connectSocket();
 let lastDailyPing = 0;
 function sendDailyActivityPing(now = performance.now()) {
  if (!state.socket?.connected || document.hidden || now - lastDailyPing < 15000) return;
@@ -123,11 +206,11 @@ function drawEnergyLabel(x,y,label,other=false){const p=worldToScreen(x,y);ctx.s
 function updateModel(root,a,x,y,vx,vy,time,label,other=false,fx=vx,fy=vy){if(!root)return;const p=worldToScreenPrecise(x,y);root.position.x=p.x-state.width/2;root.position.y=-(p.y-state.height/2)+Math.sin(time*.0028+x*.02)*(Math.hypot(vx||0,vy||0)>18?1.3:1.8);root.position.z=0;root.renderOrder=0;const moving=Math.hypot(vx||0,vy||0)>18;updateCharacterFacing(root,fx,fy,ISO);switchAnimation(a,moving,time);drawEnergyLabel(x,y,label,other);}
 function ensureOtherModel(p){let e=modelCache.others.get(p.id);if(e&&e.skin===p.skin)return e;if(e){modelScene.remove(e.root);modelCache.others.delete(p.id);}const source=modelCache.otherSources.get(p.skin);if(!source){if(!modelCache.otherSources.has(p.skin)){modelCache.otherSources.set(p.skin,null);loadCharacterModel(p.skin,(g,f)=>modelCache.otherSources.set(f,{scene:g.scene,clips:g.animations||[]}));}return null;}const holder=new THREE.Group(),clone=cloneSkeleton(source.scene);clone.scale.setScalar(1);prepareModel(clone,true);holder.add(clone);const animation=setupAnimation(clone,source.clips,true);modelScene.add(holder);e={root:holder,animation,skin:p.skin};modelCache.others.set(p.id,e);return e;}
 function getCombatFacing(x,y,id,fx,fy){const o=getPlayerPosition(id);if(!o)return{x:fx,y:fy};const dx=o.x-x,dy=o.y-y,l=Math.hypot(dx,dy);return l<.001?{x:fx,y:fy}:{x:dx/l,y:dy/l};}
-function drawModels(time,dt){updateWorldTreePositions();if(!modelCache.ready){modelRenderer.render(modelScene,modelCamera);return;}const jumping=time<state.jumpUntil,combat=!state.defeated&&time<state.combatUntil;modelCache.local.visible=!jumping&&!state.defeated;if(!jumping&&!state.defeated){const f=combat?getCombatFacing(state.x,state.y,state.combatOpponentId,state.vx,state.vy):{x:state.vx,y:state.vy};updateModel(modelCache.local,modelCache.localAnimation,state.x,state.y,state.vx,state.vy,time,state.energy,false,f.x,f.y);if(combat)startAttackAnimation(modelCache.localAnimation,'right',state.combatUntil);}const alive=new Set();for(const p of state.others.values()){const e=ensureOtherModel(p);if(!e)continue;alive.add(p.id);const since=Math.min(Math.max(0,(performance.now()-p.snapshotAt)/1000),.25),px=p.targetX+p.vx*since,py=p.targetY+p.vy*since,c=1-Math.exp(-18*dt);p.displayX+=(px-p.displayX)*c;p.displayY+=(py-p.displayY)*c;const fighting=p.combatUntil>time||!!p.fightingWith,f=fighting?getCombatFacing(p.displayX,p.displayY,p.fightingWith,p.vx,p.vy):{x:p.vx||0,y:p.vy||0};if(fighting)startAttackAnimation(e.animation,p.id.charCodeAt(0)%2?'left':'right',p.combatUntil||time+FIGHT_DURATION);updateModel(e.root,e.animation,p.displayX,p.displayY,p.vx||0,p.vy||0,time,p.energy||0,true,f.x,f.y);}for(const[id,e]of modelCache.others)if(!alive.has(id)){modelScene.remove(e.root);modelCache.others.delete(id)}for(const e of modelCache.others.values())e.animation?.mixer.update(dt);modelCache.localAnimation?.mixer.update(dt);modelRenderer.render(modelScene,modelCamera);}
+function drawModels(time,dt){updateWorldTreePositions();updateWorldWaterPositions();if(!modelCache.ready){modelRenderer.render(modelScene,modelCamera);return;}const jumping=time<state.jumpUntil,combat=!state.defeated&&time<state.combatUntil;modelCache.local.visible=!jumping&&!state.defeated;if(!jumping&&!state.defeated){const f=combat?getCombatFacing(state.x,state.y,state.combatOpponentId,state.vx,state.vy):{x:state.vx,y:state.vy};updateModel(modelCache.local,modelCache.localAnimation,state.x,state.y,state.vx,state.vy,time,state.energy,false,f.x,f.y);if(combat)startAttackAnimation(modelCache.localAnimation,'right',state.combatUntil);}const alive=new Set();for(const p of state.others.values()){const e=ensureOtherModel(p);if(!e)continue;alive.add(p.id);const since=Math.min(Math.max(0,(performance.now()-p.snapshotAt)/1000),.25),px=p.targetX+p.vx*since,py=p.targetY+p.vy*since,c=1-Math.exp(-18*dt);p.displayX+=(px-p.displayX)*c;p.displayY+=(py-p.displayY)*c;const fighting=p.combatUntil>time||!!p.fightingWith,f=fighting?getCombatFacing(p.displayX,p.displayY,p.fightingWith,p.vx,p.vy):{x:p.vx||0,y:p.vy||0};if(fighting)startAttackAnimation(e.animation,p.id.charCodeAt(0)%2?'left':'right',p.combatUntil||time+FIGHT_DURATION);updateModel(e.root,e.animation,p.displayX,p.displayY,p.vx||0,p.vy||0,time,p.energy||0,true,f.x,f.y);}for(const[id,e]of modelCache.others)if(!alive.has(id)){modelScene.remove(e.root);modelCache.others.delete(id)}for(const e of modelCache.others.values())e.animation?.mixer.update(dt);modelCache.localAnimation?.mixer.update(dt);modelRenderer.render(modelScene,modelCamera);}
 function draw(time){ctx.clearRect(0,0,state.width,state.height);drawGrid(time);drawModels(time,state.lastTime?Math.min((time-state.lastTime)/1000,.05):0);const g=ctx.createRadialGradient(state.width/2,state.height/2,Math.min(state.width,state.height)*.22,state.width/2,state.height/2,Math.max(state.width,state.height)*.7);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(.58,'rgba(0,0,0,.1)');g.addColorStop(1,'rgba(0,0,0,.82)');ctx.fillStyle=g;ctx.fillRect(0,0,state.width,state.height);}
 function isJumpLandingBlocked(x,y){const playerRadius=24,safetyGap=10;return worldObjects.trees.some(tree=>Math.hypot(x-tree.x,y-tree.y)<(Number(tree.collisionRadius)||0)+playerRadius+safetyGap);}
 function getSafeJumpTarget(startX,startY,dx,dy){for(let distance=JUMP_DISTANCE;distance>=0;distance-=4){const x=startX+dx*distance,y=startY+dy*distance;if(!isJumpLandingBlocked(x,y))return{x,y};}return{x:startX,y:startY};}
 function triggerJump(){const now=performance.now();if(now<state.jumpUntil||state.defeated||state.combatUntil>now)return;let l=Math.hypot(state.vx,state.vy),dx,dy;if(l>=1){dx=state.vx/l;dy=state.vy/l;}else{const screenX=state.inputX+(state.keys.has('ArrowRight')||state.keys.has('d')?1:0)-(state.keys.has('ArrowLeft')||state.keys.has('a')?1:0),screenY=state.inputY+(state.keys.has('ArrowDown')||state.keys.has('s')?1:0)-(state.keys.has('ArrowUp')||state.keys.has('w')?1:0),inputLength=Math.hypot(screenX,screenY);if(inputLength>0.01){const x=screenX/inputLength,y=screenY/inputLength;dx=x/(2*ISO.x)+y/(2*ISO.y);dy=-x/(2*ISO.x)+y/(2*ISO.y);const worldLength=Math.hypot(dx,dy);dx/=worldLength;dy/=worldLength;}else{const facing=modelCache.local?.children?.[0]?.rotation?.y??modelCache.local?.rotation?.y??0;dx=Math.sin(facing);dy=Math.cos(facing);if(Math.hypot(dx,dy)<0.01){dx=0;dy=1;}}}const target=getSafeJumpTarget(state.x,state.y,dx,dy);if(Math.hypot(target.x-state.x,target.y-state.y)<24)return;state.jumpStart=now;state.jumpUntil=now+JUMP_DURATION;state.jumpFromX=state.x;state.jumpFromY=state.y;state.jumpToX=target.x;state.jumpToY=target.y;}jumpButton?.addEventListener('pointerdown',triggerJump);
-function update(dt,time){sendDailyActivityPing(time);if(state.defeated){state.vx=0;state.vy=0}else if(time<state.combatUntil){state.vx=0;state.vy=0}else if(time<state.jumpUntil){const p=Math.min(1,(time-state.jumpStart)/200);state.x=state.jumpFromX+(state.jumpToX-state.jumpFromX)*p;state.y=state.jumpFromY+(state.jumpToY-state.jumpFromY)*p;state.vx=(state.jumpToX-state.jumpFromX)/.2;state.vy=(state.jumpToY-state.jumpFromY)/.2}else{if(state.jumpStart){state.vx=0;state.vy=0;state.jumpStart=0}updatePlayerMovement(state,dt,time,ISO,worldObjects.trees)}state.cameraX=state.x;state.cameraY=state.y;coordsText.textContent=`${Math.round(state.x)} · ${Math.round(state.y)}`;if(state.socket?.connected&&!state.defeated&&time-state.lastSent>80){state.lastSent=time;state.socket.emit('echo:move',{x:state.x,y:state.y,energy:state.energy,vx:state.vx,vy:state.vy,skin:selectedModel});}}
+function update(dt,time){sendDailyActivityPing(time);if(state.defeated){state.vx=0;state.vy=0}else if(time<state.combatUntil){state.vx=0;state.vy=0}else if(time<state.jumpUntil){const p=Math.min(1,(time-state.jumpStart)/200);state.x=state.jumpFromX+(state.jumpToX-state.jumpFromX)*p;state.y=state.jumpFromY+(state.jumpToY-state.jumpFromY)*p;state.vx=(state.jumpToX-state.jumpFromX)/.2;state.vy=(state.jumpToY-state.jumpFromY)/.2}else{if(state.jumpStart){state.vx=0;state.vy=0;state.jumpStart=0}state.speedMultiplier=isPlayerInWater()?0.5:1;updatePlayerMovement(state,dt,time,ISO,worldObjects.trees)}state.cameraX=state.x;state.cameraY=state.y;coordsText.textContent=`${Math.round(state.x)} · ${Math.round(state.y)}`;if(state.socket?.connected&&!state.defeated&&time-state.lastSent>80){state.lastSent=time;state.socket.emit('echo:move',{x:state.x,y:state.y,energy:state.energy,vx:state.vx,vy:state.vy,skin:selectedModel});}}
 function triggerBoost(){const now=performance.now();if(now<state.boostCooldownUntil||state.defeated||state.combatUntil>now)return;state.boostUntil=now+700;state.boostCooldownUntil=now+3000;boostButton.classList.remove('cooldown','ready');boostButton.classList.add('active');setTimeout(()=>boostButton.classList.remove('active'),700);const countdown=document.createElement('span');countdown.className='ability-cooldown';countdown.setAttribute('aria-hidden','true');boostButton.appendChild(countdown);boostButton.classList.add('cooldown');const phases=[{value:'2',start:0,duration:850},{value:'1',start:1150,duration:1550}];let last=-1;const tick=()=>{const elapsed=performance.now()-now;if(elapsed>=3000){countdown.remove();boostButton.classList.remove('cooldown');boostButton.classList.add('ready');setTimeout(()=>boostButton.classList.remove('ready'),450);return;}const i=phases.findIndex(p=>elapsed>=p.start&&elapsed<p.start+p.duration);if(i!==last){last=i;countdown.classList.remove('countdown-pop');if(i>=0){countdown.textContent=phases[i].value;countdown.style.animationDuration=`${phases[i].duration}ms`;void countdown.offsetWidth;countdown.classList.add('countdown-pop')}else countdown.textContent='';}requestAnimationFrame(tick)};tick();}
-loadWorldTreeModel();bindPlayerControls({state,joystick,stick,boostButton,triggerBoost,jumpButton,triggerJump});function frame(time){const dt=state.lastTime?Math.min((time-state.lastTime)/1000,.05):0;update(dt,time);draw(time);state.lastTime=time;requestAnimationFrame(frame)}requestAnimationFrame(frame);
+loadWorldTreeModel();loadWorldWaterModels();bindPlayerControls({state,joystick,stick,boostButton,triggerBoost,jumpButton,triggerJump});function frame(time){const dt=state.lastTime?Math.min((time-state.lastTime)/1000,.05):0;update(dt,time);draw(time);state.lastTime=time;requestAnimationFrame(frame)}requestAnimationFrame(frame);
