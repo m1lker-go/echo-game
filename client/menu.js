@@ -77,6 +77,29 @@ settingsBack?.addEventListener('click', openMenu);
 const loader = new GLTFLoader();
 const cardViews = new Map();
 
+// Keep a single WebGL context for all character previews. Mobile browsers limit
+// the number of simultaneously active WebGL contexts; one renderer per card
+// causes some previews to turn white or lose their context on phones.
+let previewRenderer = null;
+let previewPixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+try {
+  previewRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' });
+  previewRenderer.setPixelRatio(previewPixelRatio);
+  previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
+  previewRenderer.setClearColor(0x000000, 0);
+} catch (error) {
+  console.error('[echo] shared character preview renderer failed to initialize', error);
+}
+
+const cardObserver = 'IntersectionObserver' in window
+  ? new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        const view = cardViews.get(entry.target.dataset.model);
+        if (view) view.visible = entry.isIntersecting;
+      }
+    }, { root: characterGrid, rootMargin: '100px 0px', threshold: 0 })
+  : null;
+
 function disposeScene(root) {
   if (!root) return;
   root.traverse((object) => {
@@ -152,10 +175,8 @@ function createCharacterCard(file, label) {
   });
   characterGrid.appendChild(button);
 
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.setClearColor(0x000000, 0);
+  // A 2D canvas receives the shared WebGL render, avoiding one GPU context per card.
+  const context = canvas.getContext('2d', { alpha: true });
 
   const scene = new THREE.Scene();
   scene.add(new THREE.HemisphereLight(0xffffff, 0x6d7480, 2.5));
@@ -167,21 +188,34 @@ function createCharacterCard(file, label) {
   const view = {
     button,
     canvas,
-    renderer,
+    context,
     scene,
     camera,
     root: null,
     mixer: null,
-    request: 0,
+    visible: !cardObserver,
     baseScale: null,
     basePosition: null,
+    lastTime: 0,
+    width: 0,
+    height: 0,
   };
   cardViews.set(file, view);
+  cardObserver?.observe(button);
 
   function resize() {
     const width = Math.max(1, canvas.clientWidth);
     const height = Math.max(1, canvas.clientHeight);
-    renderer.setSize(width, height, false);
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    const bufferWidth = Math.round(width * dpr);
+    const bufferHeight = Math.round(height * dpr);
+    if (canvas.width !== bufferWidth || canvas.height !== bufferHeight) {
+      canvas.width = bufferWidth;
+      canvas.height = bufferHeight;
+    }
+    context?.setTransform(dpr, 0, 0, dpr, 0, 0);
+    view.width = width;
+    view.height = height;
     if (view.root && view.baseScale && view.basePosition) {
       frameCharacter(view.root, camera, width, height, view.baseScale, view.basePosition);
     }
@@ -208,20 +242,21 @@ function createCharacterCard(file, label) {
     requestAnimationFrame(() => requestAnimationFrame(() => resize()));
   }, undefined, (error) => {
     console.error(`[echo] character card failed: ${file}`, error);
+    if (context) {
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.fillStyle = '#080808';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = '#aeb8c4';
+      context.font = '12px system-ui, sans-serif';
+      context.textAlign = 'center';
+      context.fillText('МОДЕЛЬ НЕ ЗАГРУЖЕНА', canvas.width / 2, canvas.height / 2);
+    }
   });
 
   const resizeObserver = new ResizeObserver(() => resize());
   resizeObserver.observe(canvas);
   resize();
   window.addEventListener('resize', resize, { passive: true });
-
-  function render(time) {
-    view.mixer?.update(0.016);
-    if (view.root) view.root.rotation.y = Math.sin(time * 0.00035 + file.length) * 0.08;
-    renderer.render(scene, camera);
-    view.request = requestAnimationFrame(render);
-  }
-  view.request = requestAnimationFrame(render);
 }
 
 function renderCharacterState() {
@@ -232,6 +267,55 @@ function renderCharacterState() {
 
 for (const [file, label] of characters) createCharacterCard(file, label);
 renderCharacterState();
+
+// Render visible previews sequentially through one shared GPU context.
+let lastPreviewTime = 0;
+function renderCharacterPreviews(time) {
+  if (previewRenderer) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    if (dpr !== previewPixelRatio) {
+      previewPixelRatio = dpr;
+      previewRenderer.setPixelRatio(dpr);
+    }
+
+    for (const view of cardViews.values()) {
+      if (!view.visible || !view.root || !view.context) continue;
+      const width = Math.max(1, view.canvas.clientWidth);
+      const height = Math.max(1, view.canvas.clientHeight);
+      if (width !== view.width || height !== view.height) {
+        const backingWidth = Math.round(width * dpr);
+        const backingHeight = Math.round(height * dpr);
+        if (view.canvas.width !== backingWidth || view.canvas.height !== backingHeight) {
+          view.canvas.width = backingWidth;
+          view.canvas.height = backingHeight;
+        }
+        view.context.setTransform(dpr, 0, 0, dpr, 0, 0);
+        view.width = width;
+        view.height = height;
+        if (view.baseScale && view.basePosition) {
+          frameCharacter(view.root, view.camera, width, height, view.baseScale, view.basePosition);
+        }
+      }
+
+      const delta = view.lastTime ? Math.min((time - view.lastTime) / 1000, 0.05) : 0.016;
+      view.lastTime = time;
+      view.mixer?.update(delta);
+      view.root.rotation.y = Math.sin(time * 0.00035 + view.button.dataset.model.length) * 0.08;
+
+      previewRenderer.setSize(width, height, false);
+      previewRenderer.render(view.scene, view.camera);
+      view.context.clearRect(0, 0, width, height);
+      view.context.drawImage(
+        previewRenderer.domElement,
+        0, 0, previewRenderer.domElement.width, previewRenderer.domElement.height,
+        0, 0, width, height,
+      );
+    }
+  }
+  lastPreviewTime = time;
+  requestAnimationFrame(renderCharacterPreviews);
+}
+requestAnimationFrame(renderCharacterPreviews);
 
 const foodCanvas = document.querySelector('#menu-food');
 const food = Array.from({ length: 46 }, (_, index) => ({
