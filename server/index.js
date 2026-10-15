@@ -319,6 +319,7 @@ io.on('connection', (socket) => {
   socket.on('echo:dailyPing', receiveActivityPing);
 
   socket.on('echo:hello', (payload) => {
+    receiveActivityPing({ activityProfileId: payload?.activityProfileId });
     const requestedSkin = payload?.skin;
     const current = players.get(socket.id);
     if (current && ALLOWED_SKINS.has(requestedSkin)) current.skin = requestedSkin;
