@@ -59,6 +59,7 @@ app.get('/api/daily-activity', async (req, res) => {
       playSeconds: Number(activity?.play_seconds || 0),
       foodCollected: Number(activity?.food_collected || 0),
       pvpWins: Number(activity?.pvp_wins || 0),
+      profileId,
     });
   } catch (error) {
     console.error('[daily-activity] read failed:', error.message);
