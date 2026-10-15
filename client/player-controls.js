@@ -77,7 +77,8 @@ export function updatePlayerMovement(state, dt, time, ISO, obstacles = []) {
   const worldY = -screenX / (2 * ISO.x) + screenY / (2 * ISO.y);
 
   const boosted = time < state.boostUntil;
-  const speed = boosted ? 300 : 155;
+  const waterMultiplier = Number.isFinite(state.speedMultiplier) ? Math.max(0, Math.min(1, state.speedMultiplier)) : 1;
+  const speed = (boosted ? 300 : 155) * waterMultiplier;
   const smoothing = Math.min(1, dt * 12);
 
   state.vx += (worldX * speed - state.vx) * smoothing;
