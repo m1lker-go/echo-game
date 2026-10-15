@@ -142,7 +142,9 @@ function addWaterModel(water) {
   } // If Z is thinnest, the model is already in X/Y.
 
   surface.scale.setScalar(WATER_MODEL_BASE_SCALE * water.scale);
-  surface.rotation.z = Number.isFinite(water.rotation) ? water.rotation : 0;
+  // The patch asset's broad face is authored along X/Z. Rotate the surface
+  // by 90 degrees around X so it lies flat in the game's X/Y ground plane.
+  surface.rotation.set(Math.PI / 2, 0, Number.isFinite(water.rotation) ? water.rotation : 0);
   surface.updateMatrixWorld(true);
 
   const bounds = new THREE.Box3().setFromObject(surface);
