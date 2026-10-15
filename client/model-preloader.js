@@ -21,30 +21,31 @@ const MODEL_ASSETS = [
 ];
 
 const isGameSession = new URLSearchParams(window.location.search).get('play') === '1';
-if (!isGameSession) return;
 
-const baseUrl = new URL('./assets/models/', window.location.href);
-const preload = (file) => {
-  const url = new URL(file, baseUrl).href;
-  return fetch(url, { cache: 'force-cache', priority: 'low' }).catch(() => null);
-};
+if (isGameSession) {
+  const baseUrl = new URL('./assets/models/', window.location.href);
+  const preload = (file) => {
+    const url = new URL(file, baseUrl).href;
+    return fetch(url, { cache: 'force-cache', priority: 'low' }).catch(() => null);
+  };
 
-async function preloadModels() {
-  const queue = MODEL_ASSETS.slice();
-  const workers = Array.from({ length: 2 }, async () => {
-    while (queue.length) {
-      const file = queue.shift();
-      if (!file) return;
-      await preload(file);
-    }
-  });
-  await Promise.all(workers);
-  console.log('[echo] model assets preloaded');
-}
+  async function preloadModels() {
+    const queue = MODEL_ASSETS.slice();
+    const workers = Array.from({ length: 2 }, async () => {
+      while (queue.length) {
+        const file = queue.shift();
+        if (!file) return;
+        await preload(file);
+      }
+    });
+    await Promise.all(workers);
+    console.log('[echo] model assets preloaded');
+  }
 
-const start = () => { void preloadModels(); };
-if ('requestIdleCallback' in window) {
-  window.requestIdleCallback(start, { timeout: 1500 });
-} else {
-  setTimeout(start, 800);
+  const start = () => { void preloadModels(); };
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(start, { timeout: 1500 });
+  } else {
+    setTimeout(start, 800);
+  }
 }
