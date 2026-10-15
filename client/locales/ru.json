@@ -1,6 +1,7 @@
 {
   "menu": {
     "title": "ECHO",
+    "logo": "ЭХО.",
     "start": "Начать игру",
     "character": "Персонаж",
     "settings": "Настройки",
