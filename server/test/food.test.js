@@ -10,13 +10,18 @@ function sequenceRandom(values) {
 }
 
 test('food placement only accepts a position passed by the server validator', () => {
+  const candidates = [
+    { id: 7, x: 10, y: 10, size: 6, pulse: 4.9, active: true, respawnAt: 0 },
+    { id: 7, x: 10, y: -10, size: 6, pulse: 4.9, active: true, respawnAt: 0 },
+  ];
   const point = createFoodPoint(7, {
-    isValidFoodPosition: (candidate) => candidate.x === 10 && candidate.y === 10,
+    isValidFoodPosition: (candidate) => candidate.x === 10 && candidate.y === -10,
     random: sequenceRandom([0.5, 0.5, 0.5, 0.5]),
     worldHalfSize: 100,
     maxAttempts: 5,
+    createCandidate: () => candidates.shift(),
   });
-  assert.deepEqual({ x: point.x, y: point.y }, { x: 10, y: 10 });
+  assert.deepEqual({ x: point.x, y: point.y }, { x: 10, y: -10 });
   assert.equal(point.id, 7);
   assert.equal(point.active, true);
 });
