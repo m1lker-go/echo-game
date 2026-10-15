@@ -38,16 +38,15 @@ function syncFood(snapshot) {
     }
   }
 
+  // The server snapshot is authoritative. If an id is absent, that food is currently collected.
   activeIds = nextIds;
 }
 
 function syncPlayers(players) {
-  if (!Array.isArray(players)) return;
-  if (socket?.id) {
-    const local = players.find((player) => player?.id === socket.id);
-    if (local && Number.isFinite(local.energy) && energyText) {
-      energyText.textContent = String(Math.max(0, Math.round(local.energy)));
-    }
+  if (!Array.isArray(players) || !socket?.id) return;
+  const local = players.find((player) => player?.id === socket.id);
+  if (local && Number.isFinite(local.energy) && energyText) {
+    energyText.textContent = String(Math.max(0, Math.round(local.energy)));
   }
 }
 
@@ -61,8 +60,14 @@ function attachSocket(candidate) {
   socket.on('echo:food', syncFood);
   socket.on('echo:players', syncPlayers);
   isConnected = Boolean(socket.connected);
-  socket.on('connect', () => { isConnected = true; });
-  socket.on('disconnect', () => { isConnected = false; activeIds.clear(); });
+  socket.on('connect', () => {
+    isConnected = true;
+    socket.emit('echo:hello', { version: 1 });
+  });
+  socket.on('disconnect', () => {
+    isConnected = false;
+    activeIds = new Set();
+  });
   if (socket.connected) socket.emit('echo:hello', { version: 1 });
 }
 
@@ -99,7 +104,13 @@ function worldToScreen(x, y, cx, cy, width, height) {
 }
 
 function readCamera() {
-  const match = document.querySelector('#coords')?.textContent?.match(/(-?\d+)\s*[·.]\s*(-?\d+)/);
+  // game.js exposes the actual camera state; this avoids parsing rounded HUD text.
+  if (window.echoCamera) {
+    if (Number.isFinite(window.echoCamera.cameraX)) cameraX = window.echoCamera.cameraX;
+    if (Number.isFinite(window.echoCamera.cameraY)) cameraY = window.echoCamera.cameraY;
+    return;
+  }
+  const match = document.querySelector('#coords')?.textContent?.match(/(-?\d+(?:\.\d+)?)\s*[·.]\s*(-?\d+(?:\.\d+)?)/);
   cameraX = match ? Number(match[1]) : 0;
   cameraY = match ? Number(match[2]) : 0;
 }
@@ -109,7 +120,7 @@ function draw(time) {
   lastTime = time;
   readCamera();
 
-  if (foodCanvas && isConnected) {
+  if (foodCanvas) {
     const rect = foodCanvas.getBoundingClientRect();
     const width = rect.width || 1;
     const height = rect.height || 1;
@@ -119,41 +130,44 @@ function draw(time) {
     if (ctx) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
-      const blend = 1 - Math.exp(-FOOD_MAGNET_STRENGTH * dt);
 
-      for (const id of activeIds) {
-        const point = food.get(id);
-        if (!point) continue;
+      if (isConnected) {
+        const blend = 1 - Math.exp(-FOOD_MAGNET_STRENGTH * dt);
 
-        const dx = cameraX - point.displayX;
-        const dy = cameraY - point.displayY;
-        const distance = Math.hypot(dx, dy);
-        if (distance > 0 && distance < FOOD_MAGNET_RADIUS) {
-          point.displayX += dx * blend;
-          point.displayY += dy * blend;
-        } else {
-          point.displayX += (point.x - point.displayX) * blend;
-          point.displayY += (point.y - point.displayY) * blend;
+        for (const id of activeIds) {
+          const point = food.get(id);
+          if (!point) continue;
+
+          const dx = cameraX - point.displayX;
+          const dy = cameraY - point.displayY;
+          const distance = Math.hypot(dx, dy);
+          if (distance > 0 && distance < FOOD_MAGNET_RADIUS) {
+            point.displayX += dx * blend;
+            point.displayY += dy * blend;
+          } else {
+            point.displayX += (point.x - point.displayX) * blend;
+            point.displayY += (point.y - point.displayY) * blend;
+          }
+
+          const p = worldToScreen(point.displayX, point.displayY, cameraX, cameraY, width, height);
+          if (p.x < -30 || p.y < -30 || p.x > width + 30 || p.y > height + 30) continue;
+
+          const pulse = 0.65 + 0.35 * Math.sin(time * 0.002 + point.pulse);
+          const radius = point.size * pulse;
+          const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius * 3.2);
+          halo.addColorStop(0, 'rgba(210,238,255,0.38)');
+          halo.addColorStop(0.35, 'rgba(210,238,255,0.15)');
+          halo.addColorStop(1, 'rgba(210,238,255,0)');
+          ctx.fillStyle = halo;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, radius * 3.2, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = `rgba(220,242,255,${0.65 + 0.35 * pulse})`;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+          ctx.fill();
         }
-
-        const p = worldToScreen(point.displayX, point.displayY, cameraX, cameraY, width, height);
-        if (p.x < -30 || p.y < -30 || p.x > width + 30 || p.y > height + 30) continue;
-
-        const pulse = 0.65 + 0.35 * Math.sin(time * 0.002 + point.pulse);
-        const radius = point.size * pulse;
-        const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius * 3.2);
-        halo.addColorStop(0, 'rgba(210,238,255,0.38)');
-        halo.addColorStop(0.35, 'rgba(210,238,255,0.15)');
-        halo.addColorStop(1, 'rgba(210,238,255,0)');
-        ctx.fillStyle = halo;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, radius * 3.2, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = `rgba(220,242,255,${0.65 + 0.35 * pulse})`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-        ctx.fill();
       }
     }
   }
