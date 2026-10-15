@@ -17,8 +17,7 @@ THREE.DefaultLoadingManager.setURLModifier((url) => {
 
 // The tree GLB is authored in tiny model units (~2 units tall), while the
 // character models in this scene are intentionally rendered around 50x.
-// Keep the server's 0.7..1.0 tree scale authoritative, but normalize the
-// source tree once so its visual size matches the game's world scale.
+// Keep the server's tree scale authoritative, but normalize the source tree once.
 const originalLoad = GLTFLoader.prototype.load;
 GLTFLoader.prototype.load = function (url, onLoad, onProgress, onError) {
   return originalLoad.call(this, url, (gltf) => {
@@ -27,6 +26,22 @@ GLTFLoader.prototype.load = function (url, onLoad, onProgress, onError) {
     }
     onLoad?.(gltf);
   }, onProgress, onError);
+};
+
+// Keep water in the lowest visual layer. game.js intentionally disables depth
+// testing for the flat puddle mesh, so renderOrder must be below characters and trees.
+const originalRender = THREE.WebGLRenderer.prototype.render;
+THREE.WebGLRenderer.prototype.render = function (scene, camera) {
+  scene?.traverse?.((object) => {
+    if (!object || object.isMesh === false && object.type !== 'Group') return;
+    const isWater = object.name === 'patch-grass' || object.name === 'patch-grass-large';
+    if (isWater) object.renderOrder = -1;
+    if (object.children?.length) {
+      const hasWater = object.children.some(child => child.name === 'patch-grass' || child.name === 'patch-grass-large');
+      if (hasWater) object.renderOrder = -1;
+    }
+  });
+  return originalRender.call(this, scene, camera);
 };
 
 // The world snapshot can be emitted immediately when Socket.IO connects, before
