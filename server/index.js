@@ -235,15 +235,6 @@ function createFoodPoint(id) {
     },
   });
 }
-function respawnFoodPoint(point) {
-  const replacement = createFoodPoint(point.id);
-  point.x = replacement.x;
-  point.y = replacement.y;
-  point.size = replacement.size;
-  point.pulse = replacement.pulse;
-  point.active = replacement.active;
-  point.respawnAt = replacement.respawnAt;
-}
 const food = new Map(Array.from({ length: FOOD_COUNT }, (_, id) => [id, createFoodPoint(id)]));
 
 function finiteNumber(value, fallback = 0, min = -MAX_COORDINATE, max = MAX_COORDINATE) {
