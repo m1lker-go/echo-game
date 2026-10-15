@@ -318,8 +318,6 @@ io.on('connection', (socket) => {
 
   socket.on('echo:dailyPing', receiveActivityPing);
 
-  socket.on('echo:dailyPing', receiveActivityPing);
-
   socket.on('echo:hello', (payload) => {
     const requestedSkin = payload?.skin;
     const current = players.get(socket.id);
