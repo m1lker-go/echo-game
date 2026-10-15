@@ -6,7 +6,7 @@
 //   Right = straight right on screen
 //   Two keys = 45-degree diagonal on screen
 
-const WORLD_HALF_SIZE = 4200;
+const WORLD_HALF_SIZE = 2100;
 
 export function bindPlayerControls({ state, joystick, stick, boostButton, triggerBoost }) {
 
