@@ -41,6 +41,38 @@ app.get('/health', async (_req, res) => {
   }
 });
 
+
+const DAILY_TIME_ZONE = process.env.DAILY_TIME_ZONE || 'Europe/Moscow';
+const ACTIVE_PING_MAX_GAP_MS = 45000;
+const DAILY_ACTIVITY_FIELDS = new Set(['food_collected', 'pvp_wins']);
+const dailyActivityProfileIds = new Map();
+function dailyDateKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: DAILY_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return values.year + '-' + values.month + '-' + values.day;
+}
+function normalizeActivityProfileId(value) {
+  return typeof value === 'string' && /^[a-zA-Z0-9_-]{16,80}$/.test(value) ? value : null;
+}
+async function ensureDailyActivitySchema() {
+  await pool.query('CREATE TABLE IF NOT EXISTS echo_daily_activity (profile_id TEXT NOT NULL, activity_date DATE NOT NULL, play_seconds INTEGER NOT NULL DEFAULT 0 CHECK (play_seconds >= 0), food_collected INTEGER NOT NULL DEFAULT 0 CHECK (food_collected >= 0), pvp_wins INTEGER NOT NULL DEFAULT 0 CHECK (pvp_wins >= 0), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (profile_id, activity_date))');
+}
+async function ensureDailyActivityRow(profileId, dateKey) {
+  if (!profileId) return;
+  await pool.query('INSERT INTO echo_daily_activity (profile_id, activity_date) VALUES ($1, $2::date) ON CONFLICT (profile_id, activity_date) DO NOTHING', [profileId, dateKey]);
+}
+async function addDailyActivity(profileId, field, amount) {
+  if (!profileId || !DAILY_ACTIVITY_FIELDS.has(field)) return;
+  const n = Math.max(0, Math.min(100000, Math.floor(Number(amount) || 0)));
+  if (!n) return;
+  await pool.query('INSERT INTO echo_daily_activity (profile_id, activity_date, ' + field + ') VALUES ($1, $2::date, $3) ON CONFLICT (profile_id, activity_date) DO UPDATE SET ' + field + ' = LEAST(echo_daily_activity.' + field + ' + EXCLUDED.' + field + ', 100000), updated_at = NOW()', [profileId, dailyDateKey(), n]);
+}
+async function addDailyPlaySeconds(profileId, seconds, dateKey) {
+  const n = Math.max(0, Math.min(60, Math.floor(Number(seconds) || 0)));
+  if (!profileId || !n) return;
+  await pool.query('INSERT INTO echo_daily_activity (profile_id, activity_date, play_seconds) VALUES ($1, $2::date, $3) ON CONFLICT (profile_id, activity_date) DO UPDATE SET play_seconds = LEAST(echo_daily_activity.play_seconds + EXCLUDED.play_seconds, 86400), updated_at = NOW()', [profileId, dateKey, n]);
+}
+
 const players = new Map();
 const activeFights = new Map();
 const MAX_COORDINATE = 1_000_000;
@@ -145,6 +177,8 @@ function finishFight(fight) {
   const winnerState = players.get(winner.id);
   const loserState = players.get(loser.id);
   if (!winnerState || !loserState) return;
+  const winnerProfileId = dailyActivityProfileIds.get(winnerState.id);
+  if (winnerProfileId) addDailyActivity(winnerProfileId, 'pvp_wins', 1).catch((error) => console.error('[daily-activity] PvP write failed:', error.message));
 
   const winnerEnergyBefore = winnerState.energy;
   const loserEnergy = loserState.energy;
@@ -212,6 +246,58 @@ function checkForFights(source) {
 }
 
 io.on('connection', (socket) => {
+  let activityProfileId = normalizeActivityProfileId(socket.handshake.auth?.activityProfileId);
+  let lastPingAt = 0;
+  let lastPersistedAt = Date.now();
+  let dayKey = dailyDateKey();
+  let writeQueue = Promise.resolve();
+  const enqueueWrite = (operation) => {
+    writeQueue = writeQueue.then(operation).catch((error) => console.error('[daily-activity] write failed:', error.message));
+    return writeQueue;
+  };
+  const collectElapsedTime = (now = Date.now()) => {
+    if (!activityProfileId) { lastPersistedAt = now; return; }
+    const today = dailyDateKey(new Date(now));
+    if (today !== dayKey) {
+      lastPersistedAt = now;
+      dayKey = today;
+      enqueueWrite(() => ensureDailyActivityRow(activityProfileId, today));
+      return;
+    }
+    const elapsed = Math.floor((now - lastPersistedAt) / 1000);
+    if (elapsed <= 0) return;
+    lastPersistedAt += elapsed * 1000;
+    if (elapsed <= 60) {
+      const profileId = activityProfileId;
+      const intervalDate = dayKey;
+      enqueueWrite(() => addDailyPlaySeconds(profileId, elapsed, intervalDate));
+    }
+  };
+  const receiveActivityPing = (payload) => {
+    const now = Date.now();
+    if (!activityProfileId) {
+      activityProfileId = normalizeActivityProfileId(payload?.activityProfileId);
+      if (!activityProfileId) return;
+      dailyActivityProfileIds.set(socket.id, activityProfileId);
+      dayKey = dailyDateKey(new Date(now));
+      lastPersistedAt = now;
+      enqueueWrite(() => ensureDailyActivityRow(activityProfileId, dayKey));
+    }
+    if (lastPingAt && now - lastPingAt > ACTIVE_PING_MAX_GAP_MS) {
+      lastPersistedAt = now;
+      dayKey = dailyDateKey(new Date(now));
+    } else {
+      collectElapsedTime(now);
+    }
+    lastPingAt = now;
+    socket.emit('echo:dailyActivity', { date: dailyDateKey(new Date(now)), active: true });
+  };
+  const activityInterval = setInterval(() => {
+    const now = Date.now();
+    if (activityProfileId && lastPingAt && now - lastPingAt <= ACTIVE_PING_MAX_GAP_MS) collectElapsedTime(now);
+    else { lastPersistedAt = now; dayKey = dailyDateKey(new Date(now)); }
+  }, 15000);
+
   console.log(`[socket] connected: ${socket.id}`);
 
   const requestedSkin = socket.handshake.auth?.skin;
@@ -229,6 +315,8 @@ io.on('connection', (socket) => {
   });
   broadcastPlayers();
   broadcastFood();
+
+  socket.on('echo:dailyPing', receiveActivityPing);
 
   socket.on('echo:hello', (payload) => {
     const requestedSkin = payload?.skin;
@@ -252,7 +340,11 @@ io.on('connection', (socket) => {
     current.vy = finiteNumber(payload.vy, 0, -100_000, 100_000);
 
     const collected = collectFood(current);
-    if (collected > 0) current.energy = Math.min(MAX_ENERGY, current.energy + collected);
+    if (collected > 0) {
+      current.energy = Math.min(MAX_ENERGY, current.energy + collected);
+      const profileId = dailyActivityProfileIds.get(socket.id);
+      if (profileId) addDailyActivity(profileId, 'food_collected', collected).catch((error) => console.error('[daily-activity] food write failed:', error.message));
+    }
 
     const requestedSkin = payload.skin;
     if (ALLOWED_SKINS.has(requestedSkin)) current.skin = requestedSkin;
@@ -263,6 +355,9 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', (reason) => {
+    collectElapsedTime();
+    clearInterval(activityInterval);
+    dailyActivityProfileIds.delete(socket.id);
     const current = players.get(socket.id);
     if (current?.fightingWith) {
       const opponent = players.get(current.fightingWith);
@@ -282,7 +377,9 @@ server.listen(port, '0.0.0.0', async () => {
   console.log(`[echo-server] listening on port ${port}`);
   try {
     await checkDatabase();
+    await ensureDailyActivitySchema();
     console.log('[echo-server] database connection OK');
+    console.log('[daily-activity] ready; timezone=' + DAILY_TIME_ZONE);
   } catch (error) {
     console.error('[echo-server] database connection failed:', error.message);
   }
