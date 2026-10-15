@@ -1,6 +1,6 @@
 const canvas = document.querySelector('#world');
 
-const FIELD_CELLS = 100;
+const FIELD_CELLS = 50;
 const CELL_SIZE = 84;
 const FIELD_HALF = (FIELD_CELLS * CELL_SIZE) / 2;
 const ISO = { x: 0.8660254, y: 0.5 };
@@ -75,7 +75,7 @@ function drawBoundary() {
   ctx.save();
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  // Hide the infinite part of the old grid outside the 100x100 field.
+  // Hide the infinite part of the old grid outside the 50x50 field.
   ctx.beginPath();
   ctx.rect(0, 0, width, height);
   ctx.moveTo(corners[0].x, corners[0].y);
