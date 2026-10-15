@@ -210,27 +210,30 @@ function findOpenPlayerSpawn() {
   }
   return { x: 0, y: 0 };
 }
+const {
+  createFoodPoint: createFoodPointCore,
+  collectFood: collectFoodCore,
+  refillFood: refillFoodCore,
+  createFoodSnapshot,
+} = require('./food');
+
 function createFoodPoint(id) {
-  for (let attempt = 0; attempt < 500; attempt += 1) {
-    const point = {
-      id,
-      x: randomBetween(-WORLD_HALF_SIZE + 60, WORLD_HALF_SIZE - 60),
-      y: randomBetween(-WORLD_HALF_SIZE + 60, WORLD_HALF_SIZE - 60),
-      size: 5 + (id % 3),
-      pulse: id * 0.7,
-      active: true,
-      respawnAt: 0,
-    };
-    if (isValidFoodPosition(point)) return point;
-  }
-  return { id, x: 0, y: 0, size: 5 + (id % 3), pulse: id * 0.7, active: true, respawnAt: 0 };
-}
-function respawnFoodPoint(point) {
-  const replacement = createFoodPoint(point.id);
-  point.x = replacement.x;
-  point.y = replacement.y;
-  point.active = replacement.active;
-  point.respawnAt = replacement.respawnAt;
+  return createFoodPointCore(id, {
+    isValidFoodPosition,
+    worldHalfSize: WORLD_HALF_SIZE,
+    maxAttempts: 5000,
+    createCandidate(pointId) {
+      return {
+        id: pointId,
+        x: randomBetween(-WORLD_HALF_SIZE + 60, WORLD_HALF_SIZE - 60),
+        y: randomBetween(-WORLD_HALF_SIZE + 60, WORLD_HALF_SIZE - 60),
+        size: 5 + (pointId % 3),
+        pulse: pointId * 0.7,
+        active: true,
+        respawnAt: 0,
+      };
+    },
+  });
 }
 const food = new Map(Array.from({ length: FOOD_COUNT }, (_, id) => [id, createFoodPoint(id)]));
 
@@ -244,34 +247,19 @@ function broadcastPlayers() {
 }
 
 function broadcastFood() {
-  io.emit('echo:food', Array.from(food.values())
-    .filter((point) => point.active)
-    .map(({ id, x, y, size, pulse }) => ({ id, x, y, size, pulse })));
+  io.emit('echo:food', createFoodSnapshot(food));
 }
 
 function collectFood(player) {
-  let collected = 0;
-  const now = Date.now();
-  for (const point of food.values()) {
-    if (!point.active) continue;
-    const distance = Math.hypot(player.x - point.x, player.y - point.y);
-    if (distance > FOOD_COLLECT_RADIUS) continue;
-    point.active = false;
-    point.respawnAt = now + FOOD_RESPAWN_MIN_MS
-      + Math.floor(Math.random() * (FOOD_RESPAWN_MAX_MS - FOOD_RESPAWN_MIN_MS + 1));
-    collected += 1;
-  }
-  return collected;
+  return collectFoodCore(player, food, {
+    radius: FOOD_COLLECT_RADIUS,
+    respawnMinMs: FOOD_RESPAWN_MIN_MS,
+    respawnMaxMs: FOOD_RESPAWN_MAX_MS,
+  });
 }
 
 function refillFood() {
-  const now = Date.now();
-  let changed = false;
-  for (const point of food.values()) {
-    if (point.active || !point.respawnAt || point.respawnAt > now) continue;
-    respawnFoodPoint(point);
-    changed = true;
-  }
+  const changed = refillFoodCore(food, { createFoodPoint });
   if (changed) broadcastFood();
 }
 

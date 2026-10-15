@@ -26,6 +26,9 @@ jobs:
         run: |
           node --check server/index.js
           node --check server/db.js
+          node --check server/food.js
+          node --test server/test/food.test.js
+          node --input-type=module --check < client/shared-food.js
           node --input-type=module --check < client/game.js
           node --input-type=module --check < client/menu.js
           node --input-type=module --check < client/player-controls.js
@@ -76,6 +79,9 @@ jobs:
             echo "== [3/6] Check Node syntax =="
             node --check server/index.js
             node --check server/db.js
+            node --check server/food.js
+            node --test server/test/food.test.js
+            node --input-type=module --check < client/shared-food.js
             node --input-type=module --check < client/game.js
             node --input-type=module --check < client/menu.js
             node --input-type=module --check < client/player-controls.js
@@ -151,6 +157,9 @@ jobs:
             echo "== [3/6] Check Node syntax =="
             node --check server/index.js
             node --check server/db.js
+            node --check server/food.js
+            node --test server/test/food.test.js
+            node --input-type=module --check < client/shared-food.js
             node --input-type=module --check < client/game.js
             node --input-type=module --check < client/menu.js
             node --input-type=module --check < client/player-controls.js
