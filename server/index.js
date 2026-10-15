@@ -168,16 +168,21 @@ function createWorldTrees() {
   const maxAttemptsPerCluster = 160;
   let nextId = 1;
 
-  const makeTree = (x, y, scale) => ({
+  const makeTree = (x, y, scale, placementRadius = 100 * scale) => ({
     id: `tree_${String(nextId++).padStart(3, '0')}`,
     type: 'tree',
     x,
     y,
     scale,
     collisionRadius: TREE_COLLISION_RADIUS * scale,
-    placementRadius: 100 * scale,
+    placementRadius,
     rotation: randomBetween(0, Math.PI * 2),
   });
+
+  // Keep trunks from intersecting while allowing the tree crowns to feel close.
+  const trunksOverlap = (candidate, other, clearance = 12) =>
+    Math.hypot(candidate.x - other.x, candidate.y - other.y) <
+    candidate.collisionRadius + other.collisionRadius + clearance;
 
   const isInsidePlayableArea = (x, y, margin = 160) =>
     Math.abs(x) <= WORLD_HALF_SIZE - margin &&
@@ -212,20 +217,38 @@ function createWorldTrees() {
       let failed = false;
 
       for (let i = 0; i < clusterSize; i += 1) {
-        // Ring-based placement with jitter creates uneven, non-grid-like groups.
-        const angle = (Math.PI * 2 * i / clusterSize) + randomBetween(-0.7, 0.7);
-        const distance = randomBetween(95, 290);
-        const scale = randomBetween(TREE_SCALE_MIN, TREE_SCALE_MAX);
-        const candidate = makeTree(
-          centerX + Math.cos(angle) * distance,
-          centerY + Math.sin(angle) * distance,
-          scale
-        );
+        // Scatter each tree in a compact, irregular radius around the group center.
+        // Cluster spacing uses trunk collision bounds; canopy spacing stays loose.
+        let candidate = null;
+        for (let memberAttempt = 0; memberAttempt < 100; memberAttempt += 1) {
+          const angle = randomBetween(0, Math.PI * 2);
+          const distance = randomBetween(35, 125);
+          const scale = randomBetween(TREE_SCALE_MIN, TREE_SCALE_MAX);
+          const placementRadius = 38 * scale;
+          const attemptTree = makeTree(
+            centerX + Math.cos(angle) * distance,
+            centerY + Math.sin(angle) * distance,
+            scale,
+            placementRadius
+          );
 
-        if (!isInsidePlayableArea(candidate.x, candidate.y) ||
-            isNearSpawn(candidate.x, candidate.y) ||
-            trees.some(other => overlapsCircle(candidate, other, candidate.placementRadius, other.placementRadius, Math.min(candidate.placementRadius, other.placementRadius) * 0.4)) ||
-            cluster.some(other => overlapsCircle(candidate, other, candidate.placementRadius, other.placementRadius, Math.min(candidate.placementRadius, other.placementRadius) * 0.08))) {
+          if (!isInsidePlayableArea(attemptTree.x, attemptTree.y) ||
+              isNearSpawn(attemptTree.x, attemptTree.y) ||
+              trees.some(other => overlapsCircle(
+                attemptTree,
+                other,
+                attemptTree.placementRadius,
+                other.placementRadius,
+                Math.min(attemptTree.placementRadius, other.placementRadius) * 0.4
+              )) ||
+              cluster.some(other => trunksOverlap(attemptTree, other))) {
+            continue;
+          }
+          candidate = attemptTree;
+          break;
+        }
+
+        if (!candidate) {
           failed = true;
           break;
         }
