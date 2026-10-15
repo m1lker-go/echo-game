@@ -196,7 +196,17 @@ function updateWorldWaterPositions() {
   }
 }
 function isPlayerInWater(x = state.x, y = state.y) {
-  return worldObjects.waters.some(water => Math.hypot(x - water.x, y - water.y) < water.collisionRadius);
+  return worldObjects.waters.some(water => {
+    const small = water.model === 'patch-water.glb';
+    const halfWidth = (1.4 * WATER_MODEL_BASE_SCALE * water.scale * (small ? 0.72 : 1)) / 2;
+    const halfDepth = (1.2 * WATER_MODEL_BASE_SCALE * water.scale * (small ? 0.72 : 1)) / 2;
+    const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
+    const dx = x - water.x;
+    const dy = y - water.y;
+    const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
+    const localY = -dx * Math.sin(angle) + dy * Math.cos(angle);
+    return Math.abs(localX) <= halfWidth && Math.abs(localY) <= halfDepth;
+  });
 }
 
 function prepareModel(root,isOther=false){root.traverse(child=>{if(!child.isMesh)return;child.castShadow=false;child.receiveShadow=false;if(child.material){child.material=child.material.clone();if('emissiveIntensity' in child.material)child.material.emissiveIntensity=isOther?0.9:1.1;}});root.scale.setScalar(isOther?42:50);return root;}
