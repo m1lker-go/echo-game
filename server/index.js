@@ -90,16 +90,13 @@ function broadcastFood() {
 
 function collectFood(player) {
   let collected = 0;
-
   for (const point of food.values()) {
     if (!point.active) continue;
     const distance = Math.hypot(player.x - point.x, player.y - point.y);
     if (distance >= FOOD_COLLECT_RADIUS) continue;
-
     point.active = false;
     collected += 1;
   }
-
   return collected;
 }
 
@@ -115,15 +112,10 @@ function refillFood() {
 
 setInterval(refillFood, FOOD_RESPAWN_INTERVAL);
 
-function emitFightState(fight, eventName = 'echo:fight') {
-  const payload = {
-    fightId: fight.id,
-    playerA: fight.a.id,
-    playerB: fight.b.id,
-    duration: FIGHT_DURATION,
-  };
-  io.to(fight.a.id).emit(eventName, payload);
-  io.to(fight.b.id).emit(eventName, payload);
+function emitFightState(fight) {
+  const base = { fightId: fight.id, duration: FIGHT_DURATION };
+  io.to(fight.a.id).emit('echo:fight', { ...base, playerA: fight.a.id, playerB: fight.b.id });
+  io.to(fight.b.id).emit('echo:fight', { ...base, playerA: fight.b.id, playerB: fight.a.id });
 }
 
 function finishFight(fight) {
