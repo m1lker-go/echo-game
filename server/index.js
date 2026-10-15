@@ -55,8 +55,9 @@ const ALLOWED_SKINS = new Set([
 ]);
 
 const FOOD_COUNT = 34;
-const FOOD_COLLECT_RADIUS = 22;
+const FOOD_COLLECT_RADIUS = 32;
 const FOOD_RESPAWN_INTERVAL = 3000;
+const FOOD_RESPAWN_BATCH = 4;
 
 function createFoodPoint(id) {
   const angle = id * 2.399963229728653;
@@ -93,7 +94,7 @@ function collectFood(player) {
   for (const point of food.values()) {
     if (!point.active) continue;
     const distance = Math.hypot(player.x - point.x, player.y - point.y);
-    if (distance >= FOOD_COLLECT_RADIUS) continue;
+    if (distance > FOOD_COLLECT_RADIUS) continue;
     point.active = false;
     collected += 1;
   }
@@ -101,13 +102,13 @@ function collectFood(player) {
 }
 
 function refillFood() {
-  let changed = false;
-  for (const point of food.values()) {
-    if (point.active) continue;
+  const inactive = Array.from(food.values()).filter((point) => !point.active);
+  if (!inactive.length) return;
+
+  for (const point of inactive.slice(0, FOOD_RESPAWN_BATCH)) {
     point.active = true;
-    changed = true;
   }
-  if (changed) broadcastFood();
+  broadcastFood();
 }
 
 setInterval(refillFood, FOOD_RESPAWN_INTERVAL);
@@ -247,10 +248,7 @@ io.on('connection', (socket) => {
     current.vy = finiteNumber(payload.vy, 0, -100_000, 100_000);
 
     const collected = collectFood(current);
-    if (collected > 0) current.energy += collected;
-
-    const clientEnergy = Math.round(finiteNumber(payload.energy, current.energy, 0, MAX_ENERGY));
-    current.energy = Math.max(current.energy, clientEnergy);
+    if (collected > 0) current.energy = Math.min(MAX_ENERGY, current.energy + collected);
 
     const requestedSkin = payload.skin;
     if (ALLOWED_SKINS.has(requestedSkin)) current.skin = requestedSkin;
