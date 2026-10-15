@@ -107,3 +107,31 @@ body { color: var(--white); user-select: none; -webkit-user-select: none; -webki
   .character-grid { grid-auto-rows: minmax(125px, 1fr); }
   .character-card-name { font-size: 9px; }
 }
+
+
+/* ECHO settings screen cache reset */
+.settings-actions {
+  width: min(390px, calc(100% - 40px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.settings-actions[hidden] { display: none !important; }
+.settings-note {
+  margin: 0;
+  color: #737a86;
+  font-size: 11px;
+  line-height: 1.6;
+  letter-spacing: .03em;
+  text-align: center;
+}
+.settings-status {
+  min-height: 18px;
+  margin: 0;
+  color: #a9dffc;
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+}
+.settings-cache-button { width: 100%; }
+.settings-cache-button:disabled { opacity: .65; cursor: wait; }
