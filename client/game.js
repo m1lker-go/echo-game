@@ -23,9 +23,33 @@ const TREE_MODEL_URL = './assets/models/objects/tree.glb';
 const TREE_BASE_SCALE = 50;
 const TREE_SCALE_MIN = 0.7;
 const TREE_SCALE_MAX = 1.0;
+function prepareTreeMaterials(root) {
+  root.traverse(child => {
+    if (!child.isMesh || !child.material) return;
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+    const shadedMaterials = materials.map(material => {
+      const shaded = material.clone();
+      // Preserve the GLB texture and material definition, while reducing the
+      // flat/glowing look so the directional lights create visible volume.
+      shaded.color.multiplyScalar(0.92);
+      if ('emissive' in shaded) {
+        shaded.emissive.set(0x152516);
+        shaded.emissiveIntensity = 0.12;
+      }
+      if ('roughness' in shaded) shaded.roughness = Math.max(shaded.roughness, 0.82);
+      if ('metalness' in shaded) shaded.metalness = 0;
+      shaded.needsUpdate = true;
+      return shaded;
+    });
+    child.material = Array.isArray(child.material) ? shadedMaterials : shadedMaterials[0];
+    child.castShadow = true;
+    child.receiveShadow = true;
+  });
+}
 function addTreeModel(tree) {
   if (!worldObjects.treeSource || tree.root) return;
   const root = cloneSkeleton(worldObjects.treeSource);
+  prepareTreeMaterials(root);
   const scaleFactor = Math.max(TREE_SCALE_MIN, Math.min(TREE_SCALE_MAX, tree.scale));
   root.scale.setScalar(TREE_BASE_SCALE * scaleFactor);
   root.rotation.y = Number.isFinite(tree.rotation) ? tree.rotation : 0;
