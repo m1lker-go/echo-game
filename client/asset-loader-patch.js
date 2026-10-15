@@ -33,3 +33,58 @@ if (typeof originalIo === 'function') {
     return socket;
   };
 }
+
+// game.js passes triggerBoost into player-controls.js. Keep the boost handler
+// available globally so a missing local declaration cannot abort the game module.
+// player-controls.js exposes the live game state when controls are bound.
+globalThis.triggerBoost = function triggerBoost() {
+  const state = globalThis.echoGameState;
+  const boostButton = document.querySelector('#boost');
+  if (!state || !boostButton) return;
+
+  const now = performance.now();
+  if (now < state.boostCooldownUntil || state.defeated || state.combatUntil > now) return;
+
+  state.boostUntil = now + 700;
+  state.boostCooldownUntil = now + 3000;
+  boostButton.classList.remove('cooldown', 'ready');
+  boostButton.classList.add('active');
+  setTimeout(() => boostButton.classList.remove('active'), 700);
+
+  const countdown = document.createElement('span');
+  countdown.className = 'ability-cooldown';
+  countdown.setAttribute('aria-hidden', 'true');
+  boostButton.appendChild(countdown);
+  boostButton.classList.add('cooldown');
+
+  const phases = [
+    { value: '2', start: 0, duration: 850 },
+    { value: '1', start: 1150, duration: 1550 }
+  ];
+  let last = -1;
+  const tick = () => {
+    const elapsed = performance.now() - now;
+    if (elapsed >= 3000) {
+      countdown.remove();
+      boostButton.classList.remove('cooldown');
+      boostButton.classList.add('ready');
+      setTimeout(() => boostButton.classList.remove('ready'), 450);
+      return;
+    }
+    const i = phases.findIndex(p => elapsed >= p.start && elapsed < p.start + p.duration);
+    if (i !== last) {
+      last = i;
+      countdown.classList.remove('countdown-pop');
+      if (i >= 0) {
+        countdown.textContent = phases[i].value;
+        countdown.style.animationDuration = `${phases[i].duration}ms`;
+        void countdown.offsetWidth;
+        countdown.classList.add('countdown-pop');
+      } else {
+        countdown.textContent = '';
+      }
+    }
+    requestAnimationFrame(tick);
+  };
+  tick();
+};
