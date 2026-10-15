@@ -284,8 +284,31 @@ const WORLD_TREES = createWorldTrees();
 const WATER_COUNT = 7;
 const WATER_DAMAGE_INTERVAL_MS = 300;
 const WATER_DAMAGE_AMOUNT = 1;
-const WATER_SMALL_RADIUS = 90;
-const WATER_LARGE_RADIUS = 135;
+
+// Match the actual flat patch bounds rather than using an oversized circular trigger.
+// patch-water-large.glb: X=1.4, Z=1.2 in model space. Client scale is 50 * water.scale.
+const WATER_MODEL_BASE_SCALE = 50;
+const WATER_MODEL_WIDTH = 1.4;
+const WATER_MODEL_DEPTH = 1.2;
+const WATER_SMALL_FACTOR = 0.72;
+const WATER_LARGE_FACTOR = 1;
+function getWaterFootprint(water) {
+  const modelFactor = water.model === 'patch-water-large.glb' ? WATER_LARGE_FACTOR : WATER_SMALL_FACTOR;
+  return {
+    halfWidth: (WATER_MODEL_WIDTH * WATER_MODEL_BASE_SCALE * water.scale * modelFactor) / 2,
+    halfDepth: (WATER_MODEL_DEPTH * WATER_MODEL_BASE_SCALE * water.scale * modelFactor) / 2,
+  };
+}
+function isPointOnWater(position, water) {
+  const { halfWidth, halfDepth } = getWaterFootprint(water);
+  const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
+  const dx = position.x - water.x;
+  const dy = position.y - water.y;
+  // Inverse-rotate the point into the puddle's own flat local coordinates.
+  const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
+  const localY = -dx * Math.sin(angle) + dy * Math.cos(angle);
+  return Math.abs(localX) <= halfWidth && Math.abs(localY) <= halfDepth;
+}
 function createWorldWaters() {
   const waters = [];
   const waterRandom = createSeededRandom(WORLD_SEED + 918273);
@@ -295,25 +318,29 @@ function createWorldWaters() {
   for (let index = 0; index < WATER_COUNT; index += 1) {
     const model = variants[index];
     const scale = randomWaterBetween(0.8, 1.35);
-    const radius = (model === 'patch-water-large.glb' ? WATER_LARGE_RADIUS : WATER_SMALL_RADIUS) * scale;
+    const candidateWater = {
+      id: `water_${String(index + 1).padStart(2, '0')}`,
+      type: 'water',
+      model,
+      x: 0,
+      y: 0,
+      scale,
+      rotation: randomWaterBetween(0, Math.PI * 2),
+      collisionRadius: 0,
+    };
+    const footprint = getWaterFootprint(candidateWater);
     let candidate = null;
 
     for (let attempt = 0; attempt < 1000; attempt += 1) {
       const point = {
-        x: randomWaterBetween(-WORLD_HALF_SIZE + radius + 100, WORLD_HALF_SIZE - radius - 100),
-        y: randomWaterBetween(-WORLD_HALF_SIZE + radius + 100, WORLD_HALF_SIZE - radius - 100),
+        x: randomWaterBetween(-WORLD_HALF_SIZE + footprint.halfWidth + 100, WORLD_HALF_SIZE - footprint.halfWidth - 100),
+        y: randomWaterBetween(-WORLD_HALF_SIZE + footprint.halfDepth + 100, WORLD_HALF_SIZE - footprint.halfDepth - 100),
       };
-      if (waters.some(other => Math.hypot(point.x - other.x, point.y - other.y) < radius + other.collisionRadius + 20)) continue;
-      candidate = {
-        id: `water_${String(index + 1).padStart(2, '0')}`,
-        type: 'water',
-        model,
-        x: point.x,
-        y: point.y,
-        scale,
-        rotation: randomWaterBetween(0, Math.PI * 2),
-        collisionRadius: radius,
-      };
+      candidateWater.x = point.x;
+      candidateWater.y = point.y;
+      const rotatedFootprint = Math.hypot(footprint.halfWidth, footprint.halfDepth);
+      if (waters.some(other => Math.hypot(point.x - other.x, point.y - other.y) < rotatedFootprint + Math.hypot(getWaterFootprint(other).halfWidth, getWaterFootprint(other).halfDepth) + 20)) continue;
+      candidate = { ...candidateWater, collisionRadius: rotatedFootprint };
       break;
     }
 
@@ -327,9 +354,7 @@ function createWorldWaters() {
 }
 const WORLD_WATERS = createWorldWaters();
 function isInWater(position) {
-  return WORLD_WATERS.some(water =>
-    Math.hypot(position.x - water.x, position.y - water.y) < water.collisionRadius
-  );
+  return WORLD_WATERS.some(water => isPointOnWater(position, water));
 }
 function createWorldSnapshot() {
   return {
