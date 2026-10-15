@@ -18,10 +18,16 @@ const modelScene=new THREE.Scene(),modelCamera=new THREE.OrthographicCamera(-1,1
 const loader=new GLTFLoader(),DEFAULT_MODEL='character-female-a.glb',ALLOWED_MODELS=new Set(['character-female-a.glb','character-female-b.glb','character-female-c.glb','character-female-d.glb','character-female-e.glb','character-female-f.glb','character-male-a.glb','character-male-b.glb','character-male-c.glb','character-male-d.glb','character-male-e.glb','character-male-f.glb']),selectedModel=ALLOWED_MODELS.has(localStorage.getItem('echo.selectedModel'))?localStorage.getItem('echo.selectedModel'):DEFAULT_MODEL,modelCache={source:null,clips:[],local:null,localAnimation:null,others:new Map(),otherSources:new Map(),ready:false};
 const worldObjects = { trees: [], treeSource: null, treeLoading: false };
 const TREE_MODEL_URL = './assets/models/objects/tree.glb';
+// The server's tree.scale is a per-tree size factor, not a world-unit scale.
+// Apply one deterministic server-generated factor uniformly on all axes.
+const TREE_BASE_SCALE = 50;
+const TREE_SCALE_MIN = 0.7;
+const TREE_SCALE_MAX = 1.0;
 function addTreeModel(tree) {
   if (!worldObjects.treeSource || tree.root) return;
   const root = cloneSkeleton(worldObjects.treeSource);
-  root.scale.setScalar(tree.scale);
+  const scaleFactor = Math.max(TREE_SCALE_MIN, Math.min(TREE_SCALE_MAX, tree.scale));
+  root.scale.setScalar(TREE_BASE_SCALE * scaleFactor);
   root.rotation.y = Number.isFinite(tree.rotation) ? tree.rotation : 0;
   tree.root = root;
   modelScene.add(root);
@@ -32,7 +38,7 @@ function renderWorldTrees(snapshot) {
   worldObjects.trees = snapshot.filter(tree =>
     tree && typeof tree.id === 'string' && Number.isFinite(tree.x) &&
     Number.isFinite(tree.y) && Number.isFinite(tree.scale) &&
-    tree.scale >= 0.7 && tree.scale <= 1
+    tree.scale >= TREE_SCALE_MIN && tree.scale <= TREE_SCALE_MAX
   ).map(tree => ({ ...tree, root: null }));
   for (const tree of worldObjects.trees) addTreeModel(tree);
 }
