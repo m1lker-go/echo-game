@@ -211,7 +211,9 @@ function findOpenPlayerSpawn() {
   return { x: 0, y: 0 };
 }
 function createFoodPoint(id) {
-  for (let attempt = 0; attempt < 500; attempt += 1) {
+  // Food placement must always pass server-side world validation.
+  // Do not silently place invalid food at the origin if random placement fails.
+  for (let attempt = 0; attempt < 5000; attempt += 1) {
     const point = {
       id,
       x: randomBetween(-WORLD_HALF_SIZE + 60, WORLD_HALF_SIZE - 60),
@@ -223,7 +225,7 @@ function createFoodPoint(id) {
     };
     if (isValidFoodPosition(point)) return point;
   }
-  return { id, x: 0, y: 0, size: 5 + (id % 3), pulse: id * 0.7, active: true, respawnAt: 0 };
+  throw new Error(`Unable to place food point ${id} in a valid world position after 5000 attempts`);
 }
 function respawnFoodPoint(point) {
   const replacement = createFoodPoint(point.id);
