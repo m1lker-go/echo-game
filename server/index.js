@@ -210,22 +210,15 @@ function findOpenPlayerSpawn() {
   }
   return { x: 0, y: 0 };
 }
+const {
+  createFoodPoint: createFoodPointCore,
+  collectFood: collectFoodCore,
+  refillFood: refillFoodCore,
+  createFoodSnapshot,
+} = require('./food');
+
 function createFoodPoint(id) {
-  // Food placement must always pass server-side world validation.
-  // Do not silently place invalid food at the origin if random placement fails.
-  for (let attempt = 0; attempt < 5000; attempt += 1) {
-    const point = {
-      id,
-      x: randomBetween(-WORLD_HALF_SIZE + 60, WORLD_HALF_SIZE - 60),
-      y: randomBetween(-WORLD_HALF_SIZE + 60, WORLD_HALF_SIZE - 60),
-      size: 5 + (id % 3),
-      pulse: id * 0.7,
-      active: true,
-      respawnAt: 0,
-    };
-    if (isValidFoodPosition(point)) return point;
-  }
-  throw new Error(`Unable to place food point ${id} in a valid world position after 5000 attempts`);
+  return createFoodPointCore(id, { isValidFoodPosition });
 }
 function respawnFoodPoint(point) {
   const replacement = createFoodPoint(point.id);
@@ -246,34 +239,19 @@ function broadcastPlayers() {
 }
 
 function broadcastFood() {
-  io.emit('echo:food', Array.from(food.values())
-    .filter((point) => point.active)
-    .map(({ id, x, y, size, pulse }) => ({ id, x, y, size, pulse })));
+  io.emit('echo:food', createFoodSnapshot(food));
 }
 
 function collectFood(player) {
-  let collected = 0;
-  const now = Date.now();
-  for (const point of food.values()) {
-    if (!point.active) continue;
-    const distance = Math.hypot(player.x - point.x, player.y - point.y);
-    if (distance > FOOD_COLLECT_RADIUS) continue;
-    point.active = false;
-    point.respawnAt = now + FOOD_RESPAWN_MIN_MS
-      + Math.floor(Math.random() * (FOOD_RESPAWN_MAX_MS - FOOD_RESPAWN_MIN_MS + 1));
-    collected += 1;
-  }
-  return collected;
+  return collectFoodCore(player, food, {
+    radius: FOOD_COLLECT_RADIUS,
+    respawnMinMs: FOOD_RESPAWN_MIN_MS,
+    respawnMaxMs: FOOD_RESPAWN_MAX_MS,
+  });
 }
 
 function refillFood() {
-  const now = Date.now();
-  let changed = false;
-  for (const point of food.values()) {
-    if (point.active || !point.respawnAt || point.respawnAt > now) continue;
-    respawnFoodPoint(point);
-    changed = true;
-  }
+  const changed = refillFoodCore(food, { createFoodPoint });
   if (changed) broadcastFood();
 }
 
