@@ -34,7 +34,21 @@ GLTFLoader.prototype.load = function (url, onLoad, onProgress, onError) {
 // shortly after connect so the shared tree layout is always received.
 const originalIo = window.io;
 if (typeof originalIo === 'function') {
+  const gameSession = new URLSearchParams(window.location.search).get('play') === '1';
   window.io = function (...args) {
+    if (!gameSession) {
+      const noop = () => {};
+      return {
+        connected: false,
+        id: null,
+        on: noop,
+        once: noop,
+        off: noop,
+        emit: noop,
+        disconnect: noop,
+        close: noop,
+      };
+    }
     const socket = originalIo(...args);
     socket.on('connect', () => {
       setTimeout(() => {
@@ -47,4 +61,11 @@ if (typeof originalIo === 'function') {
     });
     return socket;
   };
+
+  // Explicitly terminate the game socket when leaving the page so the server
+  // removes the player immediately instead of relying on page unload timing.
+  window.addEventListener('pagehide', () => {
+    const socket = window.echoSocket;
+    if (socket?.connected) socket.disconnect();
+  }, { once: true });
 }
