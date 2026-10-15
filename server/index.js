@@ -127,26 +127,88 @@ const ALLOWED_SKINS = new Set([
 ]);
 
 const FOOD_COUNT = 34;
-// Food visually attracts inside 75.6 units. Collect slightly before its center
-// reaches the player so server snapshots remove it before it appears to stick.
 const FOOD_COLLECT_RADIUS = 60;
 const FOOD_RESPAWN_MIN_MS = 10_000;
 const FOOD_RESPAWN_MAX_MS = 25_000;
 
-function createFoodPoint(id) {
-  const angle = id * 2.399963229728653;
-  const radius = 170 + (id % 9) * 58 + Math.floor(id / 9) * 100;
-  return {
-    id,
-    x: Math.cos(angle) * radius,
-    y: Math.sin(angle) * radius,
-    size: 5 + (id % 3),
-    pulse: id * .7,
-    active: true,
-    respawnAt: 0,
+// The server creates one stable seeded layout shared by every player.
+const WORLD_SEED = 847291;
+const TREE_COUNT = 55;
+const TREE_SCALE_MIN = 0.7;
+const TREE_SCALE_MAX = 1.0;
+const TREE_COLLISION_RADIUS = 48;
+const TREE_FOOD_CLEARANCE = 32;
+const TREE_PLAYER_CLEARANCE = 24;
+function createSeededRandom(seed) {
+  let value = seed >>> 0;
+  return () => {
+    value = (value + 0x6D2B79F5) >>> 0;
+    let n = value;
+    n = Math.imul(n ^ (n >>> 15), n | 1);
+    n ^= n + Math.imul(n ^ (n >>> 7), n | 61);
+    return ((n ^ (n >>> 14)) >>> 0) / 4294967296;
   };
 }
-
+const worldRandom = createSeededRandom(WORLD_SEED);
+const randomBetween = (min, max) => min + worldRandom() * (max - min);
+function overlapsCircle(a, b, radiusA, radiusB, allowedOverlap = 0) {
+  return Math.hypot(a.x - b.x, a.y - b.y) < Math.max(0, radiusA + radiusB - allowedOverlap);
+}
+function createWorldTrees() {
+  const trees = [];
+  for (let attempt = 0; attempt < TREE_COUNT * 100 && trees.length < TREE_COUNT; attempt += 1) {
+    const scale = randomBetween(TREE_SCALE_MIN, TREE_SCALE_MAX);
+    const tree = {
+      id: `tree_${String(trees.length + 1).padStart(3, '0')}`,
+      type: 'tree',
+      x: randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
+      y: randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
+      scale,
+      rotation: randomBetween(0, Math.PI * 2),
+      collisionRadius: TREE_COLLISION_RADIUS * scale,
+      placementRadius: 100 * scale,
+    };
+    // Keep the spawn area clear and allow modest visual overlap between trees.
+    if (Math.hypot(tree.x, tree.y) < 340) continue;
+    if (trees.some(other => overlapsCircle(tree, other, tree.placementRadius, other.placementRadius,
+      Math.min(tree.placementRadius, other.placementRadius) * 0.4))) continue;
+    trees.push(tree);
+  }
+  return trees;
+}
+const WORLD_TREES = createWorldTrees();
+function isBlockedByTree(position, clearance = 0) {
+  return WORLD_TREES.some(tree =>
+    Math.hypot(position.x - tree.x, position.y - tree.y) < tree.collisionRadius + clearance
+  );
+}
+function isValidFoodPosition(position) {
+  return Math.abs(position.x) <= WORLD_HALF_SIZE - 40 &&
+    Math.abs(position.y) <= WORLD_HALF_SIZE - 40 &&
+    !isBlockedByTree(position, TREE_FOOD_CLEARANCE);
+}
+function createFoodPoint(id) {
+  for (let attempt = 0; attempt < 500; attempt += 1) {
+    const point = {
+      id,
+      x: randomBetween(-WORLD_HALF_SIZE + 60, WORLD_HALF_SIZE - 60),
+      y: randomBetween(-WORLD_HALF_SIZE + 60, WORLD_HALF_SIZE - 60),
+      size: 5 + (id % 3),
+      pulse: id * 0.7,
+      active: true,
+      respawnAt: 0,
+    };
+    if (isValidFoodPosition(point)) return point;
+  }
+  return { id, x: 0, y: 0, size: 5 + (id % 3), pulse: id * 0.7, active: true, respawnAt: 0 };
+}
+function respawnFoodPoint(point) {
+  const replacement = createFoodPoint(point.id);
+  point.x = replacement.x;
+  point.y = replacement.y;
+  point.active = true;
+  point.respawnAt = 0;
+}
 const food = new Map(Array.from({ length: FOOD_COUNT }, (_, id) => [id, createFoodPoint(id)]));
 
 function finiteNumber(value, fallback = 0, min = -MAX_COORDINATE, max = MAX_COORDINATE) {
@@ -184,8 +246,7 @@ function refillFood() {
   let changed = false;
   for (const point of food.values()) {
     if (point.active || !point.respawnAt || point.respawnAt > now) continue;
-    point.active = true;
-    point.respawnAt = 0;
+    respawnFoodPoint(point);
     changed = true;
   }
   if (changed) broadcastFood();
@@ -383,6 +444,7 @@ io.on('connection', (socket) => {
   });
   broadcastPlayers();
   broadcastFood();
+  socket.emit('echo:world', { seed: WORLD_SEED, trees: WORLD_TREES.map(({ id, type, x, y, scale, rotation, collisionRadius }) => ({ id, type, x, y, scale, rotation, collisionRadius })) });
 
   socket.on('echo:dailyPing', receiveActivityPing);
 
@@ -393,6 +455,7 @@ io.on('connection', (socket) => {
     const current = players.get(socket.id);
     if (current && ALLOWED_SKINS.has(requestedSkin)) current.skin = requestedSkin;
 
+    socket.emit('echo:world', { seed: WORLD_SEED, trees: WORLD_TREES.map(({ id, type, x, y, scale, rotation, collisionRadius }) => ({ id, type, x, y, scale, rotation, collisionRadius })) });
     socket.emit('echo:players', Array.from(players.values(), (player) => ({ ...player })));
     broadcastFood();
     broadcastPlayers();
@@ -404,10 +467,27 @@ io.on('connection', (socket) => {
     const current = players.get(socket.id);
     if (!current || current.defeated || current.fightingWith) return;
 
-    current.x = finiteNumber(payload.x, current.x, -WORLD_HALF_SIZE, WORLD_HALF_SIZE);
-    current.y = finiteNumber(payload.y, current.y, -WORLD_HALF_SIZE, WORLD_HALF_SIZE);
-    current.vx = finiteNumber(payload.vx, 0, -100_000, 100_000);
-    current.vy = finiteNumber(payload.vy, 0, -100_000, 100_000);
+    const desired = {
+      x: finiteNumber(payload.x, current.x, -WORLD_HALF_SIZE, WORLD_HALF_SIZE),
+      y: finiteNumber(payload.y, current.y, -WORLD_HALF_SIZE, WORLD_HALF_SIZE),
+    };
+    const oldPosition = { x: current.x, y: current.y };
+    if (isBlockedByTree(desired, TREE_PLAYER_CLEARANCE)) {
+      const slideX = { x: desired.x, y: oldPosition.y };
+      const slideY = { x: oldPosition.x, y: desired.y };
+      if (!isBlockedByTree(slideX, TREE_PLAYER_CLEARANCE)) {
+        current.x = slideX.x; current.y = slideX.y;
+      } else if (!isBlockedByTree(slideY, TREE_PLAYER_CLEARANCE)) {
+        current.x = slideY.x; current.y = slideY.y;
+      } else {
+        current.x = oldPosition.x; current.y = oldPosition.y;
+      }
+      current.vx = 0; current.vy = 0;
+    } else {
+      current.x = desired.x; current.y = desired.y;
+      current.vx = finiteNumber(payload.vx, 0, -100_000, 100_000);
+      current.vy = finiteNumber(payload.vy, 0, -100_000, 100_000);
+    }
 
     const collected = collectFood(current);
     if (collected > 0) {

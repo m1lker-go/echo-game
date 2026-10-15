@@ -53,7 +53,7 @@ export function bindPlayerControls({ state, joystick, stick, boostButton, trigge
   window.addEventListener('keyup', (e) => state.keys.delete(e.key));
 }
 
-export function updatePlayerMovement(state, dt, time, ISO) {
+export function updatePlayerMovement(state, dt, time, ISO, obstacles = []) {
   let screenX = state.inputX;
   let screenY = state.inputY;
 
@@ -80,10 +80,30 @@ export function updatePlayerMovement(state, dt, time, ISO) {
 
   state.vx += (worldX * speed - state.vx) * smoothing;
   state.vy += (worldY * speed - state.vy) * smoothing;
-  state.x += state.vx * dt;
-  state.y += state.vy * dt;
+  const oldX = state.x;
+  const oldY = state.y;
+  const nextX = Math.max(-WORLD_HALF_SIZE, Math.min(WORLD_HALF_SIZE, oldX + state.vx * dt));
+  const nextY = Math.max(-WORLD_HALF_SIZE, Math.min(WORLD_HALF_SIZE, oldY + state.vy * dt));
+  const playerRadius = 24;
+  const blocked = (x, y) => obstacles.some(tree =>
+    Math.hypot(x - tree.x, y - tree.y) < (Number(tree.collisionRadius) || 0) + playerRadius
+  );
 
-  // Exactly 100x100 cells at 84 world units per cell, centered on (0, 0).
-  state.x = Math.max(-WORLD_HALF_SIZE, Math.min(WORLD_HALF_SIZE, state.x));
-  state.y = Math.max(-WORLD_HALF_SIZE, Math.min(WORLD_HALF_SIZE, state.y));
+  if (!blocked(nextX, nextY)) {
+    state.x = nextX;
+    state.y = nextY;
+  } else {
+    if (!blocked(nextX, oldY)) {
+      state.x = nextX;
+      state.y = oldY;
+    } else if (!blocked(oldX, nextY)) {
+      state.x = oldX;
+      state.y = nextY;
+    } else {
+      state.x = oldX;
+      state.y = oldY;
+    }
+    state.vx = 0;
+    state.vy = 0;
+  }
 }
