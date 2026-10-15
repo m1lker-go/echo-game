@@ -32,7 +32,9 @@
     "russian": "Русский",
     "english": "English",
     "placeholder_preparing": "This screen is not ready yet",
-    "rating_title": "LEADERBOARD"
+    "rating_title": "LEADERBOARD",
+    "cache_clearing_status": "CLEARING CACHE…",
+    "cache_preparing_status": "Preparing update…"
   },
   "game": {
     "connection_pending": "connecting…",
