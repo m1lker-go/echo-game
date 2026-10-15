@@ -165,9 +165,9 @@ function createWorldTrees() {
       x: randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
       y: randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
       scale,
-      rotation: randomBetween(0, Math.PI * 2),
       collisionRadius: TREE_COLLISION_RADIUS * scale,
       placementRadius: 100 * scale,
+      rotation: randomBetween(0, Math.PI * 2),
     };
     // Keep the spawn area clear and allow modest visual overlap between trees.
     // Keep the initial player spawn at the origin clear; also avoid overly dense clumps.
