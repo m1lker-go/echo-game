@@ -24,41 +24,9 @@ GLTFLoader.prototype.load = function (url, onLoad, onProgress, onError) {
   return originalLoad.call(this, url, (gltf) => {
     if (typeof url === 'string' && /\/assets\/models\/objects\/tree\.glb(?:$|[?#])/.test(url)) {
       gltf.scene.scale.setScalar(50);
-      gltf.scene.traverse(child => {
-        if (!child.isMesh) return;
-        const material = Array.isArray(child.material) ? child.material[0] : child.material;
-        if (material?.map) window.__echoTreeTexture = material.map;
-      });
     }
     onLoad?.(gltf);
   }, onProgress, onError);
-};
-
-// The custom tree shader also needs the GLB's original UV-mapped color atlas.
-// Inject it at render time so the depth/occlusion shader stays untouched.
-const originalRender = THREE.WebGLRenderer.prototype.render;
-THREE.WebGLRenderer.prototype.render = function (scene, camera) {
-  scene.traverse(object => {
-    if (!object.isMesh || !object.material) return;
-    const materials = Array.isArray(object.material) ? object.material : [object.material];
-    for (const material of materials) {
-      if (!material.uniforms?.uOpacity || material.userData?.echoTreeTexturePatched) continue;
-      if (material.uniforms.uOpacity.value !== 0.30 || !material.vertexShader?.includes('vTreeNormal')) continue;
-      const texture = window.__echoTreeTexture;
-      if (!texture) continue;
-
-      material.uniforms.uMap = { value: texture };
-      material.vertexShader = material.vertexShader
-        .replace('varying vec3 vTreeNormal;', 'varying vec3 vTreeNormal;\n      varying vec2 vTreeUv;')
-        .replace('vTreeNormal = normalize(normalMatrix * normal);', 'vTreeNormal = normalize(normalMatrix * normal);\n        vTreeUv = uv;');
-      material.fragmentShader = material.fragmentShader
-        .replace('uniform float uOpacity;', 'uniform float uOpacity;\n      uniform sampler2D uMap;\n      varying vec2 vTreeUv;')
-        .replace('vec3 treeColor = mix(shadowColor, lightColor, brightness);', 'vec3 treeColor = mix(shadowColor, lightColor, brightness);\n        vec4 texel = texture2D(uMap, vTreeUv);\n        treeColor *= texel.rgb * mix(0.70, 1.10, gradient);');
-      material.userData.echoTreeTexturePatched = true;
-      material.needsUpdate = true;
-    }
-  });
-  return originalRender.call(this, scene, camera);
 };
 
 // The world snapshot can be emitted immediately when Socket.IO connects, before
