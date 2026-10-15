@@ -37,6 +37,7 @@ const ratingButton = document.querySelector('#menu-rating');
 const characterBack = document.querySelector('#character-back');
 const placeholderBack = document.querySelector('#placeholder-back');
 const settingsBack = document.querySelector('#settings-back');
+const languageButtons = document.querySelectorAll('.language-option');
 
 function showScreen(screen) {
   mainScreen.hidden = screen !== 'main';
@@ -64,6 +65,7 @@ function openPlaceholder(title) {
 
 function openSettings() {
   showScreen('settings');
+  refreshLocalizedUI();
 }
 
 startButton.addEventListener('click', startGame);
@@ -156,7 +158,8 @@ function createCharacterCard(file, label) {
   button.type = 'button';
   button.className = 'character-card';
   button.dataset.model = file;
-  button.setAttribute('aria-label', label);
+  const labelKey = file.replace('character-', '').replace('.glb', '').replaceAll('-', '_');
+  button.setAttribute('aria-label', window.$t?.('menu:' + labelKey, label) || label);
 
   const canvas = document.createElement('canvas');
   canvas.className = 'character-card-preview';
@@ -164,7 +167,7 @@ function createCharacterCard(file, label) {
 
   const caption = document.createElement('span');
   caption.className = 'character-card-name';
-  caption.textContent = label;
+  caption.textContent = window.$t?.('menu:' + labelKey, label) || label;
 
   button.append(canvas, caption);
   button.addEventListener('click', () => {
@@ -267,6 +270,68 @@ function renderCharacterState() {
 
 for (const [file, label] of characters) createCharacterCard(file, label);
 renderCharacterState();
+
+
+function applyStaticTranslations() {
+  if (typeof window.$t !== 'function') return;
+  document.querySelectorAll('[data-i18n]').forEach((element) => {
+    const key = element.dataset.i18n;
+    if (!key) return;
+    const translation = window.$t(key, element.textContent);
+    if (element.tagName === 'INPUT' && element.hasAttribute('placeholder')) {
+      element.placeholder = translation;
+    } else {
+      element.textContent = translation;
+    }
+  });
+  document.querySelectorAll('[data-i18n-aria-label]').forEach((element) => {
+    element.setAttribute('aria-label', window.$t(element.dataset.i18nAriaLabel, element.getAttribute('aria-label') || ''));
+  });
+}
+
+function updateLanguageButtons() {
+  const current = window.ECHOI18n?.language || 'ru';
+  document.querySelectorAll('.language-option').forEach((button) => {
+    const active = button.dataset.language === current;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+}
+
+function refreshLocalizedUI() {
+  applyStaticTranslations();
+  updateLanguageButtons();
+  const currentScreen = document.querySelector('#menu-character:not([hidden])')
+    ? 'character'
+    : document.querySelector('#menu-settings-screen:not([hidden])')
+      ? 'settings'
+      : document.querySelector('#menu-placeholder:not([hidden])')
+        ? 'placeholder'
+        : 'main';
+  if (currentScreen === 'character') {
+    for (const card of characterGrid.children) {
+      const model = card.dataset.model || '';
+      const labelKey = model.replace('character-', '').replace('.glb', '').replaceAll('-', '_');
+      const caption = card.querySelector('.character-card-name');
+      if (caption) caption.textContent = window.$t('menu:' + labelKey, caption.textContent);
+      card.setAttribute('aria-label', window.$t('menu:' + labelKey, caption?.textContent || ''));
+    }
+  }
+}
+window.addEventListener('echo:i18n-ready', refreshLocalizedUI);
+window.addEventListener('echo:language-changed', refreshLocalizedUI);
+
+
+for (const button of languageButtons) {
+  button.addEventListener('click', async () => {
+    const language = button.dataset.language;
+    if (!window.ECHOI18n?.setLanguage) return;
+    const changed = await window.ECHOI18n.setLanguage(language);
+    if (changed) refreshLocalizedUI();
+  });
+}
+
+window.ECHO_I18N_READY?.then(() => refreshLocalizedUI());
 
 // Render visible previews sequentially through one shared GPU context.
 let lastPreviewTime = 0;
