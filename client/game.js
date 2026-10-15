@@ -126,8 +126,7 @@ function addWaterModel(water) {
   const surface = cloneSkeleton(source);
   prepareWaterMaterials(surface);
   surface.rotation.set(Math.PI / 2, 0, 0);
-  const sizeMultiplier = Number.isFinite(water.sizeMultiplier) ? Math.max(3, Math.min(5, water.sizeMultiplier)) : 4;
-  surface.scale.setScalar(WATER_MODEL_BASE_SCALE * water.scale * sizeMultiplier);
+  surface.scale.setScalar(WATER_MODEL_BASE_SCALE * water.scale);
   surface.updateMatrixWorld(true);
 
   // Center the transformed mesh locally and bring its lowest point to depth 0.
@@ -199,8 +198,8 @@ function updateWorldWaterPositions() {
 function isPlayerInWater(x = state.x, y = state.y) {
   return worldObjects.waters.some(water => {
     const small = water.model === 'patch-water.glb';
-    const halfWidth = (1.4 * WATER_MODEL_BASE_SCALE * water.scale * (Number.isFinite(water.sizeMultiplier) ? water.sizeMultiplier : 4) * (small ? 0.72 : 1)) / 2;
-    const halfDepth = (1.2 * WATER_MODEL_BASE_SCALE * water.scale * (Number.isFinite(water.sizeMultiplier) ? water.sizeMultiplier : 4) * (small ? 0.72 : 1)) / 2;
+    const halfWidth = (1.4 * WATER_MODEL_BASE_SCALE * water.scale * (small ? 0.72 : 1)) / 2;
+    const halfDepth = (1.2 * WATER_MODEL_BASE_SCALE * water.scale * (small ? 0.72 : 1)) / 2;
     const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
     const dx = x - water.x;
     const dy = y - water.y;
