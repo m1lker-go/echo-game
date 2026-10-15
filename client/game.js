@@ -17,309 +17,58 @@ const WORLD={spacing:84},ISO={x:.8660254,y:.5},JUMP_DISTANCE=420,JUMP_DURATION=2
 const modelScene=new THREE.Scene(),modelCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,1000);modelCamera.position.z=100;const modelRenderer=new THREE.WebGLRenderer({canvas:modelCanvas,alpha:true,antialias:true});modelRenderer.setPixelRatio(Math.min(devicePixelRatio||1,2));modelRenderer.outputColorSpace=THREE.SRGBColorSpace;modelRenderer.setClearColor(0,0);const ambientLight=new THREE.AmbientLight(0xffffff,2.0);modelScene.add(ambientLight);const keyLight=new THREE.DirectionalLight(0xffffff,3.6);keyLight.position.set(-100,57.735,0);modelScene.add(keyLight);
 const loader=new GLTFLoader(),DEFAULT_MODEL='character-female-a.glb',ALLOWED_MODELS=new Set(['character-female-a.glb','character-female-b.glb','character-female-c.glb','character-female-d.glb','character-female-e.glb','character-female-f.glb','character-male-a.glb','character-male-b.glb','character-male-c.glb','character-male-d.glb','character-male-e.glb','character-male-f.glb']),selectedModel=ALLOWED_MODELS.has(localStorage.getItem('echo.selectedModel'))?localStorage.getItem('echo.selectedModel'):DEFAULT_MODEL,modelCache={source:null,clips:[],local:null,localAnimation:null,others:new Map(),otherSources:new Map(),ready:false};
 const worldObjects = {
-  trees: [],
-  treeSource: null,
-  treeLoading: false,
-  waters: [],
-  waterSources: new Map(),
-  waterLoading: new Set(),
+  trees: [], treeSource: null, treeLoading: false,
+  waters: [], waterSources: new Map(), waterLoading: new Set(),
 };
 const WATER_MODEL_BASE_SCALE = 50;
 const WATER_MODEL_URLS = ['./assets/models/objects/patch-water.glb', './assets/models/objects/patch-water-large.glb'];
 import WATER_GEOMETRY from './water-hazard-contours.js';
 function getWaterGeometry(water) { return { vertices: WATER_GEOMETRY[water.model] || WATER_GEOMETRY['patch-water-large.glb'] }; }
 function getWaterScale(water) { return WATER_MODEL_BASE_SCALE * water.scale; }
-function isPointInPolygon(x, y, vertices) {
-  let inside = false;
-  for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
-    const [xi, yi] = vertices[i], [xj, yj] = vertices[j];
-    const crosses = (yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / ((yj - yi) || Number.EPSILON) + xi;
-    if (crosses) inside = !inside;
-    const cross = (x - xi) * (yj - yi) - (y - yi) * (xj - xi);
-    if (Math.abs(cross) < 1e-7 && x >= Math.min(xi, xj) - 1e-7 && x <= Math.max(xi, xj) + 1e-7 && y >= Math.min(yi, yj) - 1e-7 && y <= Math.max(yi, yj) + 1e-7) return true;
-  }
-  return inside;
-}
+function isPointInPolygon(x, y, vertices) { let inside=false; for(let i=0,j=vertices.length-1;i<vertices.length;j=i++){const [xi,yi]=vertices[i],[xj,yj]=vertices[j];const crosses=(yi>y)!==(yj>y)&&x<((xj-xi)*(y-yi))/((yj-yi)||Number.EPSILON)+xi;if(crosses)inside=!inside;const cross=(x-xi)*(yj-yi)-(y-yi)*(xj-xi);if(Math.abs(cross)<1e-7&&x>=Math.min(xi,xj)-1e-7&&x<=Math.max(xi,xj)+1e-7&&y>=Math.min(yi,yj)-1e-7&&y<=Math.max(yi,yj)+1e-7)return true;} return inside; }
 
 const TREE_MODEL_URL = './assets/models/objects/tree.glb';
 const TREE_BASE_SCALE = 50;
 const TREE_SCALE_MIN = 1.5;
 const TREE_SCALE_MAX = 2.5;
-function createTreeMaterial(sourceMaterial) {
-  const material = sourceMaterial?.clone?.() || new THREE.MeshStandardMaterial({ color: 0xffffff });
-  material.transparent = true;
-  material.opacity = 0.30;
-  material.depthWrite = false;
-  material.depthTest = false;
-  material.side = THREE.DoubleSide;
-  material.needsUpdate = true;
-  return material;
-}
-function prepareTreeMaterials(root) {
-  root.traverse(child => {
-    if (!child.isMesh) return;
-    child.material = Array.isArray(child.material)
-      ? child.material.map(material => createTreeMaterial(material))
-      : createTreeMaterial(child.material);
-    child.castShadow = false;
-    child.receiveShadow = false;
-  });
-}
-function addTreeModel(tree) {
-  if (!worldObjects.treeSource || tree.root) return;
-  const root = cloneSkeleton(worldObjects.treeSource);
-  prepareTreeMaterials(root);
-  const scaleFactor = Math.max(TREE_SCALE_MIN, Math.min(TREE_SCALE_MAX, tree.scale));
-  root.scale.setScalar(TREE_BASE_SCALE * scaleFactor);
-  root.rotation.y = Number.isFinite(tree.rotation) ? tree.rotation : 0;
-  root.renderOrder = 0;
-  tree.root = root;
-  modelScene.add(root);
-}
-function renderWorldTrees(snapshot) {
-  if (!Array.isArray(snapshot)) return;
-  for (const tree of worldObjects.trees) if (tree.root) modelScene.remove(tree.root);
-  worldObjects.trees = snapshot.filter(tree =>
-    tree && typeof tree.id === 'string' && Number.isFinite(tree.x) &&
-    Number.isFinite(tree.y) && Number.isFinite(tree.scale) &&
-    tree.scale >= TREE_SCALE_MIN && tree.scale <= TREE_SCALE_MAX
-  ).map(tree => ({ ...tree, root: null }));
-  for (const tree of worldObjects.trees) addTreeModel(tree);
-}
-function loadWorldTreeModel() {
-  if (worldObjects.treeLoading || worldObjects.treeSource) return;
-  worldObjects.treeLoading = true;
-  loader.load(TREE_MODEL_URL, gltf => {
-    worldObjects.treeSource = gltf.scene;
-    worldObjects.treeLoading = false;
-    for (const tree of worldObjects.trees) addTreeModel(tree);
-    console.log('[echo] tree model loaded');
-  }, undefined, error => {
-    worldObjects.treeLoading = false;
-    console.error('[echo] failed to load tree GLB', error);
-  });
-}
-function updateWorldTreePositions() {
-  for (const tree of worldObjects.trees) {
-    if (!tree.root) continue;
-    const p = worldToScreenPrecise(tree.x, tree.y);
-    tree.root.position.x = p.x - state.width / 2;
-    tree.root.position.y = -(p.y - state.height / 2);
-    tree.root.position.z = 0;
-    tree.root.renderOrder = 0;
-  }
-}
-function prepareWaterMaterials(root) {
-  root.traverse(child => {
-    if (!child.isMesh) return;
-    child.material = Array.isArray(child.material)
-      ? child.material.map(material => createWaterMaterial(material))
-      : createWaterMaterial(child.material);
-    child.castShadow = false;
-    child.receiveShadow = false;
-    child.renderOrder = -1;
-  });
-}
+function createTreeMaterial(sourceMaterial) { const material=sourceMaterial?.clone?.()||new THREE.MeshStandardMaterial({color:0xffffff}); material.transparent=true;material.opacity=.30;material.depthWrite=false;material.depthTest=false;material.side=THREE.DoubleSide;material.needsUpdate=true;return material; }
+function prepareTreeMaterials(root) { root.traverse(child=>{if(!child.isMesh)return;child.material=Array.isArray(child.material)?child.material.map(material=>createTreeMaterial(material)):createTreeMaterial(child.material);child.castShadow=false;child.receiveShadow=false;}); }
+function addTreeModel(tree) { if(!worldObjects.treeSource||tree.root)return;const root=cloneSkeleton(worldObjects.treeSource);prepareTreeMaterials(root);const scaleFactor=Math.max(TREE_SCALE_MIN,Math.min(TREE_SCALE_MAX,tree.scale));root.scale.setScalar(TREE_BASE_SCALE*scaleFactor);root.rotation.y=Number.isFinite(tree.rotation)?tree.rotation:0;root.renderOrder=0;tree.root=root;modelScene.add(root); }
+function renderWorldTrees(snapshot) { if(!Array.isArray(snapshot))return;for(const tree of worldObjects.trees)if(tree.root)modelScene.remove(tree.root);worldObjects.trees=snapshot.filter(tree=>tree&&typeof tree.id==='string'&&Number.isFinite(tree.x)&&Number.isFinite(tree.y)&&Number.isFinite(tree.scale)&&tree.scale>=TREE_SCALE_MIN&&tree.scale<=TREE_SCALE_MAX).map(tree=>({...tree,root:null}));for(const tree of worldObjects.trees)addTreeModel(tree); }
+function loadWorldTreeModel() { if(worldObjects.treeLoading||worldObjects.treeSource)return;worldObjects.treeLoading=true;loader.load(TREE_MODEL_URL,gltf=>{worldObjects.treeSource=gltf.scene;worldObjects.treeLoading=false;for(const tree of worldObjects.trees)addTreeModel(tree);console.log('[echo] tree model loaded');},undefined,error=>{worldObjects.treeLoading=false;console.error('[echo] failed to load tree GLB',error);}); }
+function updateWorldTreePositions() { for(const tree of worldObjects.trees){if(!tree.root)continue;const p=worldToScreenPrecise(tree.x,tree.y);tree.root.position.x=p.x-state.width/2;tree.root.position.y=-(p.y-state.height/2);tree.root.position.z=0;tree.root.renderOrder=0;} }
+
+function prepareWaterMaterials(root) { root.traverse(child=>{if(!child.isMesh)return;child.material=Array.isArray(child.material)?child.material.map(material=>createWaterMaterial(material)):createWaterMaterial(child.material);child.castShadow=false;child.receiveShadow=false;child.renderOrder=-1;}); }
 function createWaterMaterial(sourceMaterial) {
-  // Glossy, shallow-water look with cool reflections and soft ripples.
-  // Keep this lightweight: animated highlights are a few transparent meshes,
-  // not a costly real-time reflection pass.
-  const material = new THREE.MeshPhysicalMaterial({
-    color: 0x9caeb2,
-    metalness: 0.28,
-    roughness: 0.19,
-    clearcoat: 0.9,
-    clearcoatRoughness: 0.12,
+  // Keep the puddle visibly rendered with the existing transparent WebGL setup.
+  // MeshStandardMaterial is intentional here: MeshPhysicalMaterial made the
+  // very thin GLB surface too dependent on an environment map and effectively invisible.
+  const material = new THREE.MeshStandardMaterial({
+    color: 0x71888d,
+    metalness: 0.16,
+    roughness: 0.22,
     transparent: true,
-    opacity: 0.36,
+    opacity: 0.30,
     depthWrite: false,
     depthTest: false,
     side: THREE.DoubleSide,
-    envMapIntensity: 1.25,
-    toneMapped: false,
+    fog: false,
   });
   material.needsUpdate = true;
   return material;
 }
 function createWaterHighlights(water, surface) {
-  const scale = getWaterScale(water);
-  const group = new THREE.Group();
-  group.name = 'water-highlight-layer';
-  group.position.z = 0.12;
-  // Elongated, soft white-blue glints suggest sky reflections on shallow water.
-  const specs = [
-    { x: -0.20, y: 0.18, w: 0.38, h: 0.025, opacity: 0.28, phase: 0.2 },
-    { x: 0.13, y: 0.02, w: 0.28, h: 0.018, opacity: 0.22, phase: 2.0 },
-    { x: -0.04, y: -0.24, w: 0.23, h: 0.014, opacity: 0.18, phase: 4.1 },
-  ];
-  for (const spec of specs) {
-    const geometry = new THREE.PlaneGeometry(scale * spec.w, scale * spec.h);
-    const material = new THREE.MeshBasicMaterial({
-      color: 0xe4f1f4,
-      transparent: true,
-      opacity: spec.opacity,
-      depthWrite: false,
-      depthTest: false,
-      side: THREE.DoubleSide,
-      toneMapped: false,
-    });
-    const glint = new THREE.Mesh(geometry, material);
-    glint.position.set(scale * spec.x, scale * spec.y, Math.random() * 0.005);
-    glint.rotation.z = -0.16 + Math.random() * 0.32;
-    glint.renderOrder = -0.8;
-    glint.userData.waterGlint = spec;
-    glint.userData.baseX = glint.position.x;
-    group.add(glint);
-  }
-  surface.add(group);
-  return group;
+  const scale=getWaterScale(water),group=new THREE.Group();group.name='water-highlight-layer';group.position.z=0.12;
+  const specs=[{x:-.20,y:.18,w:.38,h:.025,opacity:.28,phase:.2},{x:.13,y:.02,w:.28,h:.018,opacity:.22,phase:2},{x:-.04,y:-.24,w:.23,h:.014,opacity:.18,phase:4.1}];
+  for(const spec of specs){const geometry=new THREE.PlaneGeometry(scale*spec.w,scale*spec.h);const material=new THREE.MeshBasicMaterial({color:0xe4f1f4,transparent:true,opacity:spec.opacity,depthWrite:false,depthTest:false,side:THREE.DoubleSide,toneMapped:false});const glint=new THREE.Mesh(geometry,material);glint.position.set(scale*spec.x,scale*spec.y,Math.random()*.005);glint.rotation.set(-Math.PI/2,-.16+Math.random()*.32,0);glint.renderOrder=-.8;glint.userData.waterGlint=spec;glint.userData.baseX=glint.position.x;group.add(glint);}surface.add(group);return group;
 }
-function updateWaterHighlights(time) {
-  for (const water of worldObjects.waters) {
-    if (!water.highlightLayer) continue;
-    const phaseBase = time * 0.00022 + (Number(water.rotation) || 0);
-    for (const glint of water.highlightLayer.children) {
-      const spec = glint.userData.waterGlint;
-      glint.material.opacity = spec.opacity * (0.62 + 0.38 * Math.sin(phaseBase + spec.phase));
-      glint.position.x = glint.userData.baseX + Math.sin(phaseBase + spec.phase) * 1.2;
-    }
-  }
-}
+function updateWaterHighlights(time) { for(const water of worldObjects.waters){if(!water.highlightLayer)continue;const phaseBase=time*.00022+(Number(water.rotation)||0);for(const glint of water.highlightLayer.children){const spec=glint.userData.waterGlint;glint.material.opacity=spec.opacity*(.62+.38*Math.sin(phaseBase+spec.phase));glint.position.x=glint.userData.baseX+Math.sin(phaseBase+spec.phase)*1.2;}} }
+function addWaterModel(water) { const source=worldObjects.waterSources.get(water.model);if(!source||water.root)return;const surface=cloneSkeleton(source);prepareWaterMaterials(surface);surface.rotation.set(Math.PI/2,0,0);surface.scale.setScalar(getWaterScale(water));water.highlightLayer=createWaterHighlights(water,surface);surface.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(surface),center=bounds.getCenter(new THREE.Vector3());surface.position.x-=center.x;surface.position.y-=center.y;surface.position.z-=bounds.min.z;const holder=new THREE.Group();holder.rotation.z=(Number.isFinite(water.rotation)?water.rotation:0)+Math.PI/2;holder.position.z=-1;holder.add(surface);holder.traverse(child=>{if(!child.isMesh)return;child.renderOrder=-1;if(child.material){child.material.depthTest=false;child.material.depthWrite=false;child.needsUpdate=true;child.material.needsUpdate=true;}});holder.renderOrder=-1;water.root=holder;modelScene.add(holder); }
+function renderWorldWaters(snapshot) { if(!Array.isArray(snapshot))return;for(const water of worldObjects.waters)if(water.root)modelScene.remove(water.root);worldObjects.waters=snapshot.filter(water=>water&&typeof water.id==='string'&&(water.model==='patch-water.glb'||water.model==='patch-water-large.glb')&&Number.isFinite(water.x)&&Number.isFinite(water.y)&&Number.isFinite(water.scale)&&water.scale>0&&Number.isFinite(water.collisionRadius)&&water.collisionRadius>0).map(water=>({...water,root:null}));for(const water of worldObjects.waters)addWaterModel(water); }
+function loadWorldWaterModels() { for(const url of WATER_MODEL_URLS){const file=url.split('/').pop();if(worldObjects.waterSources.has(file)||worldObjects.waterLoading.has(file))continue;worldObjects.waterLoading.add(file);loader.load(url,gltf=>{worldObjects.waterSources.set(file,gltf.scene);worldObjects.waterLoading.delete(file);for(const water of worldObjects.waters)if(water.model===file)addWaterModel(water);console.log(`[echo] water model loaded: ${file}`);},undefined,error=>{worldObjects.waterLoading.delete(file);console.error(`[echo] failed to load water model: ${file}`,error);});} }
+function updateWorldWaterPositions() { for(const water of worldObjects.waters){if(!water.root)continue;const p=worldToScreenPrecise(water.x,water.y);water.root.position.x=p.x-state.width/2;water.root.position.y=-(p.y-state.height/2);water.root.position.z=-1;water.root.renderOrder=-1;} }
+function isPlayerInWater(x=state.x,y=state.y) { return worldObjects.waters.some(water=>{const vertices=getWaterGeometry(water).vertices,angle=(Number.isFinite(water.rotation)?water.rotation:0)+Math.PI/2,dx=x-water.x,dy=y-water.y,localX=dx*Math.cos(angle)+dy*Math.sin(angle),localY=-dx*Math.sin(angle)+dy*Math.cos(angle),scale=getWaterScale(water);return isPointInPolygon(localX/scale,localY/scale,vertices);}); }
 
-function addWaterModel(water) {
-  const source = worldObjects.waterSources.get(water.model);
-  if (!source || water.root) return;
-
-  // patch-water-large.glb has dimensions X=1.4, Y=0, Z=1.2:
-  // its flat surface is in the model's X/Z plane. In ECHO, ground is X/Y
-  // and Z is render depth, so rotate the mesh 90° around X to lay it flat.
-  const surface = cloneSkeleton(source);
-  prepareWaterMaterials(surface);
-  surface.rotation.set(Math.PI / 2, 0, 0);
-  surface.scale.setScalar(getWaterScale(water));
-  water.highlightLayer = createWaterHighlights(water, surface);
-  surface.updateMatrixWorld(true);
-
-  // Center the transformed mesh locally and bring its lowest point to depth 0.
-  const bounds = new THREE.Box3().setFromObject(surface);
-  const center = bounds.getCenter(new THREE.Vector3());
-  surface.position.x -= center.x;
-  surface.position.y -= center.y;
-  surface.position.z -= bounds.min.z;
-
-  // Rotate around Z only at the parent level. This keeps the surface flat
-  // while giving each puddle its server-provided in-plane orientation.
-  const holder = new THREE.Group();
-  holder.rotation.z = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
-  holder.position.z = -1;
-  holder.add(surface);
-
-  holder.traverse(child => {
-    if (!child.isMesh) return;
-    child.renderOrder = -1;
-    if (child.material) {
-      child.material.depthTest = false;
-      child.material.depthWrite = false;
-      child.needsUpdate = true;
-      child.material.needsUpdate = true;
-    }
-  });
-  holder.renderOrder = -1;
-  water.root = holder;
-  modelScene.add(holder);
-}
-function renderWorldWaters(snapshot) {
-  if (!Array.isArray(snapshot)) return;
-  for (const water of worldObjects.waters) if (water.root) modelScene.remove(water.root);
-  worldObjects.waters = snapshot.filter(water =>
-    water && typeof water.id === 'string' &&
-    (water.model === 'patch-water.glb' || water.model === 'patch-water-large.glb') &&
-    Number.isFinite(water.x) && Number.isFinite(water.y) &&
-    Number.isFinite(water.scale) && water.scale > 0 &&
-    Number.isFinite(water.collisionRadius) && water.collisionRadius > 0
-  ).map(water => ({ ...water, root: null }));
-  for (const water of worldObjects.waters) addWaterModel(water);
-}
-function loadWorldWaterModels() {
-  for (const url of WATER_MODEL_URLS) {
-    const file = url.split('/').pop();
-    if (worldObjects.waterSources.has(file) || worldObjects.waterLoading.has(file)) continue;
-    worldObjects.waterLoading.add(file);
-    loader.load(url, gltf => {
-      worldObjects.waterSources.set(file, gltf.scene);
-      worldObjects.waterLoading.delete(file);
-      for (const water of worldObjects.waters) if (water.model === file) addWaterModel(water);
-      console.log(`[echo] water model loaded: ${file}`);
-    }, undefined, error => {
-      worldObjects.waterLoading.delete(file);
-      console.error(`[echo] failed to load water model: ${file}`, error);
-    });
-  }
-}
-function updateWorldWaterPositions() {
-  for (const water of worldObjects.waters) {
-    if (!water.root) continue;
-    const p = worldToScreenPrecise(water.x, water.y);
-    water.root.position.x = p.x - state.width / 2;
-    water.root.position.y = -(p.y - state.height / 2);
-    water.root.position.z = -1;
-    water.root.renderOrder = -1;
-  }
-}
-function isPlayerInWater(x = state.x, y = state.y) {
-  return worldObjects.waters.some(water => {
-    const vertices = getWaterGeometry(water).vertices;
-    const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
-    const dx = x - water.x, dy = y - water.y;
-    const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
-    const localY = -dx * Math.sin(angle) + dy * Math.cos(angle);
-    const scale = getWaterScale(water);
-    return isPointInPolygon(localX / scale, localY / scale, vertices);
-  });
-}
-
-function prepareModel(root,isOther=false){root.traverse(child=>{if(!child.isMesh)return;child.castShadow=false;child.receiveShadow=false;if(child.material){child.material=child.material.clone();if('emissiveIntensity' in child.material)child.material.emissiveIntensity=isOther?0.9:1.1;}});root.scale.setScalar(isOther?42:50);return root;}
-function findClip(clips,names){const wanted=names.map(n=>n.toLowerCase());return clips.find(c=>wanted.some(n=>c.name.toLowerCase()===n))||clips.find(c=>wanted.some(n=>c.name.toLowerCase().includes(n)));}
-function setupAnimation(root,clips,isOther=false){if(!clips?.length)return null;const mixer=new THREE.AnimationMixer(root),idle=findClip(clips,['idle','idle_01','idle-01']),run=findClip(clips,['sprint','run','running']),walk=run||findClip(clips,['walk','walk_01','walk-01']),attackMeleeRight=findClip(clips,['attack-melee-right']),attackMeleeLeft=findClip(clips,['attack-melee-left']),attackKickRight=findClip(clips,['attack-kick-right']),attackKickLeft=findClip(clips,['attack-kick-left']),die=findClip(clips,['die','death']),action=idle||clips[0];if(action)mixer.clipAction(action).play();return{mixer,idle,walk,attackMeleeRight,attackMeleeLeft,attackKickRight,attackKickLeft,die,current:action,combatUntil:0,combatAction:null,isOther};}
-function startAttackAnimation(a,v='right',until=performance.now()+FIGHT_DURATION){if(!a)return;const action=v==='left'?(a.attackMeleeLeft||a.attackKickLeft||a.attackMeleeRight||a.attackKickRight):(a.attackMeleeRight||a.attackKickRight||a.attackMeleeLeft||a.attackKickLeft);if(!action)return;if(a.combatAction!==action){const current=a.current?a.mixer.clipAction(a.current):null,next=a.mixer.clipAction(action);current?.fadeOut(.08);next.reset();next.setLoop(THREE.LoopRepeat,Infinity);next.fadeIn(.08).play();a.current=action;a.combatAction=action;}a.combatUntil=until;}
-function switchAnimation(a,moving,time){if(!a)return;if(time<a.combatUntil&&a.combatAction){const attack=a.mixer.clipAction(a.combatAction);if(!attack.isRunning())attack.play();return;}if(a.combatAction&&time>=a.combatUntil){a.combatAction=null;a.combatUntil=0;}const next=moving&&a.walk?a.walk:a.idle;if(!next||next===a.current)return;const current=a.mixer.clipAction(a.current),nextAction=a.mixer.clipAction(next);nextAction.reset().setLoop(THREE.LoopRepeat,Infinity).fadeIn(.15).play();current.fadeOut(.15);a.current=next;}
-function loadCharacterModel(file,onLoaded,onError){const safe=ALLOWED_MODELS.has(file)?file:DEFAULT_MODEL;loader.load(`./assets/models/${safe}`,g=>onLoaded(g,safe),undefined,e=>{console.error(`[echo] failed to load character GLB: ${safe}`,e);onError?.(e,safe);});}
-function createLocalModel(file){loadCharacterModel(file,(g,file2)=>{modelCache.source=g.scene;modelCache.clips=g.animations||[];const local=new THREE.Group(),visible=prepareModel(g.scene,false);local.add(visible);modelCache.local=local;modelCache.localAnimation=setupAnimation(visible,modelCache.clips,false);local.userData.animation=modelCache.localAnimation;modelScene.add(local);modelCache.ready=true;console.log(`[echo] GLB loaded: ${file2}; animations: ${modelCache.clips.length}`);console.log('[echo] available animations:',modelCache.clips.map(c=>c.name));});}createLocalModel(selectedModel);
-function resize(){const r=canvas.getBoundingClientRect();state.dpr=Math.min(devicePixelRatio||1,2);state.width=Math.max(1,r.width);state.height=Math.max(1,r.height);canvas.width=Math.round(state.width*state.dpr);canvas.height=Math.round(state.height*state.dpr);ctx.setTransform(state.dpr,0,0,state.dpr,0,0);modelRenderer.setPixelRatio(state.dpr);modelRenderer.setSize(state.width,state.height,false);modelCamera.left=-state.width/2;modelCamera.right=state.width/2;modelCamera.top=state.height/2;modelCamera.bottom=-state.height/2;modelCamera.updateProjectionMatrix();}addEventListener('resize',resize,{passive:true});resize();
-function setConnection(s,l){connectionDot.classList.toggle('online',s==='online');connectionDot.classList.toggle('offline',s==='offline');connectionLabel.textContent=window.$t?window.$t(l,l):l;}function getPlayerPosition(id){if(!id)return null;if(id===state.socket?.id)return{x:state.x,y:state.y};const p=state.others.get(id);return p?{x:p.displayX??p.targetX,y:p.displayY??p.targetY}:null;}
-function beginCombatVisual(a,b,fid){const now=performance.now(),local=a===state.socket?.id||b===state.socket?.id,oid=a===state.socket?.id?b:a===state.socket?.id?a:null;if(!local){const x=state.others.get(a),y=state.others.get(b);if(x){x.combatUntil=now+FIGHT_DURATION;x.combatFightId=fid;x.fightingWith=b;}if(y){y.combatUntil=now+FIGHT_DURATION;y.combatFightId=fid;y.fightingWith=a;}return;}state.combatUntil=now+FIGHT_DURATION;state.combatOpponentId=oid;state.combatFightId=fid;state.vx=0;state.vy=0;const o=state.others.get(oid);if(o)o.combatUntil=now+FIGHT_DURATION;}
-function showDefeat(){state.defeated=true;state.combatUntil=0;state.combatOpponentId=null;state.vx=0;state.vy=0;energyText.textContent='0';defeatScreen.hidden=false;}function startNewGame(){const u=new URL(location.href);u.searchParams.set('play','1');location.href=u.toString();}defeatReplay?.addEventListener('click',startNewGame);defeatMenu?.addEventListener('click',returnToMenu);
-function connectSocket(){if(!window.io){setConnection('offline','game:connection_local');return;}try{state.socket=window.io(window.ECHO_SERVER_URL||location.origin,{path:'/echo/socket.io/',transports:['websocket','polling'],reconnection:true,timeout:5000,auth:{skin:selectedModel,activityProfileId}});window.echoSocket=state.socket;state.socket.on('echo:world',world=>{if(world&&Array.isArray(world.trees))renderWorldTrees(world.trees);if(world&&Array.isArray(world.waters))renderWorldWaters(world.waters);});state.socket.on('connect',()=>{setConnection('online','game:connection_online');state.socket.emit('echo:hello',{version:1,skin:selectedModel,activityProfileId});lastDailyPing=-15000;sendDailyActivityPing();});state.socket.on('disconnect',()=>setConnection('offline','game:connection_offline'));state.socket.on('connect_error',()=>setConnection('offline','game:connection_pending'));state.socket.on('echo:fight',({fightId,playerA,playerB})=>beginCombatVisual(playerA,playerB,fightId));state.socket.on('echo:combatResult',({fightId,result,energy})=>{if(fightId!==state.combatFightId)return;state.combatUntil=0;state.combatOpponentId=null;state.combatFightId=null;if(result==='lose'){state.energy=0;showDefeat();}else{state.energy=Number.isFinite(energy)?energy:state.energy;energyText.textContent=String(state.energy);}});state.socket.on('echo:players',players=>{if(!Array.isArray(players))return;const now=performance.now(),next=new Map();for(const p of players){if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;if(p.id===state.socket.id){if(Number.isFinite(p.energy)){state.energy=Math.max(0,Math.round(p.energy));energyText.textContent=String(state.energy);}continue;}const old=state.others.get(p.id),skin=ALLOWED_MODELS.has(p.skin)?p.skin:DEFAULT_MODEL,t={...p,skin,previousX:old?.targetX??p.x,previousY:old?.targetY??p.y,targetX:p.x,targetY:p.y,previousSnapshotAt:old?.snapshotAt??now-80,snapshotAt:now,displayX:old?.displayX??p.x,displayY:old?.displayY??p.y,vx:Number.isFinite(p.vx)?p.vx:0,vy:Number.isFinite(p.vy)?p.vy:0,combatUntil:old?.combatUntil??(p.fightingWith?now+FIGHT_DURATION:0),combatFightId:old?.combatFightId??p.fightId??null};if(!old){t.previousSnapshotAt=now-120;t.previousX=p.x;t.previousY=p.y;}next.set(p.id,t);}state.others=next;state.lastSnapshotAt=now;});}catch{setConnection('offline','game:connection_local');}}connectSocket();
-let lastDailyPing = 0;
-function sendDailyActivityPing(now = performance.now()) {
- if (!state.socket?.connected || document.hidden || now - lastDailyPing < 15000) return;
- lastDailyPing = now;
- state.socket.emit('echo:dailyPing', { activityProfileId });
-}
-document.addEventListener('visibilitychange', () => {
- if (!state.socket?.connected) return;
- if (document.hidden) {
-   state.socket.emit('echo:dailyPing', { activityProfileId, active: false });
- } else {
-   lastDailyPing = -15000;
-   sendDailyActivityPing();
- }
-});
-function returnToMenu(){const u=new URL(location.href);u.searchParams.delete('play');location.href=u.toString();}gameExitButton?.addEventListener('click',returnToMenu);
-if (new URLSearchParams(location.search).get('play') === '1') {
-  document.dispatchEvent(new Event('echo:game-started'));
-}
-function isoProject(x,y){return{x:(x-y)*ISO.x,y:(x+y)*ISO.y};}function drawIsoLine(a,b){const pa=isoProject(a.x-state.cameraX,a.y-state.cameraY),pb=isoProject(b.x-state.cameraX,b.y-state.cameraY);ctx.moveTo(Math.round(state.width/2+pa.x)+.5,Math.round(state.height/2+pa.y)+.5);ctx.lineTo(Math.round(state.width/2+pb.x)+.5,Math.round(state.height/2+pb.y)+.5);}function worldToScreen(x,y){const p=isoProject(x,y),c=isoProject(state.cameraX,state.cameraY);return{x:Math.round(state.width/2+p.x-c.x),y:Math.round(state.height/2+p.y-c.y)}}function worldToScreenPrecise(x,y){const p=isoProject(x,y),c=isoProject(state.cameraX,state.cameraY);return{x:state.width/2+p.x-c.x,y:state.height/2+p.y-c.y}}
-function drawGrid(time){const{width,height}=state,s=84,fade=ctx.createRadialGradient(width/2,height/2,30,width/2,height/2,Math.max(width,height)*.7);fade.addColorStop(0,'rgba(169,198,228,.15)');fade.addColorStop(.55,'rgba(115,146,181,.055)');fade.addColorStop(1,'rgba(80,105,140,.004)');const rx=Math.ceil(width/ISO.x)+s*2,ry=Math.ceil(height/ISO.y)+s*2,sx=Math.floor((state.cameraX-rx)/s)*s,ex=Math.ceil((state.cameraX+rx)/s)*s,sy=Math.floor((state.cameraY-ry)/s)*s,ey=Math.ceil((state.cameraY+ry)/s)*s;ctx.strokeStyle=fade;ctx.lineWidth=1;ctx.beginPath();for(let x=sx;x<=ex;x+=s)drawIsoLine({x,y:state.cameraY-ry},{x,y:state.cameraY+ry});for(let y=sy;y<=ey;y+=s)drawIsoLine({x:state.cameraX-rx,y},{x:state.cameraX+rx,y});ctx.stroke();ctx.fillStyle='rgba(195,222,247,.12)';for(let x=sx;x<=ex;x+=s)for(let y=sy;y<=ey;y+=s){const p=worldToScreen(x,y);if(p.x>-2&&p.x<width+2&&p.y>-2&&p.y<height+2){ctx.globalAlpha=.25+.1*Math.sin(time*.0006+(x+y)*.02);ctx.fillRect(p.x-1,p.y-1,2,2)}}ctx.globalAlpha=1;}
-function drawEnergyLabel(x,y,label,other=false){const p=worldToScreen(x,y);ctx.save();ctx.font='500 11px Inter,system-ui,sans-serif';ctx.textAlign='center';ctx.fillStyle=other?'rgba(216,230,246,.68)':'rgba(244,250,255,.9)';ctx.shadowColor='rgba(193,226,255,.8)';ctx.shadowBlur=7;ctx.fillText(String(label),p.x,p.y-(other?58:70));ctx.restore();}
-function updateModel(root,a,x,y,vx,vy,time,label,other=false,fx=vx,fy=vy){if(!root)return;const p=worldToScreenPrecise(x,y);root.position.x=p.x-state.width/2;root.position.y=-(p.y-state.height/2)+Math.sin(time*.0028+x*.02)*(Math.hypot(vx||0,vy||0)>18?1.3:1.8);root.position.z=0;root.renderOrder=0;const moving=Math.hypot(vx||0,vy||0)>18;updateCharacterFacing(root,fx,fy,ISO);switchAnimation(a,moving,time);drawEnergyLabel(x,y,label,other);}
-function ensureOtherModel(p){let e=modelCache.others.get(p.id);if(e&&e.skin===p.skin)return e;if(e){modelScene.remove(e.root);modelCache.others.delete(p.id);}const source=modelCache.otherSources.get(p.skin);if(!source){if(!modelCache.otherSources.has(p.skin)){modelCache.otherSources.set(p.skin,null);loadCharacterModel(p.skin,(g,f)=>modelCache.otherSources.set(f,{scene:g.scene,clips:g.animations||[]}));}return null;}const holder=new THREE.Group(),clone=cloneSkeleton(source.scene);clone.scale.setScalar(1);prepareModel(clone,true);holder.add(clone);const animation=setupAnimation(clone,source.clips,true);modelScene.add(holder);e={root:holder,animation,skin:p.skin};modelCache.others.set(p.id,e);return e;}
-function getCombatFacing(x,y,id,fx,fy){const o=getPlayerPosition(id);if(!o)return{x:fx,y:fy};const dx=o.x-x,dy=o.y-y,l=Math.hypot(dx,dy);return l<.001?{x:fx,y:fy}:{x:dx/l,y:dy/l};}
-function drawModels(time,dt){updateWorldTreePositions();updateWorldWaterPositions();updateWaterHighlights(time);if(!modelCache.ready){modelRenderer.render(modelScene,modelCamera);return;}const jumping=time<state.jumpUntil,combat=!state.defeated&&time<state.combatUntil;modelCache.local.visible=!jumping&&!state.defeated;if(!jumping&&!state.defeated){const f=combat?getCombatFacing(state.x,state.y,state.combatOpponentId,state.vx,state.vy):{x:state.vx,y:state.vy};updateModel(modelCache.local,modelCache.localAnimation,state.x,state.y,state.vx,state.vy,time,state.energy,false,f.x,f.y);if(combat)startAttackAnimation(modelCache.localAnimation,'right',state.combatUntil);}const alive=new Set();for(const p of state.others.values()){const e=ensureOtherModel(p);if(!e)continue;alive.add(p.id);const since=Math.min(Math.max(0,(performance.now()-p.snapshotAt)/1000),.25),px=p.targetX+p.vx*since,py=p.targetY+p.vy*since,c=1-Math.exp(-18*dt);p.displayX+=(px-p.displayX)*c;p.displayY+=(py-p.displayY)*c;const fighting=p.combatUntil>time||!!p.fightingWith,f=fighting?getCombatFacing(p.displayX,p.displayY,p.fightingWith,p.vx,p.vy):{x:p.vx||0,y:p.vy||0};if(fighting)startAttackAnimation(e.animation,p.id.charCodeAt(0)%2?'left':'right',p.combatUntil||time+FIGHT_DURATION);updateModel(e.root,e.animation,p.displayX,p.displayY,p.vx||0,p.vy||0,time,p.energy||0,true,f.x,f.y);}for(const[id,e]of modelCache.others)if(!alive.has(id)){modelScene.remove(e.root);modelCache.others.delete(id)}for(const e of modelCache.others.values())e.animation?.mixer.update(dt);modelCache.localAnimation?.mixer.update(dt);modelRenderer.render(modelScene,modelCamera);}
-function draw(time){ctx.clearRect(0,0,state.width,state.height);drawGrid(time);drawModels(time,state.lastTime?Math.min((time-state.lastTime)/1000,.05):0);const g=ctx.createRadialGradient(state.width/2,state.height/2,Math.min(state.width,state.height)*.22,state.width/2,state.height/2,Math.max(state.width,state.height)*.7);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(.58,'rgba(0,0,0,.1)');g.addColorStop(1,'rgba(0,0,0,.82)');ctx.fillStyle=g;ctx.fillRect(0,0,state.width,state.height);}
-function isJumpLandingBlocked(x,y){const playerRadius=24,safetyGap=10;return worldObjects.trees.some(tree=>Math.hypot(x-tree.x,y-tree.y)<(Number(tree.collisionRadius)||0)+playerRadius+safetyGap);}
-function getSafeJumpTarget(startX,startY,dx,dy){for(let distance=JUMP_DISTANCE;distance>=0;distance-=4){const x=startX+dx*distance,y=startY+dy*distance;if(!isJumpLandingBlocked(x,y))return{x,y};}return{x:startX,y:startY};}
-function triggerJump(){const now=performance.now();if(now<state.jumpUntil||state.defeated||state.combatUntil>now)return;let l=Math.hypot(state.vx,state.vy),dx,dy;if(l>=1){dx=state.vx/l;dy=state.vy/l;}else{const screenX=state.inputX+(state.keys.has('ArrowRight')||state.keys.has('d')?1:0)-(state.keys.has('ArrowLeft')||state.keys.has('a')?1:0),screenY=state.inputY+(state.keys.has('ArrowDown')||state.keys.has('s')?1:0)-(state.keys.has('ArrowUp')||state.keys.has('w')?1:0),inputLength=Math.hypot(screenX,screenY);if(inputLength>0.01){const x=screenX/inputLength,y=screenY/inputLength;dx=x/(2*ISO.x)+y/(2*ISO.y);dy=-x/(2*ISO.x)+y/(2*ISO.y);const worldLength=Math.hypot(dx,dy);dx/=worldLength;dy/=worldLength;}else{const facing=modelCache.local?.children?.[0]?.rotation?.y??modelCache.local?.rotation?.y??0;dx=Math.sin(facing);dy=Math.cos(facing);if(Math.hypot(dx,dy)<0.01){dx=0;dy=1;}}}const target=getSafeJumpTarget(state.x,state.y,dx,dy);if(Math.hypot(target.x-state.x,target.y-state.y)<24)return;state.jumpStart=now;state.jumpUntil=now+JUMP_DURATION;state.jumpFromX=state.x;state.jumpFromY=state.y;state.jumpToX=target.x;state.jumpToY=target.y;}jumpButton?.addEventListener('pointerdown',triggerJump);
-function update(dt,time){sendDailyActivityPing(time);if(state.defeated){state.vx=0;state.vy=0}else if(time<state.combatUntil){state.vx=0;state.vy=0}else if(time<state.jumpUntil){const p=Math.min(1,(time-state.jumpStart)/200);state.x=state.jumpFromX+(state.jumpToX-state.jumpFromX)*p;state.y=state.jumpFromY+(state.jumpToY-state.jumpFromY)*p;state.vx=(state.jumpToX-state.jumpFromX)/.2;state.vy=(state.jumpToY-state.jumpFromY)/.2}else{if(state.jumpStart){state.vx=0;state.vy=0;state.jumpStart=0}state.speedMultiplier=isPlayerInWater()?0.5:1;updatePlayerMovement(state,dt,time,ISO,worldObjects.trees)}state.cameraX=state.x;state.cameraY=state.y;coordsText.textContent=`${Math.round(state.x)} · ${Math.round(state.y)}`;if(state.socket?.connected&&!state.defeated&&time-state.lastSent>80){state.lastSent=time;state.socket.emit('echo:move',{x:state.x,y:state.y,energy:state.energy,vx:state.vx,vy:state.vy,skin:selectedModel});}}
-function triggerBoost(){const now=performance.now();if(now<state.boostCooldownUntil||state.defeated||state.combatUntil>now)return;state.boostUntil=now+700;state.boostCooldownUntil=now+3000;boostButton.classList.remove('cooldown','ready');boostButton.classList.add('active');setTimeout(()=>boostButton.classList.remove('active'),700);const countdown=document.createElement('span');countdown.className='ability-cooldown';countdown.setAttribute('aria-hidden','true');boostButton.appendChild(countdown);boostButton.classList.add('cooldown');const phases=[{value:'2',start:0,duration:850},{value:'1',start:1150,duration:1550}];let last=-1;const tick=()=>{const elapsed=performance.now()-now;if(elapsed>=3000){countdown.remove();boostButton.classList.remove('cooldown');boostButton.classList.add('ready');setTimeout(()=>boostButton.classList.remove('ready'),450);return;}const i=phases.findIndex(p=>elapsed>=p.start&&elapsed<p.start+p.duration);if(i!==last){last=i;countdown.classList.remove('countdown-pop');if(i>=0){countdown.textContent=phases[i].value;countdown.style.animationDuration=`${phases[i].duration}ms`;void countdown.offsetWidth;countdown.classList.add('countdown-pop')}else countdown.textContent='';}requestAnimationFrame(tick)};tick();}
-loadWorldTreeModel();loadWorldWaterModels();bindPlayerControls({state,joystick,stick,boostButton,triggerBoost,jumpButton,triggerJump});function frame(time){const dt=state.lastTime?Math.min((time-state.lastTime)/1000,.05):0;update(dt,time);draw(time);state.lastTime=time;requestAnimationFrame(frame)}requestAnimationFrame(frame);
+function prepareModel(root,isOther=false){root.traverse(child=>{if(!child.isMesh)return;child.castShadow=false;child.receiveShadow=false;if(child.material){child.material=child.material.clone();child.material.transparent=true;child.material.depthWrite=false;child.material.depthTest=false;child.material.opacity=isOther?.95:1;}});}
+function fitModelToCamera(root){const box=new THREE.Box3().setFromObject(root),size=box.getSize(new THREE.Vector3()),max=Math.max(size.x,size.y,size.z)||1;modelCamera.left=-max*.65;modelCamera.right=max*.65;modelCamera.top=max*.65;modelCamera.bottom=-max*.65;modelCamera.updateProjectionMatrix();}
+function updateModelCamera(){modelCamera.position.set(0,0,100);modelCamera.lookAt(0,0,0);}
