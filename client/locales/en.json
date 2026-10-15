@@ -1,6 +1,7 @@
 {
   "menu": {
     "title": "ECHO",
+    "logo": "ECHO.",
     "start": "Start game",
     "character": "Character",
     "settings": "Settings",
