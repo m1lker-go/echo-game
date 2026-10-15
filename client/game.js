@@ -24,29 +24,23 @@ const TREE_BASE_SCALE = 50;
 const TREE_SCALE_MIN = 1.5;
 const TREE_SCALE_MAX = 2.5;
 const MODEL_DEPTH_SCALE = 0;
-function createTreeGradientMaterial(sourceMaterial) {
-  const map = sourceMaterial?.map || null;
+function createTreeGradientMaterial() {
   return new THREE.ShaderMaterial({
     uniforms: {
-      uMap: { value: map },
       uOpacity: { value: 0.30 }
     },
     vertexShader: `
       varying vec3 vTreeNormal;
-      varying vec2 vUv;
       void main() {
         vTreeNormal = normalize(normalMatrix * normal);
-        vUv = uv;
         // Keep the GLB's real depth so the depth buffer can decide whether
         // the tree sits in front of a player at each visible pixel.
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
     `,
     fragmentShader: `
-      uniform sampler2D uMap;
       uniform float uOpacity;
       varying vec3 vTreeNormal;
-      varying vec2 vUv;
       void main() {
         vec3 normalDirection = normalize(vTreeNormal);
         if (!gl_FrontFacing) normalDirection = -normalDirection;
@@ -54,11 +48,11 @@ function createTreeGradientMaterial(sourceMaterial) {
         vec3 lightDirection = normalize(vec3(0.42, 0.24, 0.88));
         float diffuse = max(dot(normalDirection, lightDirection), 0.0);
         float gradient = smoothstep(0.12, 0.82, diffuse);
-        float brightness = mix(0.28, 1.0, gradient);
+        float brightness = mix(0.16, 1.0, gradient);
 
-        vec3 textureColor = texture2D(uMap, vUv).rgb;
-        vec3 lighting = mix(vec3(0.52, 0.55, 0.60), vec3(1.0), brightness);
-        vec3 treeColor = textureColor * lighting;
+        vec3 lightColor = vec3(0.98, 0.99, 1.0);
+        vec3 shadowColor = vec3(0.16, 0.19, 0.23);
+        vec3 treeColor = mix(shadowColor, lightColor, brightness);
         gl_FragColor = vec4(treeColor, uOpacity);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -66,6 +60,8 @@ function createTreeGradientMaterial(sourceMaterial) {
     `,
     transparent: true,
     opacity: 0.30,
+    // Let the tree's nearest pixels enter the depth buffer, so models behind
+    // the tree are occluded instead of always drawing through it.
     depthWrite: true,
     depthTest: true,
     side: THREE.DoubleSide
@@ -75,10 +71,9 @@ function createTreeGradientMaterial(sourceMaterial) {
 function prepareTreeMaterials(root) {
   root.traverse(child => {
     if (!child.isMesh) return;
-    const sourceMaterial = child.material;
-    child.material = Array.isArray(sourceMaterial)
-      ? sourceMaterial.map(material => createTreeGradientMaterial(material))
-      : createTreeGradientMaterial(sourceMaterial);
+    child.material = Array.isArray(child.material)
+      ? child.material.map(() => createTreeGradientMaterial())
+      : createTreeGradientMaterial();
     child.castShadow = true;
     child.receiveShadow = true;
   });
@@ -135,8 +130,36 @@ function startAttackAnimation(a,v='right',until=performance.now()+FIGHT_DURATION
 function switchAnimation(a,moving,time){if(!a)return;if(time<a.combatUntil&&a.combatAction){const attack=a.mixer.clipAction(a.combatAction);if(!attack.isRunning())attack.play();return;}if(a.combatAction&&time>=a.combatUntil){a.combatAction=null;a.combatUntil=0;}const next=moving&&a.walk?a.walk:a.idle;if(!next||next===a.current)return;const current=a.mixer.clipAction(a.current),nextAction=a.mixer.clipAction(next);nextAction.reset().setLoop(THREE.LoopRepeat,Infinity).fadeIn(.15).play();current.fadeOut(.15);a.current=next;}
 function loadCharacterModel(file,onLoaded,onError){const safe=ALLOWED_MODELS.has(file)?file:DEFAULT_MODEL;loader.load(`./assets/models/${safe}`,g=>onLoaded(g,safe),undefined,e=>{console.error(`[echo] failed to load character GLB: ${safe}`,e);onError?.(e,safe);});}
 function createLocalModel(file){loadCharacterModel(file,(g,file2)=>{modelCache.source=g.scene;modelCache.clips=g.animations||[];const local=new THREE.Group(),visible=prepareModel(g.scene,false);local.add(visible);modelCache.local=local;modelCache.localAnimation=setupAnimation(visible,modelCache.clips,false);local.userData.animation=modelCache.localAnimation;modelScene.add(local);modelCache.ready=true;console.log(`[echo] GLB loaded: ${file2}; animations: ${modelCache.clips.length}`);console.log('[echo] available animations:',modelCache.clips.map(c=>c.name));});}createLocalModel(selectedModel);
-function resize(){const r=canvas.getBoundingClientRect();state.dpr=Math.min(devicePixelRatio||1,2);state.width=Math.max(1,r.width);state.height=Math.max(1,r.height);state.dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(state.width*state.dpr);canvas.height=Math.round(state.height*state.dpr);ctx.setTransform(state.dpr,0,0,state.dpr,0,0);modelRenderer.setPixelRatio(state.dpr);modelRenderer.setSize(state.width,state.height,false);modelCamera.left=-state.width/2;modelCamera.right=state.width/2;modelCamera.top=state.height/2;modelCamera.bottom=-state.height/2;modelCamera.updateProjectionMatrix();}addEventListener('resize',resize,{passive:true});resize();
+function resize(){const r=canvas.getBoundingClientRect();state.dpr=Math.min(devicePixelRatio||1,2);state.width=Math.max(1,r.width);state.height=Math.max(1,r.height);canvas.width=Math.round(state.width*state.dpr);canvas.height=Math.round(state.height*state.dpr);ctx.setTransform(state.dpr,0,0,state.dpr,0,0);modelRenderer.setPixelRatio(state.dpr);modelRenderer.setSize(state.width,state.height,false);modelCamera.left=-state.width/2;modelCamera.right=state.width/2;modelCamera.top=state.height/2;modelCamera.bottom=-state.height/2;modelCamera.updateProjectionMatrix();}addEventListener('resize',resize,{passive:true});resize();
 function setConnection(s,l){connectionDot.classList.toggle('online',s==='online');connectionDot.classList.toggle('offline',s==='offline');connectionLabel.textContent=l;}function getPlayerPosition(id){if(!id)return null;if(id===state.socket?.id)return{x:state.x,y:state.y};const p=state.others.get(id);return p?{x:p.displayX??p.targetX,y:p.displayY??p.targetY}:null;}
 function beginCombatVisual(a,b,fid){const now=performance.now(),local=a===state.socket?.id||b===state.socket?.id,oid=a===state.socket?.id?b:a===state.socket?.id?a:null;if(!local){const x=state.others.get(a),y=state.others.get(b);if(x){x.combatUntil=now+FIGHT_DURATION;x.combatFightId=fid;x.fightingWith=b;}if(y){y.combatUntil=now+FIGHT_DURATION;y.combatFightId=fid;y.fightingWith=a;}return;}state.combatUntil=now+FIGHT_DURATION;state.combatOpponentId=oid;state.combatFightId=fid;state.vx=0;state.vy=0;const o=state.others.get(oid);if(o)o.combatUntil=now+FIGHT_DURATION;}
 function showDefeat(){state.defeated=true;state.combatUntil=0;state.combatOpponentId=null;state.vx=0;state.vy=0;energyText.textContent='0';defeatScreen.hidden=false;}function startNewGame(){const u=new URL(location.href);u.searchParams.set('play','1');location.href=u.toString();}defeatReplay?.addEventListener('click',startNewGame);defeatMenu?.addEventListener('click',returnToMenu);
-function connectSocket(){if(!window.io){setConnection('offline','режим без сервера');return;}try{state.socket=window.io(window.ECHO_SERVER_URL||location.origin,{path:'/echo/socket.io/',transports:['websocket','polling'],reconnection:true,timeout:5000,auth:{skin:selectedModel,activityProfileId}});window.echoSocket=state.socket;state.socket.on('echo:world',world=>{if(world&&Array.isArray(world.trees))renderWorldTrees(world.trees);});state.socket.on('connect',()=>{setConnection('online','сервер подключён');state.socket.emit('echo:hello',{version:1,skin:selectedModel,activityProfileId});lastDailyPing=-15000;sendDailyActivityPing();});state.socket.on('disconnect',()=>setConnection('offline','нет соединения'));state.socket.on('connect_error',()=>setConnection('offline','ожидаем сервер'));state.socket.on('echo:fight',({fightId,playerA,playerB})=>beginCombatVisual(playerA,playerB,fightId));state.socket.on('echo:combatResult',({fightId,result,energy})=>{if(fightId!==state.combatFightId)return;state.combatUntil=0;state.combatOpponentId=null;state.combatFightId=null;if(result==='lose'){state.energy=0;showDefeat();}else{state.energy=Number.isFinite(energy)?energy:state.energy;energyText.textContent=String(state.energy);}});state.socket.on('echo:players',players=>{if(!Array.isArray(players))return;const now=performance.now(),next=new Map();for(const p of players){if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;if(p.id===state.socket.id){if(Number.isFinite(p.energy))state.energy=Math.max(0,Math.round(p.energy));continue;}const old=state.others.get(p.id),skin=ALLOWED_MODELS.has(p.skin)?p.skin:DEFAULT_MODEL,t={...p,skin,previousX:old?.targetX??p.x,previousY:old?.targetY??p.y,targetX:p.x,targetY:p.y,previousSnapshotAt:old?.snapshotAt??now-80,snapshotAt:now,displayX:old?.displayX??p.x,displayY:old?.displayY??p.y,vx:Number.isFinite(p.vx)?p.vx:0,vy:Number.isFinite(p.vy)?p.vy:0,combatUntil:old?.combatUntil??(p.fightingWith?now+FIGHT_DURATION:0),combatFightId:old?.combatFightId??p.fight... (truncated)
+function connectSocket(){if(!window.io){setConnection('offline','режим без сервера');return;}try{state.socket=window.io(window.ECHO_SERVER_URL||location.origin,{path:'/echo/socket.io/',transports:['websocket','polling'],reconnection:true,timeout:5000,auth:{skin:selectedModel,activityProfileId}});window.echoSocket=state.socket;state.socket.on('echo:world',world=>{if(world&&Array.isArray(world.trees))renderWorldTrees(world.trees);});state.socket.on('connect',()=>{setConnection('online','сервер подключён');state.socket.emit('echo:hello',{version:1,skin:selectedModel,activityProfileId});lastDailyPing=-15000;sendDailyActivityPing();});state.socket.on('disconnect',()=>setConnection('offline','нет соединения'));state.socket.on('connect_error',()=>setConnection('offline','ожидаем сервер'));state.socket.on('echo:fight',({fightId,playerA,playerB})=>beginCombatVisual(playerA,playerB,fightId));state.socket.on('echo:combatResult',({fightId,result,energy})=>{if(fightId!==state.combatFightId)return;state.combatUntil=0;state.combatOpponentId=null;state.combatFightId=null;if(result==='lose'){state.energy=0;showDefeat();}else{state.energy=Number.isFinite(energy)?energy:state.energy;energyText.textContent=String(state.energy);}});state.socket.on('echo:players',players=>{if(!Array.isArray(players))return;const now=performance.now(),next=new Map();for(const p of players){if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;if(p.id===state.socket.id){if(Number.isFinite(p.energy))state.energy=Math.max(0,Math.round(p.energy));continue;}const old=state.others.get(p.id),skin=ALLOWED_MODELS.has(p.skin)?p.skin:DEFAULT_MODEL,t={...p,skin,previousX:old?.targetX??p.x,previousY:old?.targetY??p.y,targetX:p.x,targetY:p.y,previousSnapshotAt:old?.snapshotAt??now-80,snapshotAt:now,displayX:old?.displayX??p.x,displayY:old?.displayY??p.y,vx:Number.isFinite(p.vx)?p.vx:0,vy:Number.isFinite(p.vy)?p.vy:0,combatUntil:old?.combatUntil??(p.fightingWith?now+FIGHT_DURATION:0),combatFightId:old?.combatFightId??p.fightId??null};if(!old){t.previousSnapshotAt=now-120;t.previousX=p.x;t.previousY=p.y;}next.set(p.id,t);}state.others=next;state.lastSnapshotAt=now;});}catch{setConnection('offline','режим без сервера');}}connectSocket();
+let lastDailyPing = 0;
+function sendDailyActivityPing(now = performance.now()) {
+ if (!state.socket?.connected || document.hidden || now - lastDailyPing < 15000) return;
+ lastDailyPing = now;
+ state.socket.emit('echo:dailyPing', { activityProfileId });
+}
+document.addEventListener('visibilitychange', () => {
+ if (!state.socket?.connected) return;
+ if (document.hidden) {
+   state.socket.emit('echo:dailyPing', { activityProfileId, active: false });
+ } else {
+   lastDailyPing = -15000;
+   sendDailyActivityPing();
+ }
+});
+function returnToMenu(){const u=new URL(location.href);u.searchParams.delete('play');location.href=u.toString();}gameExitButton?.addEventListener('click',returnToMenu);
+function isoProject(x,y){return{x:(x-y)*ISO.x,y:(x+y)*ISO.y};}function drawIsoLine(a,b){const pa=isoProject(a.x-state.cameraX,a.y-state.cameraY),pb=isoProject(b.x-state.cameraX,b.y-state.cameraY);ctx.moveTo(Math.round(state.width/2+pa.x)+.5,Math.round(state.height/2+pa.y)+.5);ctx.lineTo(Math.round(state.width/2+pb.x)+.5,Math.round(state.height/2+pb.y)+.5);}function worldToScreen(x,y){const p=isoProject(x,y),c=isoProject(state.cameraX,state.cameraY);return{x:Math.round(state.width/2+p.x-c.x),y:Math.round(state.height/2+p.y-c.y)}}function worldToScreenPrecise(x,y){const p=isoProject(x,y),c=isoProject(state.cameraX,state.cameraY);return{x:state.width/2+p.x-c.x,y:state.height/2+p.y-c.y}}
+function drawGrid(time){const{width,height}=state,s=84,fade=ctx.createRadialGradient(width/2,height/2,30,width/2,height/2,Math.max(width,height)*.7);fade.addColorStop(0,'rgba(169,198,228,.15)');fade.addColorStop(.55,'rgba(115,146,181,.055)');fade.addColorStop(1,'rgba(80,105,140,.004)');const rx=Math.ceil(width/ISO.x)+s*2,ry=Math.ceil(height/ISO.y)+s*2,sx=Math.floor((state.cameraX-rx)/s)*s,ex=Math.ceil((state.cameraX+rx)/s)*s,sy=Math.floor((state.cameraY-ry)/s)*s,ey=Math.ceil((state.cameraY+ry)/s)*s;ctx.strokeStyle=fade;ctx.lineWidth=1;ctx.beginPath();for(let x=sx;x<=ex;x+=s)drawIsoLine({x,y:state.cameraY-ry},{x,y:state.cameraY+ry});for(let y=sy;y<=ey;y+=s)drawIsoLine({x:state.cameraX-rx,y},{x:state.cameraX+rx,y});ctx.stroke();ctx.fillStyle='rgba(195,222,247,.12)';for(let x=sx;x<=ex;x+=s)for(let y=sy;y<=ey;y+=s){const p=worldToScreen(x,y);if(p.x>-2&&p.x<width+2&&p.y>-2&&p.y<height+2){ctx.globalAlpha=.25+.1*Math.sin(time*.0006+(x+y)*.02);ctx.fillRect(p.x-1,p.y-1,2,2)}}ctx.globalAlpha=1;}
+function drawEnergyLabel(x,y,label,other=false){const p=worldToScreen(x,y);ctx.save();ctx.font='500 11px Inter,system-ui,sans-serif';ctx.textAlign='center';ctx.fillStyle=other?'rgba(216,230,246,.68)':'rgba(244,250,255,.9)';ctx.shadowColor='rgba(193,226,255,.8)';ctx.shadowBlur=7;ctx.fillText(String(label),p.x,p.y-(other?58:70));ctx.restore();}
+function updateModel(root,a,x,y,vx,vy,time,label,other=false,fx=vx,fy=vy){if(!root)return;const p=worldToScreenPrecise(x,y);root.position.x=p.x-state.width/2;root.position.y=-(p.y-state.height/2)+Math.sin(time*.0028+x*.02)*(Math.hypot(vx||0,vy||0)>18?1.3:1.8);root.position.z=0;root.renderOrder=0;const moving=Math.hypot(vx||0,vy||0)>18;updateCharacterFacing(root,fx,fy,ISO);switchAnimation(a,moving,time);drawEnergyLabel(x,y,label,other);}
+function ensureOtherModel(p){let e=modelCache.others.get(p.id);if(e&&e.skin===p.skin)return e;if(e){modelScene.remove(e.root);modelCache.others.delete(p.id);}const source=modelCache.otherSources.get(p.skin);if(!source){if(!modelCache.otherSources.has(p.skin)){modelCache.otherSources.set(p.skin,null);loadCharacterModel(p.skin,(g,f)=>modelCache.otherSources.set(f,{scene:g.scene,clips:g.animations||[]}));}return null;}const holder=new THREE.Group(),clone=cloneSkeleton(source.scene);clone.scale.setScalar(1);prepareModel(clone,true);holder.add(clone);const animation=setupAnimation(clone,source.clips,true);modelScene.add(holder);e={root:holder,animation,skin:p.skin};modelCache.others.set(p.id,e);return e;}
+function getCombatFacing(x,y,id,fx,fy){const o=getPlayerPosition(id);if(!o)return{x:fx,y:fy};const dx=o.x-x,dy=o.y-y,l=Math.hypot(dx,dy);return l<.001?{x:fx,y:fy}:{x:dx/l,y:dy/l};}
+function drawModels(time,dt){updateWorldTreePositions();if(!modelCache.ready){modelRenderer.render(modelScene,modelCamera);return;}const jumping=time<state.jumpUntil,combat=!state.defeated&&time<state.combatUntil;modelCache.local.visible=!jumping&&!state.defeated;if(!jumping&&!state.defeated){const f=combat?getCombatFacing(state.x,state.y,state.combatOpponentId,state.vx,state.vy):{x:state.vx,y:state.vy};updateModel(modelCache.local,modelCache.localAnimation,state.x,state.y,state.vx,state.vy,time,state.energy,false,f.x,f.y);if(combat)startAttackAnimation(modelCache.localAnimation,'right',state.combatUntil);}const alive=new Set();for(const p of state.others.values()){const e=ensureOtherModel(p);if(!e)continue;alive.add(p.id);const since=Math.min(Math.max(0,(performance.now()-p.snapshotAt)/1000),.25),px=p.targetX+p.vx*since,py=p.targetY+p.vy*since,c=1-Math.exp(-18*dt);p.displayX+=(px-p.displayX)*c;p.displayY+=(py-p.displayY)*c;const fighting=p.combatUntil>time||!!p.fightingWith,f=fighting?getCombatFacing(p.displayX,p.displayY,p.fightingWith,p.vx,p.vy):{x:p.vx||0,y:p.vy||0};if(fighting)startAttackAnimation(e.animation,p.id.charCodeAt(0)%2?'left':'right',p.combatUntil||time+FIGHT_DURATION);updateModel(e.root,e.animation,p.displayX,p.displayY,p.vx||0,p.vy||0,time,p.energy||0,true,f.x,f.y);}for(const[id,e]of modelCache.others)if(!alive.has(id)){modelScene.remove(e.root);modelCache.others.delete(id)}for(const e of modelCache.others.values())e.animation?.mixer.update(dt);modelCache.localAnimation?.mixer.update(dt);modelRenderer.render(modelScene,modelCamera);}
+function draw(time){ctx.clearRect(0,0,state.width,state.height);drawGrid(time);drawModels(time,state.lastTime?Math.min((time-state.lastTime)/1000,.05):0);const g=ctx.createRadialGradient(state.width/2,state.height/2,Math.min(state.width,state.height)*.22,state.width/2,state.height/2,Math.max(state.width,state.height)*.7);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(.58,'rgba(0,0,0,.1)');g.addColorStop(1,'rgba(0,0,0,.82)');ctx.fillStyle=g;ctx.fillRect(0,0,state.width,state.height);}
+function triggerJump(){const now=performance.now();if(now<state.jumpUntil||state.defeated||state.combatUntil>now)return;const l=Math.hypot(state.vx,state.vy);if(l<1)return;const dx=state.vx/l,dy=state.vy/l;state.jumpStart=now;state.jumpUntil=now+JUMP_DURATION;state.jumpFromX=state.x;state.jumpFromY=state.y;state.jumpToX=state.x+dx*420;state.jumpToY=state.y+dy*420;}jumpButton?.addEventListener('pointerdown',triggerJump);
+function update(dt,time){sendDailyActivityPing(time);if(state.defeated){state.vx=0;state.vy=0}else if(time<state.combatUntil){state.vx=0;state.vy=0}else if(time<state.jumpUntil){const p=Math.min(1,(time-state.jumpStart)/200);state.x=state.jumpFromX+(state.jumpToX-state.jumpFromX)*p;state.y=state.jumpFromY+(state.jumpToY-state.jumpFromY)*p;state.vx=(state.jumpToX-state.jumpFromX)/.2;state.vy=(state.jumpToY-state.jumpFromY)/.2}else{if(state.jumpStart){state.vx=0;state.vy=0;state.jumpStart=0}updatePlayerMovement(state,dt,time,ISO,worldObjects.trees)}state.cameraX=state.x;state.cameraY=state.y;coordsText.textContent=`${Math.round(state.x)} · ${Math.round(state.y)}`;if(state.socket?.connected&&!state.defeated&&time-state.lastSent>80){state.lastSent=time;state.socket.emit('echo:move',{x:state.x,y:state.y,energy:state.energy,vx:state.vx,vy:state.vy,skin:selectedModel});}}
+function triggerBoost(){const now=performance.now();if(now<state.boostCooldownUntil||state.defeated||state.combatUntil>now)return;state.boostUntil=now+700;state.boostCooldownUntil=now+3000;boostButton.classList.remove('cooldown','ready');boostButton.classList.add('active');setTimeout(()=>boostButton.classList.remove('active'),700);const countdown=document.createElement('span');countdown.className='ability-cooldown';countdown.setAttribute('aria-hidden','true');boostButton.appendChild(countdown);boostButton.classList.add('cooldown');const phases=[{value:'2',start:0,duration:850},{value:'1',start:1150,duration:1550}];let last=-1;const tick=()=>{const elapsed=performance.now()-now;if(elapsed>=3000){countdown.remove();boostButton.classList.remove('cooldown');boostButton.classList.add('ready');setTimeout(()=>boostButton.classList.remove('ready'),450);return;}const i=phases.findIndex(p=>elapsed>=p.start&&elapsed<p.start+p.duration);if(i!==last){last=i;countdown.classList.remove('countdown-pop');if(i>=0){countdown.textContent=phases[i].value;countdown.style.animationDuration=`${phases[i].duration}ms`;void countdown.offsetWidth;countdown.classList.add('countdown-pop')}else countdown.textContent='';}requestAnimationFrame(tick)};tick();}
+loadWorldTreeModel();bindPlayerControls({state,joystick,stick,boostButton,triggerBoost,jumpButton,triggerJump});function frame(time){const dt=state.lastTime?Math.min((time-state.lastTime)/1000,.05):0;update(dt,time);draw(time);state.lastTime=time;requestAnimationFrame(frame)}requestAnimationFrame(frame);
