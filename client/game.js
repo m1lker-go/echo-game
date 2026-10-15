@@ -16,17 +16,8 @@ const state={x:0,y:0,vx:0,vy:0,energy:0,cameraX:0,cameraY:0,inputX:0,inputY:0,wi
 const WORLD={spacing:84},ISO={x:.8660254,y:.5},JUMP_DISTANCE=420,JUMP_DURATION=200,FIGHT_DURATION=1000;
 const modelScene=new THREE.Scene(),modelCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,1000);modelCamera.position.z=100;const modelRenderer=new THREE.WebGLRenderer({canvas:modelCanvas,alpha:true,antialias:true});modelRenderer.setPixelRatio(Math.min(devicePixelRatio||1,2));modelRenderer.outputColorSpace=THREE.SRGBColorSpace;modelRenderer.setClearColor(0,0);modelScene.add(new THREE.AmbientLight(0xffffff,2.2));const keyLight=new THREE.DirectionalLight(0xd9eeff,3.5);keyLight.position.set(-40,80,120);modelScene.add(keyLight);const rimLight=new THREE.DirectionalLight(0x9ed7ff,2.2);rimLight.position.set(60,30,100);modelScene.add(rimLight);
 const loader=new GLTFLoader(),DEFAULT_MODEL='character-female-a.glb',ALLOWED_MODELS=new Set(['character-female-a.glb','character-female-b.glb','character-female-c.glb','character-female-d.glb','character-female-e.glb','character-female-f.glb','character-male-a.glb','character-male-b.glb','character-male-c.glb','character-male-d.glb','character-male-e.glb','character-male-f.glb']),selectedModel=ALLOWED_MODELS.has(localStorage.getItem('echo.selectedModel'))?localStorage.getItem('echo.selectedModel'):DEFAULT_MODEL,modelCache={source:null,clips:[],local:null,localAnimation:null,others:new Map(),otherSources:new Map(),ready:false};
-const worldObjects = { trees: [], treeSource: null, treeLoading: false, worldReceived: false };
-
-const worldObjects = { trees: [], treeSource: null, treeLoading: false, worldReceived: false };
+const worldObjects = { trees: [], treeSource: null, treeLoading: false };
 const TREE_MODEL_URL = './assets/models/objects/tree.glb';
-const treeLoader = new GLTFLoader();
-treeLoader.manager.setURLModifier((url) => {
-  if (url.endsWith('/Textures/colormap.png') || url.endsWith('Textures/colormap.png')) {
-    return new URL('./assets/textures/colormap.png', location.href).href;
-  }
-  return url;
-});
 function addTreeModel(tree) {
   if (!worldObjects.treeSource || tree.root) return;
   const root = cloneSkeleton(worldObjects.treeSource);
@@ -37,7 +28,6 @@ function addTreeModel(tree) {
 }
 function renderWorldTrees(snapshot) {
   if (!Array.isArray(snapshot)) return;
-  worldObjects.worldReceived = true;
   for (const tree of worldObjects.trees) if (tree.root) modelScene.remove(tree.root);
   worldObjects.trees = snapshot.filter(tree =>
     tree && typeof tree.id === 'string' && Number.isFinite(tree.x) &&
@@ -45,31 +35,15 @@ function renderWorldTrees(snapshot) {
     tree.scale >= 0.7 && tree.scale <= 1
   ).map(tree => ({ ...tree, root: null }));
   for (const tree of worldObjects.trees) addTreeModel(tree);
-  console.log(`[echo] world received; trees: ${worldObjects.trees.length}`);
 }
 function loadWorldTreeModel() {
   if (worldObjects.treeLoading || worldObjects.treeSource) return;
   worldObjects.treeLoading = true;
-  treeLoader.load(TREE_MODEL_URL, gltf => {
-    const bounds = new THREE.Box3().setFromObject(gltf.scene);
-    const centerX = (bounds.min.x + bounds.max.x) / 2;
-    const centerZ = (bounds.min.z + bounds.max.z) / 2;
-    const baseY = bounds.min.y;
-    gltf.scene.position.x -= centerX;
-    gltf.scene.position.y -= baseY;
-    gltf.scene.position.z -= centerZ;
-    gltf.scene.traverse(child => {
-      if (!child.isMesh || !child.material) return;
-      child.material = child.material.clone();
-      child.material.needsUpdate = true;
-    });
+  loader.load(TREE_MODEL_URL, gltf => {
     worldObjects.treeSource = gltf.scene;
     worldObjects.treeLoading = false;
     for (const tree of worldObjects.trees) addTreeModel(tree);
-    console.log(`[echo] tree model loaded; instances: ${worldObjects.trees.length}; texture: ./assets/textures/colormap.png`);
-    if (state.socket?.connected && !worldObjects.worldReceived) {
-      state.socket.emit('echo:hello', { version: 1, skin: selectedModel, activityProfileId });
-    }
+    console.log('[echo] tree model loaded');
   }, undefined, error => {
     worldObjects.treeLoading = false;
     console.error('[echo] failed to load tree GLB', error);
@@ -96,7 +70,7 @@ function resize(){const r=canvas.getBoundingClientRect();state.dpr=Math.min(devi
 function setConnection(s,l){connectionDot.classList.toggle('online',s==='online');connectionDot.classList.toggle('offline',s==='offline');connectionLabel.textContent=l;}function getPlayerPosition(id){if(!id)return null;if(id===state.socket?.id)return{x:state.x,y:state.y};const p=state.others.get(id);return p?{x:p.displayX??p.targetX,y:p.displayY??p.targetY}:null;}
 function beginCombatVisual(a,b,fid){const now=performance.now(),local=a===state.socket?.id||b===state.socket?.id,oid=a===state.socket?.id?b:a===state.socket?.id?a:null;if(!local){const x=state.others.get(a),y=state.others.get(b);if(x){x.combatUntil=now+FIGHT_DURATION;x.combatFightId=fid;x.fightingWith=b;}if(y){y.combatUntil=now+FIGHT_DURATION;y.combatFightId=fid;y.fightingWith=a;}return;}state.combatUntil=now+FIGHT_DURATION;state.combatOpponentId=oid;state.combatFightId=fid;state.vx=0;state.vy=0;const o=state.others.get(oid);if(o)o.combatUntil=now+FIGHT_DURATION;}
 function showDefeat(){state.defeated=true;state.combatUntil=0;state.combatOpponentId=null;state.vx=0;state.vy=0;energyText.textContent='0';defeatScreen.hidden=false;}function startNewGame(){const u=new URL(location.href);u.searchParams.set('play','1');location.href=u.toString();}defeatReplay?.addEventListener('click',startNewGame);defeatMenu?.addEventListener('click',returnToMenu);
-function connectSocket(){if(!window.io){setConnection('offline','режим без сервера');return;}try{state.socket=window.io(window.ECHO_SERVER_URL||location.origin,{path:'/echo/socket.io/',transports:['websocket','polling'],reconnection:true,timeout:5000,auth:{skin:selectedModel,activityProfileId}});window.echoSocket=state.socket;state.socket.on('echo:world',world=>{console.log('[echo] echo:world received',Array.isArray(world?.trees)?world.trees.length:0);if(world&&Array.isArray(world.trees))renderWorldTrees(world.trees);});state.socket.on('connect',()=>{setConnection('online','сервер подключён');state.socket.emit('echo:hello',{version:1,skin:selectedModel,activityProfileId});lastDailyPing=-15000;sendDailyActivityPing();});state.socket.on('disconnect',()=>setConnection('offline','нет соединения'));state.socket.on('connect_error',()=>setConnection('offline','ожидаем сервер'));state.socket.on('echo:fight',({fightId,playerA,playerB})=>beginCombatVisual(playerA,playerB,fightId));state.socket.on('echo:combatResult',({fightId,result,energy})=>{if(fightId!==state.combatFightId)return;state.combatUntil=0;state.combatOpponentId=null;state.combatFightId=null;if(result==='lose'){state.energy=0;showDefeat();}else{state.energy=Number.isFinite(energy)?energy:state.energy;energyText.textContent=String(state.energy);}});state.socket.on('echo:players',players=>{if(!Array.isArray(players))return;const now=performance.now(),next=new Map();for(const p of players){if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;if(p.id===state.socket.id){if(Number.isFinite(p.energy))state.energy=Math.max(0,Math.round(p.energy));continue;}const old=state.others.get(p.id),skin=ALLOWED_MODELS.has(p.skin)?p.skin:DEFAULT_MODEL,t={...p,skin,previousX:old?.targetX??p.x,previousY:old?.targetY??p.y,targetX:p.x,targetY:p.y,previousSnapshotAt:old?.snapshotAt??now-80,snapshotAt:now,displayX:old?.displayX??p.x,displayY:old?.displayY??p.y,vx:Number.isFinite(p.vx)?p.vx:0,vy:Number.isFinite(p.vy)?p.vy:0,combatUntil:old?.combatUntil??(p.fightingWith?now+FIGHT_DURATION:0),combatFightId:old?.combatFightId??p.fightId??null};if(!old){t.previousSnapshotAt=now-120;t.previousX=p.x;t.previousY=p.y;}next.set(p.id,t);}state.others=next;state.lastSnapshotAt=now;});}catch{setConnection('offline','режим без сервера');}}connectSocket();
+function connectSocket(){if(!window.io){setConnection('offline','режим без сервера');return;}try{state.socket=window.io(window.ECHO_SERVER_URL||location.origin,{path:'/echo/socket.io/',transports:['websocket','polling'],reconnection:true,timeout:5000,auth:{skin:selectedModel,activityProfileId}});window.echoSocket=state.socket;state.socket.on('echo:world',world=>{if(world&&Array.isArray(world.trees))renderWorldTrees(world.trees);});state.socket.on('connect',()=>{setConnection('online','сервер подключён');state.socket.emit('echo:hello',{version:1,skin:selectedModel,activityProfileId});lastDailyPing=-15000;sendDailyActivityPing();});state.socket.on('disconnect',()=>setConnection('offline','нет соединения'));state.socket.on('connect_error',()=>setConnection('offline','ожидаем сервер'));state.socket.on('echo:fight',({fightId,playerA,playerB})=>beginCombatVisual(playerA,playerB,fightId));state.socket.on('echo:combatResult',({fightId,result,energy})=>{if(fightId!==state.combatFightId)return;state.combatUntil=0;state.combatOpponentId=null;state.combatFightId=null;if(result==='lose'){state.energy=0;showDefeat();}else{state.energy=Number.isFinite(energy)?energy:state.energy;energyText.textContent=String(state.energy);}});state.socket.on('echo:players',players=>{if(!Array.isArray(players))return;const now=performance.now(),next=new Map();for(const p of players){if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;if(p.id===state.socket.id){if(Number.isFinite(p.energy))state.energy=Math.max(0,Math.round(p.energy));continue;}const old=state.others.get(p.id),skin=ALLOWED_MODELS.has(p.skin)?p.skin:DEFAULT_MODEL,t={...p,skin,previousX:old?.targetX??p.x,previousY:old?.targetY??p.y,targetX:p.x,targetY:p.y,previousSnapshotAt:old?.snapshotAt??now-80,snapshotAt:now,displayX:old?.displayX??p.x,displayY:old?.displayY??p.y,vx:Number.isFinite(p.vx)?p.vx:0,vy:Number.isFinite(p.vy)?p.vy:0,combatUntil:old?.combatUntil??(p.fightingWith?now+FIGHT_DURATION:0),combatFightId:old?.combatFightId??p.fightId??null};if(!old){t.previousSnapshotAt=now-120;t.previousX=p.x;t.previousY=p.y;}next.set(p.id,t);}state.others=next;state.lastSnapshotAt=now;});}catch{setConnection('offline','режим без сервера');}}connectSocket();
 let lastDailyPing = 0;
 function sendDailyActivityPing(now = performance.now()) {
  if (!state.socket?.connected || document.hidden || now - lastDailyPing < 15000) return;
