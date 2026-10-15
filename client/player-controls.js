@@ -6,6 +6,8 @@
 //   Right = straight right on screen
 //   Two keys = 45-degree diagonal on screen
 
+const WORLD_HALF_SIZE = 4200;
+
 export function bindPlayerControls({ state, joystick, stick, boostButton, triggerBoost }) {
   function setJoystick(clientX, clientY) {
     const rect = joystick.getBoundingClientRect();
@@ -80,4 +82,8 @@ export function updatePlayerMovement(state, dt, time, ISO) {
   state.vy += (worldY * speed - state.vy) * smoothing;
   state.x += state.vx * dt;
   state.y += state.vy * dt;
+
+  // Exactly 100x100 cells at 84 world units per cell, centered on (0, 0).
+  state.x = Math.max(-WORLD_HALF_SIZE, Math.min(WORLD_HALF_SIZE, state.x));
+  state.y = Math.max(-WORLD_HALF_SIZE, Math.min(WORLD_HALF_SIZE, state.y));
 }
