@@ -58,8 +58,8 @@ const FOOD_COUNT = 34;
 // Food visually attracts inside 75.6 units. Collect slightly before its center
 // reaches the player so server snapshots remove it before it appears to stick.
 const FOOD_COLLECT_RADIUS = 60;
-const FOOD_RESPAWN_INTERVAL = 3000;
-const FOOD_RESPAWN_BATCH = 4;
+const FOOD_RESPAWN_MIN_MS = 10_000;
+const FOOD_RESPAWN_MAX_MS = 25_000;
 
 function createFoodPoint(id) {
   const angle = id * 2.399963229728653;
@@ -71,6 +71,7 @@ function createFoodPoint(id) {
     size: 5 + (id % 3),
     pulse: id * .7,
     active: true,
+    respawnAt: 0,
   };
 }
 
@@ -93,27 +94,32 @@ function broadcastFood() {
 
 function collectFood(player) {
   let collected = 0;
+  const now = Date.now();
   for (const point of food.values()) {
     if (!point.active) continue;
     const distance = Math.hypot(player.x - point.x, player.y - point.y);
     if (distance > FOOD_COLLECT_RADIUS) continue;
     point.active = false;
+    point.respawnAt = now + FOOD_RESPAWN_MIN_MS
+      + Math.floor(Math.random() * (FOOD_RESPAWN_MAX_MS - FOOD_RESPAWN_MIN_MS + 1));
     collected += 1;
   }
   return collected;
 }
 
 function refillFood() {
-  const inactive = Array.from(food.values()).filter((point) => !point.active);
-  if (!inactive.length) return;
-
-  for (const point of inactive.slice(0, FOOD_RESPAWN_BATCH)) {
+  const now = Date.now();
+  let changed = false;
+  for (const point of food.values()) {
+    if (point.active || !point.respawnAt || point.respawnAt > now) continue;
     point.active = true;
+    point.respawnAt = 0;
+    changed = true;
   }
-  broadcastFood();
+  if (changed) broadcastFood();
 }
 
-setInterval(refillFood, FOOD_RESPAWN_INTERVAL);
+setInterval(refillFood, 1000);
 
 function emitFightState(fight) {
   const base = { fightId: fight.id, duration: FIGHT_DURATION };
@@ -222,9 +228,7 @@ io.on('connection', (socket) => {
     defeated: false,
   });
   broadcastPlayers();
-  socket.emit('echo:food', Array.from(food.values())
-    .filter((point) => point.active)
-    .map(({ id, x, y, size, pulse }) => ({ id, x, y, size, pulse })));
+  broadcastFood();
 
   socket.on('echo:hello', (payload) => {
     const requestedSkin = payload?.skin;
@@ -232,9 +236,7 @@ io.on('connection', (socket) => {
     if (current && ALLOWED_SKINS.has(requestedSkin)) current.skin = requestedSkin;
 
     socket.emit('echo:players', Array.from(players.values(), (player) => ({ ...player })));
-    socket.emit('echo:food', Array.from(food.values())
-      .filter((point) => point.active)
-      .map(({ id, x, y, size, pulse }) => ({ id, x, y, size, pulse })));
+    broadcastFood();
     broadcastPlayers();
   });
 
