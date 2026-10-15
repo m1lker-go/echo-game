@@ -72,6 +72,7 @@ const DAILY_TIME_ZONE = process.env.DAILY_TIME_ZONE || 'Europe/Moscow';
 const ACTIVE_PING_MAX_GAP_MS = 45000;
 const DAILY_ACTIVITY_FIELDS = new Set(['food_collected', 'pvp_wins']);
 const dailyActivityProfileIds = new Map();
+const activityProfileSockets = new Map();
 function dailyDateKey(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: DAILY_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
@@ -79,6 +80,18 @@ function dailyDateKey(date = new Date()) {
 }
 function normalizeActivityProfileId(value) {
   return typeof value === 'string' && /^[a-zA-Z0-9_-]{16,80}$/.test(value) ? value : null;
+}
+function claimActivityProfileSocket(socket, profileId) {
+  if (!profileId) return;
+  const previousSocketId = activityProfileSockets.get(profileId);
+  if (previousSocketId && previousSocketId !== socket.id) {
+    const previousSocket = io.sockets.sockets.get(previousSocketId);
+    if (previousSocket) {
+      console.log(`[socket] replacing duplicate profile session: ${previousSocketId} -> ${socket.id}`);
+      previousSocket.disconnect(true);
+    }
+  }
+  activityProfileSockets.set(profileId, socket.id);
 }
 async function ensureDailyActivitySchema() {
   await pool.query('CREATE TABLE IF NOT EXISTS echo_daily_activity (profile_id TEXT NOT NULL, activity_date DATE NOT NULL, play_seconds INTEGER NOT NULL DEFAULT 0 CHECK (play_seconds >= 0), food_collected INTEGER NOT NULL DEFAULT 0 CHECK (food_collected >= 0), pvp_wins INTEGER NOT NULL DEFAULT 0 CHECK (pvp_wins >= 0), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (profile_id, activity_date))');
@@ -273,6 +286,7 @@ function checkForFights(source) {
 
 io.on('connection', (socket) => {
   let activityProfileId = normalizeActivityProfileId(socket.handshake.auth?.activityProfileId);
+  if (activityProfileId) claimActivityProfileSocket(socket, activityProfileId);
   let lastPingAt = 0;
   let lastPersistedAt = Date.now();
   let dayKey = dailyDateKey();
@@ -305,7 +319,10 @@ io.on('connection', (socket) => {
     const requestedProfileId = normalizeActivityProfileId(payload?.activityProfileId);
 
     if (requestedProfileId && requestedProfileId !== activityProfileId) {
+      const previousProfileId = activityProfileId;
+      if (previousProfileId && activityProfileSockets.get(previousProfileId) === socket.id) activityProfileSockets.delete(previousProfileId);
       activityProfileId = requestedProfileId;
+      claimActivityProfileSocket(socket, activityProfileId);
       dailyActivityProfileIds.set(socket.id, activityProfileId);
       dayKey = today;
       lastPersistedAt = now;
@@ -413,6 +430,7 @@ io.on('connection', (socket) => {
     collectElapsedTime();
     clearInterval(activityInterval);
     dailyActivityProfileIds.delete(socket.id);
+    if (activityProfileId && activityProfileSockets.get(activityProfileId) === socket.id) activityProfileSockets.delete(activityProfileId);
     const current = players.get(socket.id);
     if (current?.fightingWith) {
       const opponent = players.get(current.fightingWith);
