@@ -126,7 +126,7 @@ const ALLOWED_SKINS = new Set([
   'character-male-d.glb', 'character-male-e.glb', 'character-male-f.glb',
 ]);
 
-const FOOD_COUNT = 34;
+const FOOD_COUNT = 1000;
 const FOOD_COLLECT_RADIUS = 60;
 const FOOD_RESPAWN_MIN_MS = 10_000;
 const FOOD_RESPAWN_MAX_MS = 25_000;
