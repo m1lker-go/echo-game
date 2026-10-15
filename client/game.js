@@ -121,20 +121,70 @@ function prepareWaterMaterials(root) {
   });
 }
 function createWaterMaterial(sourceMaterial) {
-  // The GLB's atlas contains yellow base colors; use a plain neutral material
-  // so the water renders grey instead of inheriting the texture tint.
-  const material = new THREE.MeshBasicMaterial({
-    color: 0x858585,
+  // Glossy, shallow-water look with cool reflections and soft ripples.
+  // Keep this lightweight: animated highlights are a few transparent meshes,
+  // not a costly real-time reflection pass.
+  const material = new THREE.MeshPhysicalMaterial({
+    color: 0x9caeb2,
+    metalness: 0.28,
+    roughness: 0.19,
+    clearcoat: 0.9,
+    clearcoatRoughness: 0.12,
     transparent: true,
-    opacity: 0.20,
+    opacity: 0.36,
     depthWrite: false,
     depthTest: false,
     side: THREE.DoubleSide,
+    envMapIntensity: 1.25,
     toneMapped: false,
   });
   material.needsUpdate = true;
   return material;
 }
+function createWaterHighlights(water, surface) {
+  const scale = getWaterScale(water);
+  const group = new THREE.Group();
+  group.name = 'water-highlight-layer';
+  group.position.z = 0.12;
+  // Elongated, soft white-blue glints suggest sky reflections on shallow water.
+  const specs = [
+    { x: -0.20, y: 0.18, w: 0.38, h: 0.025, opacity: 0.28, phase: 0.2 },
+    { x: 0.13, y: 0.02, w: 0.28, h: 0.018, opacity: 0.22, phase: 2.0 },
+    { x: -0.04, y: -0.24, w: 0.23, h: 0.014, opacity: 0.18, phase: 4.1 },
+  ];
+  for (const spec of specs) {
+    const geometry = new THREE.PlaneGeometry(scale * spec.w, scale * spec.h);
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xe4f1f4,
+      transparent: true,
+      opacity: spec.opacity,
+      depthWrite: false,
+      depthTest: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    });
+    const glint = new THREE.Mesh(geometry, material);
+    glint.position.set(scale * spec.x, scale * spec.y, Math.random() * 0.005);
+    glint.rotation.z = -0.16 + Math.random() * 0.32;
+    glint.renderOrder = -0.8;
+    glint.userData.waterGlint = spec;
+    group.add(glint);
+  }
+  surface.add(group);
+  return group;
+}
+function updateWaterHighlights(time) {
+  for (const water of worldObjects.waters) {
+    if (!water.highlightLayer) continue;
+    const phaseBase = time * 0.00022 + (Number(water.rotation) || 0);
+    for (const glint of water.highlightLayer.children) {
+      const spec = glint.userData.waterGlint;
+      glint.material.opacity = spec.opacity * (0.62 + 0.38 * Math.sin(phaseBase + spec.phase));
+      glint.position.x += Math.sin(phaseBase + spec.phase) * 0.018;
+    }
+  }
+}
+
 function addWaterModel(water) {
   const source = worldObjects.waterSources.get(water.model);
   if (!source || water.root) return;
@@ -146,6 +196,7 @@ function addWaterModel(water) {
   prepareWaterMaterials(surface);
   surface.rotation.set(Math.PI / 2, 0, 0);
   surface.scale.setScalar(getWaterScale(water));
+  water.highlightLayer = createWaterHighlights(water, surface);
   surface.updateMatrixWorld(true);
 
   // Center the transformed mesh locally and bring its lowest point to depth 0.
@@ -263,7 +314,7 @@ function drawEnergyLabel(x,y,label,other=false){const p=worldToScreen(x,y);ctx.s
 function updateModel(root,a,x,y,vx,vy,time,label,other=false,fx=vx,fy=vy){if(!root)return;const p=worldToScreenPrecise(x,y);root.position.x=p.x-state.width/2;root.position.y=-(p.y-state.height/2)+Math.sin(time*.0028+x*.02)*(Math.hypot(vx||0,vy||0)>18?1.3:1.8);root.position.z=0;root.renderOrder=0;const moving=Math.hypot(vx||0,vy||0)>18;updateCharacterFacing(root,fx,fy,ISO);switchAnimation(a,moving,time);drawEnergyLabel(x,y,label,other);}
 function ensureOtherModel(p){let e=modelCache.others.get(p.id);if(e&&e.skin===p.skin)return e;if(e){modelScene.remove(e.root);modelCache.others.delete(p.id);}const source=modelCache.otherSources.get(p.skin);if(!source){if(!modelCache.otherSources.has(p.skin)){modelCache.otherSources.set(p.skin,null);loadCharacterModel(p.skin,(g,f)=>modelCache.otherSources.set(f,{scene:g.scene,clips:g.animations||[]}));}return null;}const holder=new THREE.Group(),clone=cloneSkeleton(source.scene);clone.scale.setScalar(1);prepareModel(clone,true);holder.add(clone);const animation=setupAnimation(clone,source.clips,true);modelScene.add(holder);e={root:holder,animation,skin:p.skin};modelCache.others.set(p.id,e);return e;}
 function getCombatFacing(x,y,id,fx,fy){const o=getPlayerPosition(id);if(!o)return{x:fx,y:fy};const dx=o.x-x,dy=o.y-y,l=Math.hypot(dx,dy);return l<.001?{x:fx,y:fy}:{x:dx/l,y:dy/l};}
-function drawModels(time,dt){updateWorldTreePositions();updateWorldWaterPositions();if(!modelCache.ready){modelRenderer.render(modelScene,modelCamera);return;}const jumping=time<state.jumpUntil,combat=!state.defeated&&time<state.combatUntil;modelCache.local.visible=!jumping&&!state.defeated;if(!jumping&&!state.defeated){const f=combat?getCombatFacing(state.x,state.y,state.combatOpponentId,state.vx,state.vy):{x:state.vx,y:state.vy};updateModel(modelCache.local,modelCache.localAnimation,state.x,state.y,state.vx,state.vy,time,state.energy,false,f.x,f.y);if(combat)startAttackAnimation(modelCache.localAnimation,'right',state.combatUntil);}const alive=new Set();for(const p of state.others.values()){const e=ensureOtherModel(p);if(!e)continue;alive.add(p.id);const since=Math.min(Math.max(0,(performance.now()-p.snapshotAt)/1000),.25),px=p.targetX+p.vx*since,py=p.targetY+p.vy*since,c=1-Math.exp(-18*dt);p.displayX+=(px-p.displayX)*c;p.displayY+=(py-p.displayY)*c;const fighting=p.combatUntil>time||!!p.fightingWith,f=fighting?getCombatFacing(p.displayX,p.displayY,p.fightingWith,p.vx,p.vy):{x:p.vx||0,y:p.vy||0};if(fighting)startAttackAnimation(e.animation,p.id.charCodeAt(0)%2?'left':'right',p.combatUntil||time+FIGHT_DURATION);updateModel(e.root,e.animation,p.displayX,p.displayY,p.vx||0,p.vy||0,time,p.energy||0,true,f.x,f.y);}for(const[id,e]of modelCache.others)if(!alive.has(id)){modelScene.remove(e.root);modelCache.others.delete(id)}for(const e of modelCache.others.values())e.animation?.mixer.update(dt);modelCache.localAnimation?.mixer.update(dt);modelRenderer.render(modelScene,modelCamera);}
+function drawModels(time,dt){updateWorldTreePositions();updateWorldWaterPositions();updateWaterHighlights(time);if(!modelCache.ready){modelRenderer.render(modelScene,modelCamera);return;}const jumping=time<state.jumpUntil,combat=!state.defeated&&time<state.combatUntil;modelCache.local.visible=!jumping&&!state.defeated;if(!jumping&&!state.defeated){const f=combat?getCombatFacing(state.x,state.y,state.combatOpponentId,state.vx,state.vy):{x:state.vx,y:state.vy};updateModel(modelCache.local,modelCache.localAnimation,state.x,state.y,state.vx,state.vy,time,state.energy,false,f.x,f.y);if(combat)startAttackAnimation(modelCache.localAnimation,'right',state.combatUntil);}const alive=new Set();for(const p of state.others.values()){const e=ensureOtherModel(p);if(!e)continue;alive.add(p.id);const since=Math.min(Math.max(0,(performance.now()-p.snapshotAt)/1000),.25),px=p.targetX+p.vx*since,py=p.targetY+p.vy*since,c=1-Math.exp(-18*dt);p.displayX+=(px-p.displayX)*c;p.displayY+=(py-p.displayY)*c;const fighting=p.combatUntil>time||!!p.fightingWith,f=fighting?getCombatFacing(p.displayX,p.displayY,p.fightingWith,p.vx,p.vy):{x:p.vx||0,y:p.vy||0};if(fighting)startAttackAnimation(e.animation,p.id.charCodeAt(0)%2?'left':'right',p.combatUntil||time+FIGHT_DURATION);updateModel(e.root,e.animation,p.displayX,p.displayY,p.vx||0,p.vy||0,time,p.energy||0,true,f.x,f.y);}for(const[id,e]of modelCache.others)if(!alive.has(id)){modelScene.remove(e.root);modelCache.others.delete(id)}for(const e of modelCache.others.values())e.animation?.mixer.update(dt);modelCache.localAnimation?.mixer.update(dt);modelRenderer.render(modelScene,modelCamera);}
 function draw(time){ctx.clearRect(0,0,state.width,state.height);drawGrid(time);drawModels(time,state.lastTime?Math.min((time-state.lastTime)/1000,.05):0);const g=ctx.createRadialGradient(state.width/2,state.height/2,Math.min(state.width,state.height)*.22,state.width/2,state.height/2,Math.max(state.width,state.height)*.7);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(.58,'rgba(0,0,0,.1)');g.addColorStop(1,'rgba(0,0,0,.82)');ctx.fillStyle=g;ctx.fillRect(0,0,state.width,state.height);}
 function isJumpLandingBlocked(x,y){const playerRadius=24,safetyGap=10;return worldObjects.trees.some(tree=>Math.hypot(x-tree.x,y-tree.y)<(Number(tree.collisionRadius)||0)+playerRadius+safetyGap);}
 function getSafeJumpTarget(startX,startY,dx,dy){for(let distance=JUMP_DISTANCE;distance>=0;distance-=4){const x=startX+dx*distance,y=startY+dy*distance;if(!isJumpLandingBlocked(x,y))return{x,y};}return{x:startX,y:startY};}
