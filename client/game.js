@@ -23,25 +23,49 @@ const TREE_MODEL_URL = './assets/models/objects/tree.glb';
 const TREE_BASE_SCALE = 50;
 const TREE_SCALE_MIN = 0.7;
 const TREE_SCALE_MAX = 1.0;
+function createTreeGradientMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uOpacity: { value: 0.3 } }, // 70% transparent
+    vertexShader: `
+      varying vec3 vTreeNormal;
+      void main() {
+        vTreeNormal = normalize(normalMatrix * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform float uOpacity;
+      varying vec3 vTreeNormal;
+      void main() {
+        vec3 normalDirection = normalize(vTreeNormal);
+        if (!gl_FrontFacing) normalDirection = -normalDirection;
+
+        // Fixed soft directional gradient: lit faces are white, shaded faces medium gray.
+        vec3 lightDirection = normalize(vec3(-0.27, 0.53, 0.80));
+        float diffuse = max(dot(normalDirection, lightDirection), 0.0);
+        float gradient = smoothstep(0.0, 0.92, diffuse);
+        float brightness = mix(0.22, 1.0, gradient);
+
+        gl_FragColor = vec4(vec3(brightness), uOpacity);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }
+    `,
+    transparent: true,
+    opacity: 0.3,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+}
+
 function prepareTreeMaterials(root) {
   root.traverse(child => {
-    if (!child.isMesh || !child.material) return;
-    const materials = Array.isArray(child.material) ? child.material : [child.material];
-    const shadedMaterials = materials.map(material => {
-      const shaded = material.clone();
-      // Preserve the GLB texture and material definition, while reducing the
-      // flat/glowing look so the directional lights create visible volume.
-      shaded.color.multiplyScalar(0.92);
-      if ('emissive' in shaded) {
-        shaded.emissive.set(0x152516);
-        shaded.emissiveIntensity = 0.12;
-      }
-      if ('roughness' in shaded) shaded.roughness = Math.max(shaded.roughness, 0.82);
-      if ('metalness' in shaded) shaded.metalness = 0;
-      shaded.needsUpdate = true;
-      return shaded;
-    });
-    child.material = Array.isArray(child.material) ? shadedMaterials : shadedMaterials[0];
+    if (!child.isMesh) return;
+    // Use a solid gradient fill instead of the barely visible GLB texture.
+    // Each mesh gets its own material instance so all trees share the same look.
+    child.material = Array.isArray(child.material)
+      ? child.material.map(() => createTreeGradientMaterial())
+      : createTreeGradientMaterial();
     child.castShadow = true;
     child.receiveShadow = true;
   });
