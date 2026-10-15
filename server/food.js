@@ -23,10 +23,7 @@ function createFoodPoint(id, {
           active: true,
           respawnAt: 0,
         };
-    if (isValidFoodPosition(point)) {
-      point.id = id;
-      return point;
-    }
+    if (isValidFoodPosition(point)) return point;
   }
   throw new Error(`Unable to place food point ${id} in a valid world position after ${maxAttempts} attempts`);
 }
