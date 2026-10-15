@@ -38,6 +38,7 @@ const characterBack = document.querySelector('#character-back');
 const placeholderBack = document.querySelector('#placeholder-back');
 const settingsBack = document.querySelector('#settings-back');
 const languageButtons = document.querySelectorAll('.language-option');
+const i18nReady = window.ECHO_I18N_READY || Promise.resolve(false);
 
 function showScreen(screen) {
   mainScreen.hidden = screen !== 'main';
@@ -159,7 +160,7 @@ function createCharacterCard(file, label) {
   button.className = 'character-card';
   button.dataset.model = file;
   const labelKey = file.replace('character-', '').replace('.glb', '').replaceAll('-', '_');
-  button.setAttribute('aria-label', window.$t?.('menu:' + labelKey, label) || label);
+  button.setAttribute('aria-label', label);
 
   const canvas = document.createElement('canvas');
   canvas.className = 'character-card-preview';
@@ -167,7 +168,7 @@ function createCharacterCard(file, label) {
 
   const caption = document.createElement('span');
   caption.className = 'character-card-name';
-  caption.textContent = window.$t?.('menu:' + labelKey, label) || label;
+  caption.textContent = label;
 
   button.append(canvas, caption);
   button.addEventListener('click', () => {
@@ -301,6 +302,10 @@ function updateLanguageButtons() {
 function refreshLocalizedUI() {
   applyStaticTranslations();
   updateLanguageButtons();
+  const ratingTitle = document.querySelector('#placeholder-title');
+  if (ratingTitle && ratingTitle.textContent === 'РЕЙТИНГ' || ratingTitle && ratingTitle.textContent === 'LEADERBOARD') {
+    ratingTitle.textContent = window.$t('menu:rating_title', ratingTitle.textContent);
+  }
   const currentScreen = document.querySelector('#menu-character:not([hidden])')
     ? 'character'
     : document.querySelector('#menu-settings-screen:not([hidden])')
@@ -313,7 +318,7 @@ function refreshLocalizedUI() {
       const model = card.dataset.model || '';
       const labelKey = model.replace('character-', '').replace('.glb', '').replaceAll('-', '_');
       const caption = card.querySelector('.character-card-name');
-      if (caption) caption.textContent = window.$t('menu:' + labelKey, caption.textContent);
+      if (caption) caption.textContent = window.$t('menu:' + labelKey, caption?.textContent || '');
       card.setAttribute('aria-label', window.$t('menu:' + labelKey, caption?.textContent || ''));
     }
   }
@@ -322,16 +327,17 @@ window.addEventListener('echo:i18n-ready', refreshLocalizedUI);
 window.addEventListener('echo:language-changed', refreshLocalizedUI);
 
 
-for (const button of languageButtons) {
-  button.addEventListener('click', async () => {
-    const language = button.dataset.language;
-    if (!window.ECHOI18n?.setLanguage) return;
-    const changed = await window.ECHOI18n.setLanguage(language);
-    if (changed) refreshLocalizedUI();
-  });
-}
-
-window.ECHO_I18N_READY?.then(() => refreshLocalizedUI());
+i18nReady.then(() => {
+  refreshLocalizedUI();
+  for (const button of languageButtons) {
+    button.addEventListener('click', async () => {
+      const language = button.dataset.language;
+      if (!window.ECHOI18n?.setLanguage) return;
+      const changed = await window.ECHOI18n.setLanguage(language);
+      if (changed) refreshLocalizedUI();
+    });
+  }
+});
 
 // Render visible previews sequentially through one shared GPU context.
 let lastPreviewTime = 0;
