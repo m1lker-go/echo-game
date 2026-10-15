@@ -9,6 +9,10 @@
 const WORLD_HALF_SIZE = 4200;
 
 export function bindPlayerControls({ state, joystick, stick, boostButton, triggerBoost }) {
+  // Expose the live state only for the compatibility boost handler installed by
+  // asset-loader-patch.js. The game itself remains the owner of movement state.
+  globalThis.echoGameState = state;
+
   function setJoystick(clientX, clientY) {
     const rect = joystick.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
@@ -44,7 +48,8 @@ export function bindPlayerControls({ state, joystick, stick, boostButton, trigge
   joystick.addEventListener('pointerup', resetJoystick);
   joystick.addEventListener('pointercancel', resetJoystick);
 
-  // Boost cooldown visuals are owned by game.js so there is only one cooldown timer.
+  // Boost cooldown visuals are owned by the global handler in asset-loader-patch.js
+  // so there is only one cooldown timer.
   boostButton.addEventListener('pointerdown', triggerBoost);
   window.addEventListener('keydown', (e) => {
     state.keys.add(e.key);
