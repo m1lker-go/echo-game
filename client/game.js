@@ -60,7 +60,9 @@ function createTreeGradientMaterial() {
     `,
     transparent: true,
     opacity: 0.30,
-    depthWrite: false,
+    // Let the tree's nearest pixels enter the depth buffer, so models behind
+    // the tree are occluded instead of always drawing through it.
+    depthWrite: true,
     depthTest: true,
     side: THREE.DoubleSide
   });
@@ -117,7 +119,7 @@ function updateWorldTreePositions() {
     tree.root.position.x = p.x - state.width / 2;
     tree.root.position.y = -(p.y - state.height / 2);
     tree.root.position.z = 0;
-    tree.root.renderOrder = 0;
+    tree.root.renderOrder = 10;
   }
 }
 
