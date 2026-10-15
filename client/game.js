@@ -122,7 +122,7 @@ function addWaterModel(water) {
   const root = cloneSkeleton(source);
   prepareWaterMaterials(root);
   root.scale.setScalar(WATER_MODEL_BASE_SCALE * water.scale);
-  root.rotation.set(-Math.PI / 2, 0, Number.isFinite(water.rotation) ? water.rotation : 0);
+  root.rotation.set(0, 0, Number.isFinite(water.rotation) ? water.rotation : 0);
   root.renderOrder = -1;
   water.root = root;
   modelScene.add(root);
