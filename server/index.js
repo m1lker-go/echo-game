@@ -136,7 +136,13 @@ const WORLD_SEED = 847291;
 const TREE_COUNT = 42;
 const TREE_SCALE_MIN = 0.7;
 const TREE_SCALE_MAX = 1.0;
-const TREE_COLLISION_RADIUS = 48;
+// tree.glb bounding box: X=0.650015, Z=0.651140 model units.
+// Client renders the GLB at base scale 50, so the horizontal radius at
+// factor 1.0 is half of the scaled maximum X/Z dimension (~16.28).
+const TREE_BASE_SCALE = 50;
+const TREE_MODEL_WIDTH = 0.6500152945518494;
+const TREE_MODEL_DEPTH = 0.6511395573616028;
+const TREE_COLLISION_RADIUS = Math.max(TREE_MODEL_WIDTH, TREE_MODEL_DEPTH) * TREE_BASE_SCALE / 2;
 const TREE_FOOD_CLEARANCE = 32;
 const TREE_PLAYER_CLEARANCE = 24;
 const PLAYER_COLLISION_RADIUS = 24;
