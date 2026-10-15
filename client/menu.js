@@ -302,9 +302,16 @@ function updateLanguageButtons() {
 function refreshLocalizedUI() {
   applyStaticTranslations();
   updateLanguageButtons();
-  const ratingTitle = document.querySelector('#placeholder-title');
-  if (ratingTitle && ratingTitle.textContent === 'РЕЙТИНГ' || ratingTitle && ratingTitle.textContent === 'LEADERBOARD') {
-    ratingTitle.textContent = window.$t('menu:rating_title', ratingTitle.textContent);
+  const placeholderTitle = document.querySelector('#placeholder-title');
+  if (placeholderTitle) {
+    const currentTitle = placeholderTitle.textContent;
+    if (currentTitle === 'РЕЙТИНГ' || currentTitle === 'LEADERBOARD') {
+      placeholderTitle.textContent = window.$t('menu:rating_title', currentTitle);
+    }
+  }
+  const placeholderDescription = document.querySelector('#placeholder-description');
+  if (placeholderDescription) {
+    placeholderDescription.textContent = window.$t('menu:placeholder_preparing', placeholderDescription.textContent);
   }
   const currentScreen = document.querySelector('#menu-character:not([hidden])')
     ? 'character'
