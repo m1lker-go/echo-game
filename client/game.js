@@ -27,7 +27,7 @@ const MODEL_DEPTH_SCALE = 0.12;
 function createTreeGradientMaterial() {
   return new THREE.ShaderMaterial({
     uniforms: {
-      uOpacity: { value: 0.45 }
+      uOpacity: { value: 0.30 }
     },
     vertexShader: `
       varying vec3 vTreeNormal;
@@ -62,7 +62,7 @@ function createTreeGradientMaterial() {
       }
     `,
     transparent: true,
-    opacity: 0.45,
+    opacity: 0.30,
     depthWrite: false,
     depthTest: true,
     side: THREE.DoubleSide
