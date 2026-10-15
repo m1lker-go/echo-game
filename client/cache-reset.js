@@ -1,9 +1,8 @@
 // ECHO settings cache reset. Keeps player profile and selected character intact.
-const settingsActions = document.querySelector('#settings-actions');
 const clearButton = document.querySelector('#settings-clear-cache');
 const status = document.querySelector('#settings-cache-status');
 
-if (settingsActions && clearButton) {
+if (clearButton) {
   async function clearGameCacheAndReload() {
     if (clearButton.disabled) return;
     const confirmed = window.confirm('Очистить кэш ECHO и перезагрузить игру? Профиль и выбранный персонаж не будут удалены.');
@@ -14,15 +13,15 @@ if (settingsActions && clearButton) {
     if (status) status.textContent = 'Подготавливаем обновление…';
 
     try {
-      // Leave localStorage, sessionStorage, cookies, and IndexedDB intact:
-      // ECHO profile ID and selected character are stored there.
+      // Leave localStorage, sessionStorage, cookies, and IndexedDB intact.
+      // Cache Storage is origin-wide; avoid deleting unrelated entries.
       if ('caches' in window) {
         const names = await window.caches.keys();
-        await Promise.all(names.map((name) => window.caches.delete(name)));
+        const echoCacheNames = names.filter((name) => /^echo[-_:]/i.test(name));
+        await Promise.all(echoCacheNames.map((name) => window.caches.delete(name)));
       }
     } catch (error) {
-      console.warn('[ECHO settings] Could not clear Cache Storage:', error);
-      // Continue with a fresh document URL when Cache API is blocked.
+      console.warn('[ECHO settings] Could not clear ECHO Cache Storage:', error);
     }
 
     const url = new URL(window.location.href);
