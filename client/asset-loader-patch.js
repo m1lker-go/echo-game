@@ -8,8 +8,28 @@ THREE.DefaultLoadingManager.setURLModifier((url) => {
   if (selectedModel && url.endsWith(defaultModel)) {
     return new URL(`./assets/models/${selectedModel}`, window.location.href).href;
   }
-  if (url.endsWith('/assets/models/Textures/colormap.png')) {
+  if (url.endsWith('/assets/models/Textures/colormap.png') || url.endsWith('/assets/models/objects/Textures/colormap.png')) {
     return new URL('./assets/textures/colormap.png', window.location.href).href;
   }
   return url;
 });
+
+// The world snapshot can be emitted immediately when Socket.IO connects, before
+// the game module finishes installing all of its listeners. Ask for it again
+// shortly after connect so the shared tree layout is always received.
+const originalIo = window.io;
+if (typeof originalIo === 'function') {
+  window.io = function (...args) {
+    const socket = originalIo(...args);
+    socket.on('connect', () => {
+      setTimeout(() => {
+        if (socket.connected) {
+          const activityProfileId = window.localStorage?.getItem('echo.activityProfileId');
+          const selectedModel = window.localStorage?.getItem('echo.selectedModel') || 'character-female-a.glb';
+          socket.emit('echo:hello', { version: 1, skin: selectedModel, activityProfileId });
+        }
+      }, 150);
+    });
+    return socket;
+  };
+}
