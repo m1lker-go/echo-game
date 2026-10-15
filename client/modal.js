@@ -1,22 +1,13 @@
 // ECHO global modal system.
-// Usage from any client module:
-// window.ECHOModal.open({ title: 'ЗАГОЛОВОК', text: 'Сообщение', buttons: [...] })
-// window.ECHOModal.confirm({ title, text, confirmText, cancelText }) -> Promise<boolean>
+// Any client module can use window.ECHOModal.open(), confirm(), or alert().
 (() => {
   if (window.ECHOModal) return;
 
-  const escapeHtml = (value) => String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-
-  let overlay;
-  let panel;
-  let titleNode;
-  let textNode;
-  let actionsNode;
+  let overlay = null;
+  let panel = null;
+  let titleNode = null;
+  let textNode = null;
+  let actionsNode = null;
   let previousFocus = null;
   let resolver = null;
 
@@ -27,7 +18,7 @@
     overlay.className = 'echo-modal-overlay';
     overlay.hidden = true;
     overlay.innerHTML = `
-      <section class="echo-modal" role="dialog" aria-modal="true" aria-labelledby="echo-modal-title" aria-describedby="echo-modal-text">
+      <section class="echo-modal" role="dialog" aria-modal="true" aria-labelledby="echo-modal-title" aria-describedby="echo-modal-text" tabindex="-1">
         <h2 id="echo-modal-title" class="echo-modal-title"></h2>
         <div id="echo-modal-text" class="echo-modal-text"></div>
         <div class="echo-modal-actions" id="echo-modal-actions"></div>
@@ -41,11 +32,14 @@
     actionsNode = overlay.querySelector('#echo-modal-actions');
 
     overlay.addEventListener('click', (event) => {
-      if (event.target === overlay) close(null);
+      if (
+        event.target === overlay &&
+        overlay.dataset.closeOnBackdrop !== 'false'
+      ) close(null);
     });
 
     document.addEventListener('keydown', (event) => {
-      if (overlay.hidden) return;
+      if (!overlay || overlay.hidden) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         close(null);
@@ -75,15 +69,16 @@
     if (!overlay || overlay.hidden) return;
     overlay.hidden = true;
     document.body.classList.remove('echo-modal-open');
-    const resolve = resolver;
+    const pendingResolve = resolver;
     resolver = null;
-    if (typeof resolve === 'function') resolve(result);
+    if (typeof pendingResolve === 'function') pendingResolve(result);
     if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus();
     previousFocus = null;
   }
 
   function open(options = {}) {
     ensureModal();
+    // Close an existing modal before assigning any new Promise resolver.
     close(null);
 
     const config = {
@@ -99,19 +94,19 @@
     textNode.textContent = String(config.text ?? '');
     actionsNode.replaceChildren();
 
-    for (const buttonConfig of config.buttons || []) {
+    for (const item of config.buttons || []) {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'echo-modal-button';
-      if (buttonConfig.variant === 'primary') button.classList.add('is-primary');
-      if (buttonConfig.variant === 'danger') button.classList.add('is-danger');
-      button.textContent = String(buttonConfig.label ?? 'OK');
-      button.disabled = Boolean(buttonConfig.disabled);
+      if (item.variant === 'primary') button.classList.add('is-primary');
+      if (item.variant === 'danger') button.classList.add('is-danger');
+      button.textContent = String(item.label ?? 'OK');
+      button.disabled = Boolean(item.disabled);
       button.addEventListener('click', () => {
         try {
-          if (typeof buttonConfig.onClick === 'function') buttonConfig.onClick();
+          if (typeof item.onClick === 'function') item.onClick();
         } finally {
-          close(buttonConfig.value ?? buttonConfig.label ?? true);
+          close(item.value ?? item.label ?? true);
         }
       });
       actionsNode.appendChild(button);
@@ -121,21 +116,16 @@
     overlay.hidden = false;
     document.body.classList.add('echo-modal-open');
     requestAnimationFrame(() => {
+      if (!overlay || overlay.hidden) return;
       const firstButton = actionsNode.querySelector('button:not(:disabled)');
-      if (firstButton) firstButton.focus();
-      else panel.focus();
+      (firstButton || panel).focus();
     });
     return { close };
   }
 
   function confirm(options = {}) {
-    const {
-      confirmText = 'ПОДТВЕРДИТЬ',
-      cancelText = 'ОТМЕНА',
-      ...rest
-    } = options;
+    const { confirmText = 'ПОДТВЕРДИТЬ', cancelText = 'ОТМЕНА', ...rest } = options;
     return new Promise((resolve) => {
-      resolver = resolve;
       open({
         ...rest,
         buttons: [
@@ -143,17 +133,18 @@
           { label: confirmText, value: true, variant: 'primary' },
         ],
       });
+      resolver = resolve;
     });
   }
 
   function alert(options = {}) {
     const { buttonText = 'ПОНЯТНО', ...rest } = options;
     return new Promise((resolve) => {
-      resolver = resolve;
       open({
         ...rest,
         buttons: [{ label: buttonText, value: true, variant: 'primary' }],
       });
+      resolver = resolve;
     });
   }
 
