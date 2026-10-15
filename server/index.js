@@ -134,8 +134,8 @@ const FOOD_RESPAWN_MAX_MS = 25_000;
 // The server creates one stable seeded layout shared by every player.
 const WORLD_SEED = 847291;
 const TREE_COUNT = 42;
-const TREE_SCALE_MIN = 0.7;
-const TREE_SCALE_MAX = 1.0;
+const TREE_SCALE_MIN = 1.5;
+const TREE_SCALE_MAX = 2.5;
 // tree.glb bounding box: X=0.650015, Z=0.651140 model units.
 // Client renders the GLB at base scale 50, so the horizontal radius at
 // factor 1.0 is half of the scaled maximum X/Z dimension (~16.28).
