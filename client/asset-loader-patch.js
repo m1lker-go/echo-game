@@ -28,6 +28,37 @@ GLTFLoader.prototype.load = function (url, onLoad, onProgress, onError) {
   }, onProgress, onError);
 };
 
+// Keep water visually below characters and trees. Water holders are deliberately
+// positioned at z=-1 by game.js, while trees/characters stay at z=0. Enforce a
+// stronger render-order gap at render time without changing their world position.
+const originalRender = THREE.WebGLRenderer.prototype.render;
+THREE.WebGLRenderer.prototype.render = function (scene, camera) {
+  if (scene?.isScene) {
+    for (const object of scene.children) {
+      if (object?.position?.z !== -1 || !object.children?.length) continue;
+      object.renderOrder = -100;
+      object.traverse((child) => {
+        if (!child.isMesh) return;
+        child.renderOrder = -100;
+        if (!child.material) return;
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        for (const material of materials) {
+          material.color?.setHex(0x71888d);
+          if ('metalness' in material) material.metalness = 0.10;
+          if ('roughness' in material) material.roughness = 0.18;
+          material.transparent = true;
+          material.opacity = 0.34;
+          material.depthWrite = false;
+          material.depthTest = false;
+          material.side = THREE.DoubleSide;
+          material.needsUpdate = true;
+        }
+      });
+    }
+  }
+  return originalRender.call(this, scene, camera);
+};
+
 // The world snapshot can be emitted immediately when Socket.IO connects, before
 // the game module finishes installing all of its listeners. Ask for it again
 // shortly after connect so the shared tree layout is always received.
