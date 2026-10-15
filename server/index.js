@@ -163,25 +163,95 @@ function overlapsCircle(a, b, radiusA, radiusB, allowedOverlap = 0) {
 }
 function createWorldTrees() {
   const trees = [];
-  for (let attempt = 0; attempt < TREE_COUNT * 100 && trees.length < TREE_COUNT; attempt += 1) {
-    const scale = randomBetween(TREE_SCALE_MIN, TREE_SCALE_MAX);
-    const tree = {
-      id: `tree_${String(trees.length + 1).padStart(3, '0')}`,
-      type: 'tree',
-      x: randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
-      y: randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
-      scale,
-      collisionRadius: TREE_COLLISION_RADIUS * scale,
-      placementRadius: 100 * scale,
-      rotation: randomBetween(0, Math.PI * 2),
-    };
-    // Keep the spawn area clear and allow modest visual overlap between trees.
-    // Keep the initial player spawn at the origin clear; also avoid overly dense clumps.
-    if (Math.hypot(tree.x, tree.y) < 440) continue;
-    if (trees.some(other => overlapsCircle(tree, other, tree.placementRadius, other.placementRadius,
-      Math.min(tree.placementRadius, other.placementRadius) * 0.4))) continue;
-    trees.push(tree);
+  const clusterSizes = [2, 3, 5, 7];
+  const clusterCount = 12;
+  const maxAttemptsPerCluster = 160;
+  let nextId = 1;
+
+  const makeTree = (x, y, scale) => ({
+    id: `tree_${String(nextId++).padStart(3, '0')}`,
+    type: 'tree',
+    x,
+    y,
+    scale,
+    collisionRadius: TREE_COLLISION_RADIUS * scale,
+    placementRadius: 100 * scale,
+    rotation: randomBetween(0, Math.PI * 2),
+  });
+
+  const isInsidePlayableArea = (x, y, margin = 160) =>
+    Math.abs(x) <= WORLD_HALF_SIZE - margin &&
+    Math.abs(y) <= WORLD_HALF_SIZE - margin;
+
+  const isNearSpawn = (x, y) => Math.hypot(x, y) < 440;
+
+  const canPlace = (candidate, existing, gapFactor = 0.4) => {
+    if (!isInsidePlayableArea(candidate.x, candidate.y) || isNearSpawn(candidate.x, candidate.y)) return false;
+    return !existing.some(other => overlapsCircle(
+      candidate,
+      other,
+      candidate.placementRadius,
+      other.placementRadius,
+      Math.min(candidate.placementRadius, other.placementRadius) * gapFactor
+    ));
+  };
+
+  // Place natural-looking groups first. A group may be loose or compact;
+  // distances vary, and a few tree canopies can overlap visually without
+  // making the trunk collision zones overlap.
+  for (let clusterIndex = 0; clusterIndex < clusterCount && trees.length < 90; clusterIndex += 1) {
+    const clusterSize = clusterSizes[Math.floor(worldRandom() * clusterSizes.length)];
+    let clusterPlaced = false;
+
+    for (let attempt = 0; attempt < maxAttemptsPerCluster && !clusterPlaced; attempt += 1) {
+      const centerX = randomBetween(-WORLD_HALF_SIZE + 420, WORLD_HALF_SIZE - 420);
+      const centerY = randomBetween(-WORLD_HALF_SIZE + 420, WORLD_HALF_SIZE - 420);
+      if (isNearSpawn(centerX, centerY)) continue;
+
+      const cluster = [];
+      let failed = false;
+
+      for (let i = 0; i < clusterSize; i += 1) {
+        // Ring-based placement with jitter creates uneven, non-grid-like groups.
+        const angle = (Math.PI * 2 * i / clusterSize) + randomBetween(-0.7, 0.7);
+        const distance = randomBetween(95, 290);
+        const scale = randomBetween(TREE_SCALE_MIN, TREE_SCALE_MAX);
+        const candidate = makeTree(
+          centerX + Math.cos(angle) * distance,
+          centerY + Math.sin(angle) * distance,
+          scale
+        );
+
+        if (!isInsidePlayableArea(candidate.x, candidate.y) ||
+            isNearSpawn(candidate.x, candidate.y) ||
+            trees.some(other => overlapsCircle(candidate, other, candidate.placementRadius, other.placementRadius, Math.min(candidate.placementRadius, other.placementRadius) * 0.4)) ||
+            cluster.some(other => overlapsCircle(candidate, other, candidate.placementRadius, other.placementRadius, Math.min(candidate.placementRadius, other.placementRadius) * 0.08))) {
+          failed = true;
+          break;
+        }
+        cluster.push(candidate);
+      }
+
+      if (!failed && cluster.length === clusterSize) {
+        trees.push(...cluster);
+        clusterPlaced = true;
+      }
+    }
   }
+
+  // Fill the remaining area with individual trees, keeping the groups
+  // readable and the center spawn region clear.
+  const targetCount = 90;
+  for (let attempt = 0; attempt < targetCount * 220 && trees.length < targetCount; attempt += 1) {
+    const scale = randomBetween(TREE_SCALE_MIN, TREE_SCALE_MAX);
+    const candidate = makeTree(
+      randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
+      randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
+      scale
+    );
+    if (canPlace(candidate, trees)) trees.push(candidate);
+  }
+
   return trees;
 }
 const WORLD_TREES = createWorldTrees();
