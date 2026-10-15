@@ -280,13 +280,9 @@ const WATER_DAMAGE_AMOUNT = 1;
 const WATER_MODEL_BASE_SCALE = 50;
 const WATER_SCALE_MIN = 7;
 const WATER_SCALE_MAX = 12;
-// Actual horizontal boundary vertices extracted from the GLB files (X/Z plane).
-const WATER_GEOMETRY = {
-  'patch-water.glb': { vertices: [[0.6,0],[0.573205,0.1],[0.573205,-0.1],[0.5,-0.173205],[0.5,0.173205],[0.4,-0.2],[0.4,0.2],[0.3,-0.226795],[0.3,0.226795],[0.226795,0.3],[0.226795,-0.3],[0.2,0.4],[0.2,-0.4],[0.173205,0.5],[0.173205,-0.5],[0.1,0.573205],[0.1,-0.573205],[0,0.6],[0,-0.6],[-0.1,0.573205],[-0.2,-0.6],[-0.173205,0.5],[-0.2,0.4],[-0.3,-0.573205],[-0.226795,0.3],[-0.3,0.226795],[-0.373205,-0.5],[-0.4,0.2],[-0.4,-0.4],[-0.5,-0.373205],[-0.5,0.173205],[-0.573205,-0.3],[-0.573205,0.1],[-0.6,-0.2],[-0.6,0]], factor: 0.72 },
-  'patch-water-large.glb': { vertices: [[-0.7,0],[-0.7,-0.2],[-0.673205,0.1],[-0.673205,-0.3],[-0.6,0.173205],[-0.6,-0.373205],[-0.5,0.2],[-0.5,-0.4],[-0.5,0.4],[-0.473205,0.5],[-0.473205,-0.5],[-0.4,0.573205],[-0.4,-0.573205],[-0.3,0.6],[-0.3,-0.6],[-0.2,-0.573205],[-0.126795,-0.5],[-0.1,-0.4],[-0.1,0.6],[-0.073205,-0.3],[0,-0.226795],[0,0.573205],[0.073205,0.5],[0.1,0.4],[0.1,-0.2],[0.2,0.373205],[0.273205,0.3],[0.3,0.2],[0.5,-0.2],[0.5,0.2],[0.6,-0.173205],[0.6,0.173205],[0.673205,0.1],[0.673205,-0.1],[0.7,0]], factor: 1 },
-};
-function getWaterGeometry(water) { return WATER_GEOMETRY[water.model] || WATER_GEOMETRY['patch-water-large.glb']; }
-function getWaterScale(water) { return WATER_MODEL_BASE_SCALE * water.scale * getWaterGeometry(water).factor; }
+const WATER_GEOMETRY = require('../shared/water-hazard-contours');
+function getWaterGeometry(water) { return { vertices: WATER_GEOMETRY[water.model] || WATER_GEOMETRY['patch-water-large.glb'] }; }
+function getWaterScale(water) { return WATER_MODEL_BASE_SCALE * water.scale; }
 function isPointInPolygon(x, y, vertices) {
   let inside = false;
   for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
