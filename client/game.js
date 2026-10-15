@@ -37,7 +37,7 @@ function createTreeGradientMaterial() {
         // depth range to the object's root plane so front/back mesh sections
         // cannot reveal animated player parts unpredictably.
         vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
-        viewPosition.z = modelViewMatrix[3].z;
+        viewPosition.z = modelViewMatrix[3][2];
         gl_Position = projectionMatrix * viewPosition;
       }
     `,
