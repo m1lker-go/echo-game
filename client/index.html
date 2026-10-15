@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
   <title>ECHO</title>
-  <link rel="stylesheet" href="./style.css?v=echo-modal-4" />
+  <link rel="stylesheet" href="./style.css?v=echo-language-selector-1" />
 </head>
 <body>
   <main id="game" aria-label="ECHO game">
@@ -16,23 +16,23 @@
     <header class="hud">
       <div class="brand">ECHO<span class="brand-dot">.</span></div>
       <div class="status-stack">
-        <div class="status"><span id="connection-dot"></span><span id="connection-label">подключение…</span></div>
-        <button id="game-exit" class="game-exit" type="button">Покинуть игру</button>
+        <div class="status"><span id="connection-dot"></span><span id="connection-label" data-i18n="game:connection_pending">подключение…</span></div>
+        <button id="game-exit" class="game-exit" type="button" data-i18n="game:exit">Покинуть игру</button>
       </div>
     </header>
-    <div class="stats"><span class="stats-label">ЭНЕРГИЯ</span><strong id="energy">0</strong><span class="stats-hint">тестовое поле</span></div>
+    <div class="stats"><span class="stats-label" data-i18n="game:energy">ЭНЕРГИЯ</span><strong id="energy">0</strong><span class="stats-hint" data-i18n="game:prototype">тестовое поле</span></div>
     <div class="center-mark" aria-hidden="true"></div>
-    <div class="controls-hint" id="controls-hint">WASD / ← ↑ → ↓ — движение</div>
+    <div class="controls-hint" id="controls-hint" data-i18n="game:controls">WASD / ← ↑ → ↓ — движение</div>
     <div class="mobile-controls" aria-label="Сенсорное управление">
       <div id="joystick" class="joystick" role="application" aria-label="Джойстик">
         <div id="stick" class="stick"></div>
       </div>
       <div class="ability-stack">
         <button id="boost" class="ability" type="button" aria-label="Ускорение">
-          <span>»</span><small>РЫВОК</small><b class="ability-cooldown" aria-hidden="true"></b>
+          <span>»</span><small data-i18n="game:boost">РЫВОК</small><b class="ability-cooldown" aria-hidden="true"></b>
         </button>
         <button id="jump" class="ability jump-ability" type="button" aria-label="Прыжок">
-          <span>↑</span><small>ПРЫЖОК</small>
+          <span>↑</span><small data-i18n="game:jump">ПРЫЖОК</small>
         </button>
       </div>
     </div>
@@ -40,11 +40,11 @@
 
     <section id="defeat-screen" class="defeat-screen" hidden aria-label="Поражение">
       <div class="defeat-card">
-        <div class="defeat-title">ВЫ ПРОИГРАЛИ</div>
-        <div class="defeat-subtitle">Ваша энергия закончилась</div>
+        <div class="defeat-title" data-i18n="game:defeat_title">ВЫ ПРОИГРАЛИ</div>
+        <div class="defeat-subtitle" data-i18n="game:defeat_subtitle">Ваша энергия закончилась</div>
         <div class="defeat-buttons">
-          <button id="defeat-replay" class="menu-button" type="button">Сыграть ещё</button>
-          <button id="defeat-menu" class="menu-button" type="button">Назад в меню</button>
+          <button id="defeat-replay" class="menu-button" type="button" data-i18n="game:replay">Сыграть ещё</button>
+          <button id="defeat-menu" class="menu-button" type="button" data-i18n="game:back_to_menu">Назад в меню</button>
         </div>
       </div>
     </section>
@@ -55,35 +55,48 @@
       <div id="menu-main" class="menu-screen menu-main-screen">
         <div class="menu-logo">ECHO<span>.</span></div>
         <div class="menu-buttons">
-          <button id="menu-start" class="menu-button" type="button">Начать игру</button>
-          <button id="menu-character-button" class="menu-button" type="button">Персонаж</button>
-          <button id="menu-settings" class="menu-button" type="button">Настройки</button>
-          <button id="menu-rating" class="menu-button" type="button">Рейтинг</button>
+          <button id="menu-start" class="menu-button" type="button" data-i18n="menu:start">Начать игру</button>
+          <button id="menu-character-button" class="menu-button" type="button" data-i18n="menu:character">Персонаж</button>
+          <button id="menu-settings" class="menu-button" type="button" data-i18n="menu:settings">Настройки</button>
+          <button id="menu-rating" class="menu-button" type="button" data-i18n="menu:rating">Рейтинг</button>
         </div>
       </div>
 
       <div id="menu-character" class="menu-screen character-screen" hidden>
         <div class="menu-page-head">
-          <h1>ПЕРСОНАЖ</h1>
-          <p>Выбери того, кто появится в игре</p>
+          <h1 data-i18n="menu:choose_character_title">ПЕРСОНАЖ</h1>
+          <p data-i18n="menu:choose_character_hint">Выбери того, кто появится в игре</p>
         </div>
         <div id="character-grid" class="character-grid"></div>
-        <button id="character-back" class="menu-back" type="button">Назад</button>
+        <button id="character-back" class="menu-back" type="button" data-i18n="menu:back">Назад</button>
       </div>
 
       <div id="menu-placeholder" class="menu-screen placeholder-screen" hidden>
-        <h1 id="placeholder-title">РАЗДЕЛ</h1>
-        <p id="placeholder-description">Этот экран пока готовится</p>
-        <button id="placeholder-back" class="menu-back" type="button">Назад</button>
+        <h1 id="placeholder-title" data-i18n="menu:rating_title">РАЗДЕЛ</h1>
+        <p id="placeholder-description" data-i18n="menu:placeholder_preparing">Этот экран пока готовится</p>
+        <button id="placeholder-back" class="menu-back" type="button" data-i18n="menu:back">Назад</button>
       </div>
 
       <div id="menu-settings-screen" class="menu-screen settings-screen" hidden>
-        <h1>НАСТРОЙКИ</h1>
-        <p class="settings-note">Обслуживание игры</p>
-        <button id="settings-clear-cache" class="menu-button settings-cache-button" type="button">Очистить кэш игры</button>
-        <p class="settings-note">Перезагрузит ECHO и запросит свежие файлы. Профиль и выбранный персонаж сохранятся.</p>
+        <h1 data-i18n="menu:settings_title">НАСТРОЙКИ</h1>
+        <p class="settings-note" data-i18n="menu:settings_note">Обслуживание игры</p>
+        <div class="settings-language-row">
+          <span class="settings-language-label" data-i18n="menu:language">Язык</span>
+          <div class="settings-language-options" role="group" aria-label="Language">
+            <button id="language-ru" class="language-option" type="button" data-language="ru" aria-pressed="false">
+              <span class="language-flag language-flag-ru" aria-hidden="true">🇷🇺</span>
+              <span data-i18n="menu:russian">Русский</span>
+            </button>
+            <button id="language-en" class="language-option" type="button" data-language="en" aria-pressed="false">
+              <span class="language-flag language-flag-en" aria-hidden="true">🇬🇧</span>
+              <span data-i18n="menu:english">English</span>
+            </button>
+          </div>
+        </div>
+        <button id="settings-clear-cache" class="menu-button settings-cache-button" type="button" data-i18n="menu:clear_cache">Очистить кэш игры</button>
+        <p class="settings-note" data-i18n="menu:clear_cache_note">Перезагрузит ECHO и запросит свежие файлы. Профиль и выбранный персонаж сохранятся.</p>
         <p id="settings-cache-status" class="settings-status" role="status" aria-live="polite"></p>
-        <button id="settings-back" class="menu-back" type="button">Назад</button>
+        <button id="settings-back" class="menu-back" type="button" data-i18n="menu:back">Назад</button>
       </div>
     </section>
   </main>
