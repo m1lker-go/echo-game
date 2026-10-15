@@ -220,16 +220,15 @@ const {
 function createFoodPoint(id) {
   return createFoodPointCore(id, {
     isValidFoodPosition,
-    random: Math.random,
     worldHalfSize: WORLD_HALF_SIZE,
     maxAttempts: 5000,
-    createCandidate() {
+    createCandidate(pointId) {
       return {
-        id,
+        id: pointId,
         x: randomBetween(-WORLD_HALF_SIZE + 60, WORLD_HALF_SIZE - 60),
         y: randomBetween(-WORLD_HALF_SIZE + 60, WORLD_HALF_SIZE - 60),
-        size: 5 + (id % 3),
-        pulse: id * 0.7,
+        size: 5 + (pointId % 3),
+        pulse: pointId * 0.7,
         active: true,
         respawnAt: 0,
       };
