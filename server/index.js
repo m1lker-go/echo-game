@@ -278,27 +278,40 @@ const WATER_COUNT = 7;
 const WATER_DAMAGE_INTERVAL_MS = 300;
 const WATER_DAMAGE_AMOUNT = 1;
 const WATER_MODEL_BASE_SCALE = 50;
-const WATER_MODEL_WIDTH = 1.4;
-const WATER_MODEL_DEPTH = 1.2;
-const WATER_SMALL_FACTOR = 0.72;
-const WATER_LARGE_FACTOR = 1;
 const WATER_SCALE_MIN = 7;
 const WATER_SCALE_MAX = 12;
+// Actual horizontal boundary vertices extracted from the GLB files (X/Z plane).
+const WATER_GEOMETRY = {
+  'patch-water.glb': { vertices: [[0.6,0],[0.573205,0.1],[0.573205,-0.1],[0.5,-0.173205],[0.5,0.173205],[0.4,-0.2],[0.4,0.2],[0.3,-0.226795],[0.3,0.226795],[0.226795,0.3],[0.226795,-0.3],[0.2,0.4],[0.2,-0.4],[0.173205,0.5],[0.173205,-0.5],[0.1,0.573205],[0.1,-0.573205],[0,0.6],[0,-0.6],[-0.1,0.573205],[-0.2,-0.6],[-0.173205,0.5],[-0.2,0.4],[-0.3,-0.573205],[-0.226795,0.3],[-0.3,0.226795],[-0.373205,-0.5],[-0.4,0.2],[-0.4,-0.4],[-0.5,-0.373205],[-0.5,0.173205],[-0.573205,-0.3],[-0.573205,0.1],[-0.6,-0.2],[-0.6,0]], factor: 0.72 },
+  'patch-water-large.glb': { vertices: [[-0.7,0],[-0.7,-0.2],[-0.673205,0.1],[-0.673205,-0.3],[-0.6,0.173205],[-0.6,-0.373205],[-0.5,0.2],[-0.5,-0.4],[-0.5,0.4],[-0.473205,0.5],[-0.473205,-0.5],[-0.4,0.573205],[-0.4,-0.573205],[-0.3,0.6],[-0.3,-0.6],[-0.2,-0.573205],[-0.126795,-0.5],[-0.1,-0.4],[-0.1,0.6],[-0.073205,-0.3],[0,-0.226795],[0,0.573205],[0.073205,0.5],[0.1,0.4],[0.1,-0.2],[0.2,0.373205],[0.273205,0.3],[0.3,0.2],[0.5,-0.2],[0.5,0.2],[0.6,-0.173205],[0.6,0.173205],[0.673205,0.1],[0.673205,-0.1],[0.7,0]], factor: 1 },
+};
+function getWaterGeometry(water) { return WATER_GEOMETRY[water.model] || WATER_GEOMETRY['patch-water-large.glb']; }
+function getWaterScale(water) { return WATER_MODEL_BASE_SCALE * water.scale * getWaterGeometry(water).factor; }
+function isPointInPolygon(x, y, vertices) {
+  let inside = false;
+  for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+    const [xi, yi] = vertices[i], [xj, yj] = vertices[j];
+    const crosses = (yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / ((yj - yi) || Number.EPSILON) + xi;
+    if (crosses) inside = !inside;
+    const cross = (x - xi) * (yj - yi) - (y - yi) * (xj - xi);
+    if (Math.abs(cross) < 1e-7 && x >= Math.min(xi, xj) - 1e-7 && x <= Math.max(xi, xj) + 1e-7 && y >= Math.min(yi, yj) - 1e-7 && y <= Math.max(yi, yj) + 1e-7) return true;
+  }
+  return inside;
+}
 function getWaterFootprint(water) {
-  const modelFactor = water.model === 'patch-water-large.glb' ? WATER_LARGE_FACTOR : WATER_SMALL_FACTOR;
-  return {
-    halfWidth: (WATER_MODEL_WIDTH * WATER_MODEL_BASE_SCALE * water.scale * modelFactor) / 2,
-    halfDepth: (WATER_MODEL_DEPTH * WATER_MODEL_BASE_SCALE * water.scale * modelFactor) / 2,
-  };
+  const scale = getWaterScale(water), vertices = getWaterGeometry(water).vertices;
+  let halfWidth = 0, halfDepth = 0;
+  for (const [x, y] of vertices) { halfWidth = Math.max(halfWidth, Math.abs(x * scale)); halfDepth = Math.max(halfDepth, Math.abs(y * scale)); }
+  return { halfWidth, halfDepth };
 }
 function isPointOnWater(position, water) {
-  const { halfWidth, halfDepth } = getWaterFootprint(water);
+  const vertices = getWaterGeometry(water).vertices;
   const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
-  const dx = position.x - water.x;
-  const dy = position.y - water.y;
+  const dx = position.x - water.x, dy = position.y - water.y;
   const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
   const localY = -dx * Math.sin(angle) + dy * Math.cos(angle);
-  return Math.abs(localX) <= halfWidth && Math.abs(localY) <= halfDepth;
+  const scale = getWaterScale(water);
+  return isPointInPolygon(localX / scale, localY / scale, vertices);
 }
 function createWorldWaters() {
   const waters = [];
