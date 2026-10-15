@@ -1,7 +1,7 @@
 const foodCanvas = document.querySelector('#shared-food');
 const energyText = document.querySelector('#energy');
 
-const FOOD_COUNT = 34;
+const FOOD_COUNT = 1000;
 // The magnet is visual only; collection and disappearance remain server-authoritative.
 const FOOD_MAGNET_RADIUS = 84 * 0.9;
 const FOOD_MAGNET_SPEED = 520;
@@ -130,9 +130,6 @@ function draw(time) {
       for (const id of activeIds) {
         const point = food.get(id);
         if (!point) continue;
-
-        // Fast local attraction is purely visual. The server still decides when
-        // the piece is collected and broadcasts removal to every connected player.
         const dx = cameraX - point.displayX;
         const dy = cameraY - point.displayY;
         const distance = Math.hypot(dx, dy);
@@ -145,8 +142,6 @@ function draw(time) {
           const backX = point.x - point.displayX;
           const backY = point.y - point.displayY;
           const backDistance = Math.hypot(backX, backY);
-          // Once the player has passed without a server collection, return the
-          // visual point to its authoritative position instead of following forever.
           if (distance >= FOOD_MAGNET_RADIUS * 1.05) {
             const travel = Math.min(backDistance, FOOD_RECONCILE_SPEED * dt);
             if (backDistance > 0.001) {
@@ -162,7 +157,6 @@ function draw(time) {
 
         const p = worldToScreen(point.displayX, point.displayY, cameraX, cameraY, width, height);
         if (p.x < -30 || p.y < -30 || p.x > width + 30 || p.y > height + 30) continue;
-
         const pulse = 0.65 + 0.35 * Math.sin(time * 0.002 + point.pulse);
         const radius = point.size * pulse;
         const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius * 3.2);
@@ -173,7 +167,6 @@ function draw(time) {
         ctx.beginPath();
         ctx.arc(p.x, p.y, radius * 3.2, 0, Math.PI * 2);
         ctx.fill();
-
         ctx.fillStyle = `rgba(220,242,255,${0.65 + 0.35 * pulse})`;
         ctx.beginPath();
         ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
