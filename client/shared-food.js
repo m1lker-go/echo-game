@@ -1,6 +1,5 @@
 const worldCanvas = document.querySelector('#world');
 const energyText = document.querySelector('#energy');
-const coordsText = document.querySelector('#coords');
 
 const FOOD_COUNT = 34;
 const FOOD_MAGNET_RADIUS = 84 * 0.9;
@@ -27,8 +26,9 @@ const food = new Map(Array.from({ length: FOOD_COUNT }, (_, id) => {
   return [id, point];
 }));
 
-let activeIds = new Set(food.keys());
+let activeIds = new Set();
 let lastTime = performance.now();
+let socket = null;
 
 function syncFood(snapshot) {
   if (!Array.isArray(snapshot)) return;
@@ -46,54 +46,48 @@ function syncFood(snapshot) {
       food.set(item.id, point);
     }
 
-    const wasInactive = !activeIds.has(item.id);
     point.x = item.x;
     point.y = item.y;
-    if (wasInactive) {
-      point.displayX = item.x;
-      point.displayY = item.y;
-    }
+    point.displayX = item.x;
+    point.displayY = item.y;
     point.size = Number.isFinite(item.size) ? item.size : point.size;
     point.pulse = Number.isFinite(item.pulse) ? item.pulse : point.pulse;
-  }
-
-  for (const id of activeIds) {
-    if (!nextIds.has(id)) {
-      const point = food.get(id);
-      if (point) {
-        point.displayX = point.x;
-        point.displayY = point.y;
-      }
-    }
   }
 
   activeIds = nextIds;
 }
 
-function installSocketListener() {
-  const Socket = window.io?.Socket;
-  if (!Socket?.prototype?.onevent) return false;
+function syncPlayers(players) {
+  if (!Array.isArray(players) || !socket?.id) return;
+  const local = players.find((player) => player?.id === socket.id);
+  if (!local || !Number.isFinite(local.energy)) return;
+  if (energyText) energyText.textContent = String(Math.max(0, Math.round(local.energy)));
+}
 
-  const originalOnevent = Socket.prototype.onevent;
-  if (originalOnevent.__echoFoodPatched) return true;
+function attachSocket(candidate) {
+  if (!candidate || candidate === socket) return;
+  socket = candidate;
+  socket.on('echo:food', syncFood);
+  socket.on('echo:players', syncPlayers);
+}
 
-  function patchedOnevent(packet) {
-    const eventName = packet?.data?.[0];
-    if (eventName === 'echo:food') syncFood(packet.data[1]);
-    return originalOnevent.call(this, packet);
-  }
+function installIoHook() {
+  if (typeof window.io !== 'function') return false;
+  if (window.io.__echoFoodHooked) return true;
 
-  patchedOnevent.__echoFoodPatched = true;
-  Socket.prototype.onevent = patchedOnevent;
+  const originalIo = window.io;
+  const wrappedIo = function (...args) {
+    const result = originalIo.apply(this, args);
+    attachSocket(result);
+    return result;
+  };
+  Object.setPrototypeOf(wrappedIo, originalIo);
+  wrappedIo.__echoFoodHooked = true;
+  window.io = wrappedIo;
   return true;
 }
 
-if (!installSocketListener()) {
-  const retry = window.setInterval(() => {
-    if (installSocketListener()) window.clearInterval(retry);
-  }, 100);
-  window.setTimeout(() => window.clearInterval(retry), 5000);
-}
+installIoHook();
 
 const foodCanvas = document.createElement('canvas');
 foodCanvas.id = 'shared-food';
@@ -110,8 +104,8 @@ worldCanvas?.parentElement?.insertBefore(foodCanvas, worldCanvas.nextSibling);
 const foodCtx = foodCanvas.getContext('2d', { alpha: true });
 const worldCtx = worldCanvas?.getContext('2d');
 
-// The original client still owns its local food simulation. Hide only its food pixels;
-// the shared-food canvas below renders the server-authoritative set instead.
+// game.js still contains its old local food renderer. Suppress only those food pixels;
+// the authoritative food is rendered by this canvas from server snapshots.
 if (worldCtx && !worldCtx.__echoSharedFoodPatched) {
   const originalCreateRadialGradient = worldCtx.createRadialGradient.bind(worldCtx);
   const originalFill = worldCtx.fill.bind(worldCtx);
@@ -136,7 +130,7 @@ if (worldCtx && !worldCtx.__echoSharedFoodPatched) {
 }
 
 function resize() {
-  if (!foodCanvas || !foodCtx) return;
+  if (!foodCanvas || !foodCtx || !worldCanvas) return;
   const rect = worldCanvas.getBoundingClientRect();
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   foodCanvas.width = Math.round(rect.width * dpr);
@@ -147,10 +141,18 @@ window.addEventListener('resize', resize, { passive: true });
 resize();
 
 function getCamera() {
-  const match = coordsText?.textContent?.match(/(-?\d+)\s*[·.]\s*(-?\d+)/);
+  const worldWidth = worldCanvas?.clientWidth || 1;
+  const worldHeight = worldCanvas?.clientHeight || 1;
+  const playerModel = document.querySelector('#models');
+  // The local model is centered by game.js; use its center offset only for the
+  // visual food layer. The authoritative coordinates arrive from the server.
+  const match = document.querySelector('#coords')?.textContent?.match(/(-?\d+)\s*[·.]\s*(-?\d+)/);
   return {
     x: match ? Number(match[1]) : 0,
     y: match ? Number(match[2]) : 0,
+    width: worldWidth,
+    height: worldHeight,
+    playerModel,
   };
 }
 
@@ -172,13 +174,12 @@ function draw(time) {
   const dt = Math.min(Math.max((time - lastTime) / 1000, 0), .05);
   lastTime = time;
 
-  const width = worldCanvas.clientWidth;
-  const height = worldCanvas.clientHeight;
-  foodCtx.clearRect(0, 0, width, height);
-
   const camera = getCamera();
   const blend = 1 - Math.exp(-FOOD_MAGNET_STRENGTH * dt);
+  const width = camera.width;
+  const height = camera.height;
 
+  foodCtx.clearRect(0, 0, width, height);
   foodCtx.save();
   foodCtx.shadowBlur = 0;
 
