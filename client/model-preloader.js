@@ -20,16 +20,19 @@ const MODEL_ASSETS = [
   'objects/tree.glb',
 ];
 
-const isGameSession = new URLSearchParams(window.location.search).get('play') === '1';
+let started = false;
 
-if (isGameSession) {
+function preloadModels() {
+  if (started) return;
+  started = true;
+
   const baseUrl = new URL('./assets/models/', window.location.href);
   const preload = (file) => {
     const url = new URL(file, baseUrl).href;
     return fetch(url, { cache: 'force-cache', priority: 'low' }).catch(() => null);
   };
 
-  async function preloadModels() {
+  async function run() {
     const queue = MODEL_ASSETS.slice();
     const workers = Array.from({ length: 2 }, async () => {
       while (queue.length) {
@@ -42,10 +45,15 @@ if (isGameSession) {
     console.log('[echo] model assets preloaded');
   }
 
-  const start = () => { void preloadModels(); };
+  const start = () => { void run(); };
   if ('requestIdleCallback' in window) {
     window.requestIdleCallback(start, { timeout: 1500 });
   } else {
     setTimeout(start, 800);
   }
 }
+
+// The module is present in the menu, but no model requests start until the
+// game itself becomes visible. This also works when play=1 is stripped by menu.js.
+document.addEventListener('echo:game-started', preloadModels);
+document.addEventListener('echo:game-restarted', preloadModels);
