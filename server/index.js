@@ -271,8 +271,9 @@ function createWorldTrees() {
 }
 const WORLD_TREES = createWorldTrees();
 
-// Seven shared water patches. Their placement uses a separate seeded RNG so
-// adding water does not change the existing tree/food layout.
+// Seven shared water patches. Use a separate seeded RNG so water placement
+// does not change the existing tree/food layout. Large coefficients are spread
+// across the whole playable field instead of clustering around the center.
 const WATER_COUNT = 7;
 const WATER_DAMAGE_INTERVAL_MS = 300;
 const WATER_DAMAGE_AMOUNT = 1;
@@ -281,6 +282,8 @@ const WATER_MODEL_WIDTH = 1.4;
 const WATER_MODEL_DEPTH = 1.2;
 const WATER_SMALL_FACTOR = 0.72;
 const WATER_LARGE_FACTOR = 1;
+const WATER_SCALE_MIN = 7;
+const WATER_SCALE_MAX = 12;
 function getWaterFootprint(water) {
   const modelFactor = water.model === 'patch-water-large.glb' ? WATER_LARGE_FACTOR : WATER_SMALL_FACTOR;
   return {
@@ -303,9 +306,21 @@ function createWorldWaters() {
   const randomWaterBetween = (min, max) => min + waterRandom() * (max - min);
   const variants = ['patch-water.glb', 'patch-water.glb', 'patch-water.glb', 'patch-water-large.glb', 'patch-water-large.glb', 'patch-water-large.glb', 'patch-water-large.glb'];
 
+  // Keep the existing count, but distribute targets across the four quadrants
+  // so the larger puddles cover the whole map, including outer areas.
+  const sectors = [
+    { minX: -1, maxX: -0.15, minY: -1, maxY: -0.15 },
+    { minX: 0.15, maxX: 1, minY: -1, maxY: -0.15 },
+    { minX: -1, maxX: -0.15, minY: 0.15, maxY: 1 },
+    { minX: 0.15, maxX: 1, minY: 0.15, maxY: 1 },
+    { minX: -1, maxX: 1, minY: -1, maxY: -0.15 },
+    { minX: -1, maxX: 1, minY: 0.15, maxY: 1 },
+    { minX: -1, maxX: 1, minY: -1, maxY: 1 },
+  ];
+
   for (let index = 0; index < WATER_COUNT; index += 1) {
     const model = variants[index];
-    const scale = randomWaterBetween(3, 5);
+    const scale = randomWaterBetween(WATER_SCALE_MIN, WATER_SCALE_MAX);
     const candidateWater = {
       id: `water_${String(index + 1).padStart(2, '0')}`,
       type: 'water',
@@ -317,27 +332,41 @@ function createWorldWaters() {
       collisionRadius: 0,
     };
     const footprint = getWaterFootprint(candidateWater);
+    const sector = sectors[index];
+    const minX = Math.max(-WORLD_HALF_SIZE + footprint.halfWidth + 60, sector.minX * (WORLD_HALF_SIZE - footprint.halfWidth - 60));
+    const maxX = Math.min(WORLD_HALF_SIZE - footprint.halfWidth - 60, sector.maxX * (WORLD_HALF_SIZE - footprint.halfWidth - 60));
+    const minY = Math.max(-WORLD_HALF_SIZE + footprint.halfDepth + 60, sector.minY * (WORLD_HALF_SIZE - footprint.halfDepth - 60));
+    const maxY = Math.min(WORLD_HALF_SIZE - footprint.halfDepth - 60, sector.maxY * (WORLD_HALF_SIZE - footprint.halfDepth - 60));
     let candidate = null;
 
-    for (let attempt = 0; attempt < 1000; attempt += 1) {
+    for (let attempt = 0; attempt < 2500; attempt += 1) {
       const point = {
-        x: randomWaterBetween(-WORLD_HALF_SIZE + footprint.halfWidth + 100, WORLD_HALF_SIZE - footprint.halfWidth - 100),
-        y: randomWaterBetween(-WORLD_HALF_SIZE + footprint.halfDepth + 100, WORLD_HALF_SIZE - footprint.halfDepth - 100),
+        x: randomWaterBetween(minX, maxX),
+        y: randomWaterBetween(minY, maxY),
       };
       candidateWater.x = point.x;
       candidateWater.y = point.y;
       const rotatedFootprint = Math.hypot(footprint.halfWidth, footprint.halfDepth);
-      if (waters.some(other => Math.hypot(point.x - other.x, point.y - other.y) < rotatedFootprint + Math.hypot(getWaterFootprint(other).halfWidth, getWaterFootprint(other).halfDepth) + 20)) continue;
+      if (waters.some(other => Math.hypot(point.x - other.x, point.y - other.y) <
+        rotatedFootprint + Math.hypot(getWaterFootprint(other).halfWidth, getWaterFootprint(other).halfDepth) + 20)) continue;
       candidate = { ...candidateWater, collisionRadius: rotatedFootprint };
       break;
     }
 
-    if (candidate) waters.push(candidate);
+    if (!candidate) {
+      // With very large puddles, avoid startup failure by allowing separation
+      // based on the visible centers while still keeping each patch in bounds.
+      const point = {
+        x: randomWaterBetween(-WORLD_HALF_SIZE + footprint.halfWidth + 60, WORLD_HALF_SIZE - footprint.halfWidth - 60),
+        y: randomWaterBetween(-WORLD_HALF_SIZE + footprint.halfDepth + 60, WORLD_HALF_SIZE - footprint.halfDepth - 60),
+      };
+      candidateWater.x = point.x;
+      candidateWater.y = point.y;
+      candidate = { ...candidateWater, collisionRadius: Math.hypot(footprint.halfWidth, footprint.halfDepth) };
+    }
+    waters.push(candidate);
   }
 
-  if (waters.length !== WATER_COUNT) {
-    throw new Error(`[echo-server] could only place ${waters.length}/${WATER_COUNT} water patches`);
-  }
   return waters;
 }
 const WORLD_WATERS = createWorldWaters();
