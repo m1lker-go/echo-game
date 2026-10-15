@@ -48,17 +48,9 @@ const state = {
 
 const WORLD = { spacing: 84 };
 const ISO = { x: 0.8660254, y: 0.5 };
-const FOOD_MAGNET_RADIUS = WORLD.spacing * 0.9;
-const FOOD_MAGNET_STRENGTH = 7.5;
-const FOOD_COLLECT_RADIUS = 22;
 const JUMP_DISTANCE = 420;
 const JUMP_DURATION = 200;
 const FIGHT_DURATION = 1000;
-const points = Array.from({ length: 34 }, (_, i) => {
-  const angle = i * 2.399963229728653;
-  const radius = 170 + (i % 9) * 58 + Math.floor(i / 9) * 100;
-  return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius, size: 5 + (i % 3), pulse: i * .7, collected: false };
-});
 
 const modelScene = new THREE.Scene();
 const modelCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);
@@ -295,6 +287,8 @@ function connectSocket() {
       timeout: 5000,
       auth: { skin: selectedModel },
     });
+    // Shared food subscribes directly to the real game socket; no global io wrapper is needed.
+    window.echoSocket = state.socket;
     state.socket.on('connect', () => {
       setConnection('online', 'сервер подключён');
       state.socket.emit('echo:hello', { version: 1, skin: selectedModel });
@@ -413,21 +407,6 @@ function worldToScreenPrecise(x, y) {
   return { x: state.width / 2 + p.x - camera.x, y: state.height / 2 + p.y - camera.y };
 }
 
-function drawPoints(time) {
-  ctx.save(); ctx.shadowBlur = 0;
-  for (const point of points) {
-    if (point.collected) continue;
-    const p = worldToScreen(point.x, point.y);
-    if (p.x < -30 || p.y < -30 || p.x > state.width + 30 || p.y > state.height + 30) continue;
-    const pulse = .65 + .35 * Math.sin(time * .002 + point.pulse); const radius = point.size * pulse;
-    const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius * 3.2);
-    halo.addColorStop(0, 'rgba(210,238,255,0.38)'); halo.addColorStop(0.35, 'rgba(210,238,255,0.15)'); halo.addColorStop(1, 'rgba(210,238,255,0)');
-    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(p.x, p.y, radius * 3.2, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = `rgba(220,242,255,${.65 + .35 * pulse})`; ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.fill();
-  }
-  ctx.restore();
-}
-
 function drawEnergyLabel(x, y, label, isOther = false) {
   const p = worldToScreen(x, y); ctx.save(); ctx.font = '500 11px Inter, system-ui, sans-serif'; ctx.textAlign = 'center';
   ctx.fillStyle = isOther ? 'rgba(216,230,246,.68)' : 'rgba(244,250,255,.9)'; ctx.shadowColor = 'rgba(193,226,255,.8)'; ctx.shadowBlur = 7;
@@ -526,31 +505,10 @@ function drawModels(time, dt) {
 function draw(time) {
   ctx.clearRect(0, 0, state.width, state.height);
   drawGrid(time);
-  drawPoints(time);
   drawModels(time, state.lastTime ? Math.min((time - state.lastTime) / 1000, .05) : 0);
   const gradient = ctx.createRadialGradient(state.width / 2, state.height / 2, Math.min(state.width, state.height) * .22, state.width / 2, state.height / 2, Math.max(state.width, state.height) * .7);
   gradient.addColorStop(0, 'rgba(0,0,0,0)'); gradient.addColorStop(.58, 'rgba(0,0,0,.1)'); gradient.addColorStop(1, 'rgba(0,0,0,.82)');
   ctx.fillStyle = gradient; ctx.fillRect(0, 0, state.width, state.height);
-}
-
-function applyFoodMagnet(dt) {
-  const blend = 1 - Math.exp(-FOOD_MAGNET_STRENGTH * dt);
-  for (const point of points) {
-    if (point.collected) continue;
-    const dx = state.x - point.x;
-    const dy = state.y - point.y;
-    const distance = Math.hypot(dx, dy);
-    if (distance < FOOD_COLLECT_RADIUS) {
-      point.collected = true;
-      state.energy += 1;
-      energyText.textContent = String(state.energy);
-      continue;
-    }
-    if (distance > 0 && distance < FOOD_MAGNET_RADIUS) {
-      point.x += dx * blend;
-      point.y += dy * blend;
-    }
-  }
 }
 
 function triggerJump() {
@@ -591,8 +549,6 @@ function update(dt, time) {
     }
     updatePlayerMovement(state, dt, time, ISO);
   }
-  applyFoodMagnet(dt);
-  if (points.every((point) => point.collected)) for (const point of points) { point.collected = false; const angle = Math.random() * Math.PI * 2; const radius = 210 + Math.random() * 1200; point.x = Math.cos(angle) * radius; point.y = Math.sin(angle) * radius; }
   state.cameraX = state.x; state.cameraY = state.y; coordsText.textContent = `${Math.round(state.x)} · ${Math.round(state.y)}`;
   if (state.socket?.connected && !state.defeated && time - state.lastSent > 80) {
     state.lastSent = time;
