@@ -179,7 +179,6 @@ function createWorldTrees() {
     rotation: randomBetween(0, Math.PI * 2),
   });
 
-  // Keep trunks from intersecting while allowing the tree crowns to feel close.
   const trunksOverlap = (candidate, other, clearance = 12) =>
     Math.hypot(candidate.x - other.x, candidate.y - other.y) <
     candidate.collisionRadius + other.collisionRadius + clearance;
@@ -201,9 +200,6 @@ function createWorldTrees() {
     ));
   };
 
-  // Place natural-looking groups first. A group may be loose or compact;
-  // distances vary, and a few tree canopies can overlap visually without
-  // making the trunk collision zones overlap.
   for (let clusterIndex = 0; clusterIndex < clusterCount && trees.length < 90; clusterIndex += 1) {
     const clusterSize = clusterSizes[Math.floor(worldRandom() * clusterSizes.length)];
     let clusterPlaced = false;
@@ -217,8 +213,6 @@ function createWorldTrees() {
       let failed = false;
 
       for (let i = 0; i < clusterSize; i += 1) {
-        // Scatter each tree in a compact, irregular radius around the group center.
-        // Cluster spacing uses trunk collision bounds; canopy spacing stays loose.
         let candidate = null;
         for (let memberAttempt = 0; memberAttempt < 100; memberAttempt += 1) {
           const angle = randomBetween(0, Math.PI * 2);
@@ -262,8 +256,6 @@ function createWorldTrees() {
     }
   }
 
-  // Fill the remaining area with individual trees, keeping the groups
-  // readable and the center spawn region clear.
   const targetCount = 90;
   for (let attempt = 0; attempt < targetCount * 220 && trees.length < targetCount; attempt += 1) {
     const scale = randomBetween(TREE_SCALE_MIN, TREE_SCALE_MAX);
@@ -284,9 +276,6 @@ const WORLD_TREES = createWorldTrees();
 const WATER_COUNT = 7;
 const WATER_DAMAGE_INTERVAL_MS = 300;
 const WATER_DAMAGE_AMOUNT = 1;
-
-// Match the actual flat patch bounds rather than using an oversized circular trigger.
-// patch-water-large.glb: X=1.4, Z=1.2 in model space. Client scale is 50 * water.scale.
 const WATER_MODEL_BASE_SCALE = 50;
 const WATER_MODEL_WIDTH = 1.4;
 const WATER_MODEL_DEPTH = 1.2;
@@ -304,7 +293,6 @@ function isPointOnWater(position, water) {
   const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
   const dx = position.x - water.x;
   const dy = position.y - water.y;
-  // Inverse-rotate the point into the puddle's own flat local coordinates.
   const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
   const localY = -dx * Math.sin(angle) + dy * Math.cos(angle);
   return Math.abs(localX) <= halfWidth && Math.abs(localY) <= halfDepth;
@@ -356,6 +344,33 @@ const WORLD_WATERS = createWorldWaters();
 function isInWater(position) {
   return WORLD_WATERS.some(water => isPointOnWater(position, water));
 }
+
+// Water damage is checked independently of movement packets. The player's
+// world X/Y position is the character's central axis: no body-radius or model
+// bounds are used here. If that axis is on the visible puddle footprint,
+// energy drains every 300ms while the player remains there.
+setInterval(() => {
+  const now = Date.now();
+  for (const player of players.values()) {
+    if (!player || player.defeated || player.fightingWith) continue;
+    const inWater = isInWater(player);
+    if (!inWater) {
+      player.inWater = false;
+      player.lastWaterDamageAt = 0;
+      continue;
+    }
+    if (!player.inWater) {
+      player.inWater = true;
+      player.lastWaterDamageAt = now;
+      continue;
+    }
+    if (now - player.lastWaterDamageAt < WATER_DAMAGE_INTERVAL_MS) continue;
+    const damageTicks = Math.floor((now - player.lastWaterDamageAt) / WATER_DAMAGE_INTERVAL_MS);
+    player.energy = Math.max(0, player.energy - damageTicks * WATER_DAMAGE_AMOUNT);
+    player.lastWaterDamageAt += damageTicks * WATER_DAMAGE_INTERVAL_MS;
+  }
+}, WATER_DAMAGE_INTERVAL_MS);
+
 function createWorldSnapshot() {
   return {
     seed: WORLD_SEED,
@@ -687,17 +702,9 @@ io.on('connection', (socket) => {
 
     const now = Date.now();
     const inWater = isInWater(current);
-    if (!inWater) {
-      current.inWater = false;
-      current.lastWaterDamageAt = 0;
-    } else if (!current.inWater) {
-      current.inWater = true;
-      current.lastWaterDamageAt = now;
-    } else if (now - current.lastWaterDamageAt >= WATER_DAMAGE_INTERVAL_MS) {
-      const damageTicks = Math.floor((now - current.lastWaterDamageAt) / WATER_DAMAGE_INTERVAL_MS);
-      current.energy = Math.max(0, current.energy - damageTicks * WATER_DAMAGE_AMOUNT);
-      current.lastWaterDamageAt += damageTicks * WATER_DAMAGE_INTERVAL_MS;
-    }
+    current.inWater = inWater;
+    if (!inWater) current.lastWaterDamageAt = 0;
+    else if (!current.lastWaterDamageAt) current.lastWaterDamageAt = now;
 
     const collected = collectFood(current);
     if (collected > 0) {
