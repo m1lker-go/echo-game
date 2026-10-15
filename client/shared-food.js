@@ -64,14 +64,30 @@ function attachSocket(candidate) {
   if (socket) {
     socket.off('echo:food', syncFood);
     socket.off('echo:players', syncPlayers);
+    socket.off('connect', onSocketConnect);
+    socket.off('disconnect', onSocketDisconnect);
   }
   socket = candidate;
   socket.on('echo:food', syncFood);
   socket.on('echo:players', syncPlayers);
+  socket.on('connect', onSocketConnect);
+  socket.on('disconnect', onSocketDisconnect);
   isConnected = Boolean(socket.connected);
-  socket.on('connect', () => { isConnected = true; });
-  socket.on('disconnect', () => { isConnected = false; activeIds.clear(); });
-  if (socket.connected) socket.emit('echo:hello', { version: 1 });
+  if (socket.connected) {
+    // The first food snapshot may have arrived before these listeners were bound.
+    socket.emit('echo:hello', { version: 1 });
+  }
+}
+
+function onSocketConnect() {
+  isConnected = true;
+  // Always request fresh authoritative snapshots after reconnect.
+  socket?.emit('echo:hello', { version: 1 });
+}
+
+function onSocketDisconnect() {
+  isConnected = false;
+  activeIds.clear();
 }
 
 function findSocket() {
