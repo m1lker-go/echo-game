@@ -16,6 +16,7 @@ let socket = null;
 let cameraX = 0;
 let cameraY = 0;
 let isConnected = false;
+let lastDebugLog = 0;
 
 function getPoint(id, x = 0, y = 0, size = 6, pulse = 0) {
   return { id, x, y, displayX: x, displayY: y, size, pulse, magnetActive: false };
@@ -143,6 +144,8 @@ function draw(time) {
     if (ctx) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
+      // Expose lightweight counters while debugging visibility of the authoritative snapshot.
+      let visibleCount = 0;
       for (const id of activeIds) {
         const point = food.get(id);
         if (!point) continue;
@@ -187,6 +190,11 @@ function draw(time) {
         ctx.beginPath();
         ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
         ctx.fill();
+        visibleCount += 1;
+      }
+      if (time - lastDebugLog > 5000) {
+        lastDebugLog = time;
+        console.debug('[echo:food] active:', activeIds.size, 'known:', food.size, 'visible:', visibleCount, 'connected:', isConnected);
       }
     }
   }
