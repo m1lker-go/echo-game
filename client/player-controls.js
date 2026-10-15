@@ -9,9 +9,6 @@
 const WORLD_HALF_SIZE = 4200;
 
 export function bindPlayerControls({ state, joystick, stick, boostButton, triggerBoost }) {
-  // Expose the live state only for the compatibility boost handler installed by
-  // asset-loader-patch.js. The game itself remains the owner of movement state.
-  globalThis.echoGameState = state;
 
   function setJoystick(clientX, clientY) {
     const rect = joystick.getBoundingClientRect();
