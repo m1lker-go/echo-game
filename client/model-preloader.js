@@ -53,7 +53,5 @@ function preloadModels() {
   }
 }
 
-// The module is present in the menu, but no model requests start until the
-// game itself becomes visible. This also works when play=1 is stripped by menu.js.
-document.addEventListener('echo:game-started', preloadModels);
-document.addEventListener('echo:game-restarted', preloadModels);
+// Warm the model files as soon as /echo/ is opened, including while the menu is visible.
+preloadModels();
