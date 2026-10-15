@@ -26,6 +26,25 @@ const worldObjects = {
 };
 const WATER_MODEL_BASE_SCALE = 50;
 const WATER_MODEL_URLS = ['./assets/models/objects/patch-water.glb', './assets/models/objects/patch-water-large.glb'];
+// Actual horizontal boundary vertices extracted from the GLB files (X/Z plane).
+const WATER_GEOMETRY = {
+  'patch-water.glb': { vertices: [[0.6,0],[0.573205,0.1],[0.573205,-0.1],[0.5,-0.173205],[0.5,0.173205],[0.4,-0.2],[0.4,0.2],[0.3,-0.226795],[0.3,0.226795],[0.226795,0.3],[0.226795,-0.3],[0.2,0.4],[0.2,-0.4],[0.173205,0.5],[0.173205,-0.5],[0.1,0.573205],[0.1,-0.573205],[0,0.6],[0,-0.6],[-0.1,0.573205],[-0.2,-0.6],[-0.173205,0.5],[-0.2,0.4],[-0.3,-0.573205],[-0.226795,0.3],[-0.3,0.226795],[-0.373205,-0.5],[-0.4,0.2],[-0.4,-0.4],[-0.5,-0.373205],[-0.5,0.173205],[-0.573205,-0.3],[-0.573205,0.1],[-0.6,-0.2],[-0.6,0]], factor: 0.72 },
+  'patch-water-large.glb': { vertices: [[-0.7,0],[-0.7,-0.2],[-0.673205,0.1],[-0.673205,-0.3],[-0.6,0.173205],[-0.6,-0.373205],[-0.5,0.2],[-0.5,-0.4],[-0.5,0.4],[-0.473205,0.5],[-0.473205,-0.5],[-0.4,0.573205],[-0.4,-0.573205],[-0.3,0.6],[-0.3,-0.6],[-0.2,-0.573205],[-0.126795,-0.5],[-0.1,-0.4],[-0.1,0.6],[-0.073205,-0.3],[0,-0.226795],[0,0.573205],[0.073205,0.5],[0.1,0.4],[0.1,-0.2],[0.2,0.373205],[0.273205,0.3],[0.3,0.2],[0.5,-0.2],[0.5,0.2],[0.6,-0.173205],[0.6,0.173205],[0.673205,0.1],[0.673205,-0.1],[0.7,0]], factor: 1 },
+};
+function getWaterGeometry(water) { return WATER_GEOMETRY[water.model] || WATER_GEOMETRY['patch-water-large.glb']; }
+function getWaterScale(water) { return WATER_MODEL_BASE_SCALE * water.scale * getWaterGeometry(water).factor; }
+function isPointInPolygon(x, y, vertices) {
+  let inside = false;
+  for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+    const [xi, yi] = vertices[i], [xj, yj] = vertices[j];
+    const crosses = (yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / ((yj - yi) || Number.EPSILON) + xi;
+    if (crosses) inside = !inside;
+    const cross = (x - xi) * (yj - yi) - (y - yi) * (xj - xi);
+    if (Math.abs(cross) < 1e-7 && x >= Math.min(xi, xj) - 1e-7 && x <= Math.max(xi, xj) + 1e-7 && y >= Math.min(yi, yj) - 1e-7 && y <= Math.max(yi, yj) + 1e-7) return true;
+  }
+  return inside;
+}
+
 const TREE_MODEL_URL = './assets/models/objects/tree.glb';
 const TREE_BASE_SCALE = 50;
 const TREE_SCALE_MIN = 1.5;
@@ -102,7 +121,7 @@ function prepareWaterMaterials(root) {
       : createWaterMaterial(child.material);
     child.castShadow = false;
     child.receiveShadow = false;
-    child.renderOrder = 1;
+    child.renderOrder = -1;
   });
 }
 function createWaterMaterial(sourceMaterial) {
@@ -130,7 +149,7 @@ function addWaterModel(water) {
   const surface = cloneSkeleton(source);
   prepareWaterMaterials(surface);
   surface.rotation.set(Math.PI / 2, 0, 0);
-  surface.scale.setScalar(WATER_MODEL_BASE_SCALE * water.scale);
+  surface.scale.setScalar(getWaterScale(water));
   surface.updateMatrixWorld(true);
 
   // Center the transformed mesh locally and bring its lowest point to depth 0.
@@ -149,7 +168,7 @@ function addWaterModel(water) {
 
   holder.traverse(child => {
     if (!child.isMesh) return;
-    child.renderOrder = 1;
+    child.renderOrder = -1;
     if (child.material) {
       child.material.depthTest = false;
       child.material.depthWrite = false;
@@ -157,7 +176,7 @@ function addWaterModel(water) {
       child.material.needsUpdate = true;
     }
   });
-  holder.renderOrder = 1;
+  holder.renderOrder = -1;
   water.root = holder;
   modelScene.add(holder);
 }
@@ -196,20 +215,18 @@ function updateWorldWaterPositions() {
     water.root.position.x = p.x - state.width / 2;
     water.root.position.y = -(p.y - state.height / 2);
     water.root.position.z = -1;
-    water.root.renderOrder = 1;
+    water.root.renderOrder = -1;
   }
 }
 function isPlayerInWater(x = state.x, y = state.y) {
   return worldObjects.waters.some(water => {
-    const small = water.model === 'patch-water.glb';
-    const halfWidth = (1.4 * WATER_MODEL_BASE_SCALE * water.scale * (small ? 0.72 : 1)) / 2;
-    const halfDepth = (1.2 * WATER_MODEL_BASE_SCALE * water.scale * (small ? 0.72 : 1)) / 2;
+    const vertices = getWaterGeometry(water).vertices;
     const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
-    const dx = x - water.x;
-    const dy = y - water.y;
+    const dx = x - water.x, dy = y - water.y;
     const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
     const localY = -dx * Math.sin(angle) + dy * Math.cos(angle);
-    return Math.abs(localX) <= halfWidth && Math.abs(localY) <= halfDepth;
+    const scale = getWaterScale(water);
+    return isPointInPolygon(localX / scale, localY / scale, vertices);
   });
 }
 
