@@ -40,10 +40,18 @@ function loadWorldTreeModel() {
   if (worldObjects.treeLoading || worldObjects.treeSource) return;
   worldObjects.treeLoading = true;
   loader.load(TREE_MODEL_URL, gltf => {
+    // Place server X/Y coordinates at the center of the model's footprint.
+    const bounds = new THREE.Box3().setFromObject(gltf.scene);
+    const centerX = (bounds.min.x + bounds.max.x) / 2;
+    const centerZ = (bounds.min.z + bounds.max.z) / 2;
+    const baseY = bounds.min.y;
+    gltf.scene.position.x -= centerX;
+    gltf.scene.position.y -= baseY;
+    gltf.scene.position.z -= centerZ;
     worldObjects.treeSource = gltf.scene;
     worldObjects.treeLoading = false;
     for (const tree of worldObjects.trees) addTreeModel(tree);
-    console.log('[echo] tree model loaded');
+    console.log(`[echo] tree model loaded; instances: ${worldObjects.trees.length}`);
   }, undefined, error => {
     worldObjects.treeLoading = false;
     console.error('[echo] failed to load tree GLB', error);
