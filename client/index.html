@@ -53,7 +53,7 @@
       <canvas id="menu-food" class="menu-food" aria-hidden="true"></canvas>
 
       <div id="menu-main" class="menu-screen menu-main-screen" aria-label="Главный экран меню" data-i18n-aria-label="menu:main_screen_aria_label">
-        <div class="menu-logo">ECHO<span>.</span></div>
+        <div class="menu-logo">ЭХО<span>.</span></div>
         <div class="menu-buttons">
           <button id="menu-start" class="menu-button" type="button" data-i18n="menu:start">Начать игру</button>
           <button id="menu-character-button" class="menu-button" type="button" data-i18n="menu:character">Персонаж</button>
@@ -84,11 +84,11 @@
           <span class="settings-language-label" data-i18n="menu:language">Язык</span>
           <div class="settings-language-options" role="group" aria-label="Language" data-i18n-aria-label="menu:language_options_aria_label">
             <button id="language-ru" class="language-option" type="button" data-language="ru" aria-pressed="false">
-              <span class="language-flag language-flag-ru" aria-hidden="true">🇷🇺</span>
+              <img class="language-flag language-flag-ru" src="./assets/icons/icon-ru.webp" alt="" aria-hidden="true" style="display:block;width:28px;height:20px;object-fit:cover;border-radius:2px;" />
               <span data-i18n="menu:russian">Русский</span>
             </button>
             <button id="language-en" class="language-option" type="button" data-language="en" aria-pressed="false">
-              <span class="language-flag language-flag-en" aria-hidden="true">🇬🇧</span>
+              <img class="language-flag language-flag-en" src="./assets/icons/icon-en.webp" alt="" aria-hidden="true" style="display:block;width:28px;height:20px;object-fit:cover;border-radius:2px;" />
               <span data-i18n="menu:english">English</span>
             </button>
           </div>
@@ -105,7 +105,7 @@
     {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}
   </script>
   <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
-  <script type="module" src="./i18n.js?v=echo-i18n-1"></script>
+  <script src="./i18n.js?v=echo-i18n-1"></script>
   <script type="module" src="./modal.js?v=echo-modal-3"></script>
   <script type="module" src="./asset-loader-patch.js"></script>
   <script type="module" src="./menu.js?v=echo-language-selector-3"></script>
