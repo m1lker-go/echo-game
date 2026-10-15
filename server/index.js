@@ -288,8 +288,6 @@ const WATER_DAMAGE_AMOUNT = 1;
 // Match the actual flat patch bounds rather than using an oversized circular trigger.
 // patch-water-large.glb: X=1.4, Z=1.2 in model space. Client scale is 50 * water.scale.
 const WATER_MODEL_BASE_SCALE = 50;
-const WATER_SCALE_MULTIPLIER_MIN = 3;
-const WATER_SCALE_MULTIPLIER_MAX = 5;
 const WATER_MODEL_WIDTH = 1.4;
 const WATER_MODEL_DEPTH = 1.2;
 const WATER_SMALL_FACTOR = 0.72;
@@ -297,8 +295,8 @@ const WATER_LARGE_FACTOR = 1;
 function getWaterFootprint(water) {
   const modelFactor = water.model === 'patch-water-large.glb' ? WATER_LARGE_FACTOR : WATER_SMALL_FACTOR;
   return {
-    halfWidth: (WATER_MODEL_WIDTH * WATER_MODEL_BASE_SCALE * water.scale * water.sizeMultiplier * modelFactor) / 2,
-    halfDepth: (WATER_MODEL_DEPTH * WATER_MODEL_BASE_SCALE * water.scale * water.sizeMultiplier * modelFactor) / 2,
+    halfWidth: (WATER_MODEL_WIDTH * WATER_MODEL_BASE_SCALE * water.scale * modelFactor) / 2,
+    halfDepth: (WATER_MODEL_DEPTH * WATER_MODEL_BASE_SCALE * water.scale * modelFactor) / 2,
   };
 }
 function isPointOnWater(position, water) {
@@ -319,7 +317,7 @@ function createWorldWaters() {
 
   for (let index = 0; index < WATER_COUNT; index += 1) {
     const model = variants[index];
-    const scale = randomWaterBetween(0.8, 1.35);
+    const scale = randomWaterBetween(3, 5);
     const candidateWater = {
       id: `water_${String(index + 1).padStart(2, '0')}`,
       type: 'water',
@@ -327,7 +325,6 @@ function createWorldWaters() {
       x: 0,
       y: 0,
       scale,
-      sizeMultiplier: randomWaterBetween(WATER_SCALE_MULTIPLIER_MIN, WATER_SCALE_MULTIPLIER_MAX),
       rotation: randomWaterBetween(0, Math.PI * 2),
       collisionRadius: 0,
     };
@@ -363,7 +360,7 @@ function createWorldSnapshot() {
   return {
     seed: WORLD_SEED,
     trees: WORLD_TREES.map(({ id, type, x, y, scale, rotation, collisionRadius }) => ({ id, type, x, y, scale, rotation, collisionRadius })),
-    waters: WORLD_WATERS.map(({ id, type, model, x, y, scale, sizeMultiplier, rotation, collisionRadius }) => ({ id, type, model, x, y, scale, sizeMultiplier, rotation, collisionRadius })),
+    waters: WORLD_WATERS.map(({ id, type, model, x, y, scale, rotation, collisionRadius }) => ({ id, type, model, x, y, scale, rotation, collisionRadius })),
   };
 }
 function isBlockedByTree(position, clearance = 0) {
