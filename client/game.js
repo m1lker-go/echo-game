@@ -24,15 +24,52 @@ const TREE_BASE_SCALE = 50;
 const TREE_SCALE_MIN = 1.5;
 const TREE_SCALE_MAX = 2.5;
 const MODEL_DEPTH_SCALE = 0;
-function createTreeMaterial(sourceMaterial) {
-  const material = sourceMaterial?.clone?.() || new THREE.MeshStandardMaterial({ color: 0xffffff });
-  material.transparent = true;
-  material.opacity = 0.30;
-  material.depthWrite = true;
-  material.depthTest = true;
-  material.side = THREE.DoubleSide;
-  material.needsUpdate = true;
-  return material;
+function createTreeGradientMaterial(sourceMaterial) {
+  const map = sourceMaterial?.map || null;
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uMap: { value: map },
+      uOpacity: { value: 0.30 }
+    },
+    vertexShader: `
+      varying vec3 vTreeNormal;
+      varying vec2 vUv;
+      void main() {
+        vTreeNormal = normalize(normalMatrix * normal);
+        vUv = uv;
+        // Keep the GLB's real depth so the depth buffer can decide whether
+        // the tree sits in front of a player at each visible pixel.
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D uMap;
+      uniform float uOpacity;
+      varying vec3 vTreeNormal;
+      varying vec2 vUv;
+      void main() {
+        vec3 normalDirection = normalize(vTreeNormal);
+        if (!gl_FrontFacing) normalDirection = -normalDirection;
+
+        vec3 lightDirection = normalize(vec3(0.42, 0.24, 0.88));
+        float diffuse = max(dot(normalDirection, lightDirection), 0.0);
+        float gradient = smoothstep(0.12, 0.82, diffuse);
+        float brightness = mix(0.28, 1.0, gradient);
+
+        vec3 textureColor = texture2D(uMap, vUv).rgb;
+        vec3 lighting = mix(vec3(0.52, 0.55, 0.60), vec3(1.0), brightness);
+        vec3 treeColor = textureColor * lighting;
+        gl_FragColor = vec4(treeColor, uOpacity);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }
+    `,
+    transparent: true,
+    opacity: 0.30,
+    depthWrite: true,
+    depthTest: true,
+    side: THREE.DoubleSide
+  });
 }
 
 function prepareTreeMaterials(root) {
@@ -40,8 +77,8 @@ function prepareTreeMaterials(root) {
     if (!child.isMesh) return;
     const sourceMaterial = child.material;
     child.material = Array.isArray(sourceMaterial)
-      ? sourceMaterial.map(material => createTreeMaterial(material))
-      : createTreeMaterial(sourceMaterial);
+      ? sourceMaterial.map(material => createTreeGradientMaterial(material))
+      : createTreeGradientMaterial(sourceMaterial);
     child.castShadow = true;
     child.receiveShadow = true;
   });
@@ -98,5 +135,8 @@ function startAttackAnimation(a,v='right',until=performance.now()+FIGHT_DURATION
 function switchAnimation(a,moving,time){if(!a)return;if(time<a.combatUntil&&a.combatAction){const attack=a.mixer.clipAction(a.combatAction);if(!attack.isRunning())attack.play();return;}if(a.combatAction&&time>=a.combatUntil){a.combatAction=null;a.combatUntil=0;}const next=moving&&a.walk?a.walk:a.idle;if(!next||next===a.current)return;const current=a.mixer.clipAction(a.current),nextAction=a.mixer.clipAction(next);nextAction.reset().setLoop(THREE.LoopRepeat,Infinity).fadeIn(.15).play();current.fadeOut(.15);a.current=next;}
 function loadCharacterModel(file,onLoaded,onError){const safe=ALLOWED_MODELS.has(file)?file:DEFAULT_MODEL;loader.load(`./assets/models/${safe}`,g=>onLoaded(g,safe),undefined,e=>{console.error(`[echo] failed to load character GLB: ${safe}`,e);onError?.(e,safe);});}
 function createLocalModel(file){loadCharacterModel(file,(g,file2)=>{modelCache.source=g.scene;modelCache.clips=g.animations||[];const local=new THREE.Group(),visible=prepareModel(g.scene,false);local.add(visible);modelCache.local=local;modelCache.localAnimation=setupAnimation(visible,modelCache.clips,false);local.userData.animation=modelCache.localAnimation;modelScene.add(local);modelCache.ready=true;console.log(`[echo] GLB loaded: ${file2}; animations: ${modelCache.clips.length}`);console.log('[echo] available animations:',modelCache.clips.map(c=>c.name));});}createLocalModel(selectedModel);
-function resize(){const r=canvas.getBoundingClientRect();state.dpr=Math.min(devicePixelRatio||1,2);state.width=Math.max(1,r.width);state.height=Math.max(1,r.height);canvas.width=Math.round(state.width*state.dpr);canvas.height=Math.round(state.height*state.dpr);ctx.setTransform(state.dpr,0,0,state.dpr,0,0);modelRenderer.setPixelRatio(state.dpr);modelRenderer.setSize(state.width,state.height,false);modelCamera.left=-state.width/2;modelCamera.right=state.width/2;modelCamera.top=state.height/2;modelCamera.bottom=-state.height/2;modelCamera.updateProjectionMatrix();}addEventListener('resize',resize,{passive:true});resize();
+function resize(){const r=canvas.getBoundingClientRect();state.dpr=Math.min(devicePixelRatio||1,2);state.width=Math.max(1,r.width);state.height=Math.max(1,r.height);state.dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(state.width*state.dpr);canvas.height=Math.round(state.height*state.dpr);ctx.setTransform(state.dpr,0,0,state.dpr,0,0);modelRenderer.setPixelRatio(state.dpr);modelRenderer.setSize(state.width,state.height,false);modelCamera.left=-state.width/2;modelCamera.right=state.width/2;modelCamera.top=state.height/2;modelCamera.bottom=-state.height/2;modelCamera.updateProjectionMatrix();}addEventListener('resize',resize,{passive:true});resize();
 function setConnection(s,l){connectionDot.classList.toggle('online',s==='online');connectionDot.classList.toggle('offline',s==='offline');connectionLabel.textContent=l;}function getPlayerPosition(id){if(!id)return null;if(id===state.socket?.id)return{x:state.x,y:state.y};const p=state.others.get(id);return p?{x:p.displayX??p.targetX,y:p.displayY??p.targetY}:null;}
+function beginCombatVisual(a,b,fid){const now=performance.now(),local=a===state.socket?.id||b===state.socket?.id,oid=a===state.socket?.id?b:a===state.socket?.id?a:null;if(!local){const x=state.others.get(a),y=state.others.get(b);if(x){x.combatUntil=now+FIGHT_DURATION;x.combatFightId=fid;x.fightingWith=b;}if(y){y.combatUntil=now+FIGHT_DURATION;y.combatFightId=fid;y.fightingWith=a;}return;}state.combatUntil=now+FIGHT_DURATION;state.combatOpponentId=oid;state.combatFightId=fid;state.vx=0;state.vy=0;const o=state.others.get(oid);if(o)o.combatUntil=now+FIGHT_DURATION;}
+function showDefeat(){state.defeated=true;state.combatUntil=0;state.combatOpponentId=null;state.vx=0;state.vy=0;energyText.textContent='0';defeatScreen.hidden=false;}function startNewGame(){const u=new URL(location.href);u.searchParams.set('play','1');location.href=u.toString();}defeatReplay?.addEventListener('click',startNewGame);defeatMenu?.addEventListener('click',returnToMenu);
+function connectSocket(){if(!window.io){setConnection('offline','режим без сервера');return;}try{state.socket=window.io(window.ECHO_SERVER_URL||location.origin,{path:'/echo/socket.io/',transports:['websocket','polling'],reconnection:true,timeout:5000,auth:{skin:selectedModel,activityProfileId}});window.echoSocket=state.socket;state.socket.on('echo:world',world=>{if(world&&Array.isArray(world.trees))renderWorldTrees(world.trees);});state.socket.on('connect',()=>{setConnection('online','сервер подключён');state.socket.emit('echo:hello',{version:1,skin:selectedModel,activityProfileId});lastDailyPing=-15000;sendDailyActivityPing();});state.socket.on('disconnect',()=>setConnection('offline','нет соединения'));state.socket.on('connect_error',()=>setConnection('offline','ожидаем сервер'));state.socket.on('echo:fight',({fightId,playerA,playerB})=>beginCombatVisual(playerA,playerB,fightId));state.socket.on('echo:combatResult',({fightId,result,energy})=>{if(fightId!==state.combatFightId)return;state.combatUntil=0;state.combatOpponentId=null;state.combatFightId=null;if(result==='lose'){state.energy=0;showDefeat();}else{state.energy=Number.isFinite(energy)?energy:state.energy;energyText.textContent=String(state.energy);}});state.socket.on('echo:players',players=>{if(!Array.isArray(players))return;const now=performance.now(),next=new Map();for(const p of players){if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;if(p.id===state.socket.id){if(Number.isFinite(p.energy))state.energy=Math.max(0,Math.round(p.energy));continue;}const old=state.others.get(p.id),skin=ALLOWED_MODELS.has(p.skin)?p.skin:DEFAULT_MODEL,t={...p,skin,previousX:old?.targetX??p.x,previousY:old?.targetY??p.y,targetX:p.x,targetY:p.y,previousSnapshotAt:old?.snapshotAt??now-80,snapshotAt:now,displayX:old?.displayX??p.x,displayY:old?.displayY??p.y,vx:Number.isFinite(p.vx)?p.vx:0,vy:Number.isFinite(p.vy)?p.vy:0,combatUntil:old?.combatUntil??(p.fightingWith?now+FIGHT_DURATION:0),combatFightId:old?.combatFightId??p.fight... (truncated)
