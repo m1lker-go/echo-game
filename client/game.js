@@ -40,11 +40,12 @@ function createTreeGradientMaterial() {
         vec3 normalDirection = normalize(vTreeNormal);
         if (!gl_FrontFacing) normalDirection = -normalDirection;
 
-        // Fixed soft directional gradient: lit faces are white, shaded faces medium gray.
-        vec3 lightDirection = normalize(vec3(-0.27, 0.53, 0.80));
+        // Stable front-biased lighting for the fixed isometric camera:
+        // front surfaces stay bright; side/rear surfaces fall into a soft cool shadow.
+        vec3 lightDirection = normalize(vec3(-0.10, 0.18, 0.98));
         float diffuse = max(dot(normalDirection, lightDirection), 0.0);
-        float gradient = smoothstep(0.0, 0.92, diffuse);
-        float brightness = mix(0.22, 1.0, gradient);
+        float gradient = smoothstep(0.08, 0.82, diffuse);
+        float brightness = mix(0.10, 1.0, gradient);
 
         gl_FragColor = vec4(vec3(brightness), uOpacity);
         #include <tonemapping_fragment>
