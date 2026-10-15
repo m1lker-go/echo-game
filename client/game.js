@@ -26,7 +26,7 @@ const worldObjects = {
 };
 const WATER_MODEL_BASE_SCALE = 50;
 const WATER_MODEL_URLS = ['./assets/models/objects/patch-water.glb', './assets/models/objects/patch-water-large.glb'];
-import WATER_GEOMETRY from '../shared/water-hazard-contours.js';
+import WATER_GEOMETRY from './water-hazard-contours.js';
 function getWaterGeometry(water) { return { vertices: WATER_GEOMETRY[water.model] || WATER_GEOMETRY['patch-water-large.glb'] }; }
 function getWaterScale(water) { return WATER_MODEL_BASE_SCALE * water.scale; }
 function isPointInPolygon(x, y, vertices) {
