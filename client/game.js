@@ -120,44 +120,28 @@ function addWaterModel(water) {
   const source = worldObjects.waterSources.get(water.model);
   if (!source || water.root) return;
 
-  // The world renderer uses X/Y for the isometric ground plane and Z for depth.
-  // GLB assets are usually authored Y-up with ground patches lying in X/Z,
-  // which makes them edge-on unless we rotate that plane into X/Y.
+  // patch-water-large.glb has dimensions X=1.4, Y=0, Z=1.2:
+  // its flat surface is in the model's X/Z plane. In ECHO, ground is X/Y
+  // and Z is render depth, so rotate the mesh 90° around X to lay it flat.
   const surface = cloneSkeleton(source);
   prepareWaterMaterials(surface);
-  surface.rotation.set(0, 0, 0);
-  surface.scale.setScalar(1);
-  surface.updateMatrixWorld(true);
-
-  const sourceBounds = new THREE.Box3().setFromObject(surface);
-  const sourceSize = sourceBounds.getSize(new THREE.Vector3());
-  const smallestAxis = Math.min(sourceSize.x, sourceSize.y, sourceSize.z);
-
-  // Rotate whichever thin axis is the asset's thickness so it becomes depth (Z).
-  const epsilon = Math.max(sourceSize.x, sourceSize.y, sourceSize.z) * 0.02;
-  if (Math.abs(sourceSize.y - smallestAxis) <= epsilon) {
-    surface.rotation.x = Math.PI / 2; // common GLB ground plane: X/Z
-  } else if (Math.abs(sourceSize.x - smallestAxis) <= epsilon) {
-    surface.rotation.y = Math.PI / 2; // ground plane: Y/Z
-  } // If Z is thinnest, the model is already in X/Y.
-
+  surface.rotation.set(Math.PI / 2, 0, 0);
   surface.scale.setScalar(WATER_MODEL_BASE_SCALE * water.scale);
-  // The patch asset's broad face is authored along X/Z. Rotate the surface
-  // by 90 degrees around X so it lies flat in the game's X/Y ground plane.
-  surface.rotation.set(Math.PI / 2, 0, (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2);
   surface.updateMatrixWorld(true);
 
+  // Center the transformed mesh locally and bring its lowest point to depth 0.
   const bounds = new THREE.Box3().setFromObject(surface);
   const center = bounds.getCenter(new THREE.Vector3());
-  const holder = new THREE.Group();
-  holder.add(surface);
-
-  // Center the patch on its authoritative server coordinate and rest its lowest
-  // point just above the ground/depth plane.
   surface.position.x -= center.x;
   surface.position.y -= center.y;
   surface.position.z -= bounds.min.z;
+
+  // Rotate around Z only at the parent level. This keeps the surface flat
+  // while giving each puddle its server-provided in-plane orientation.
+  const holder = new THREE.Group();
+  holder.rotation.z = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
   holder.position.z = 0.5;
+  holder.add(surface);
 
   holder.traverse(child => {
     if (!child.isMesh) return;
@@ -165,6 +149,7 @@ function addWaterModel(water) {
     if (child.material) {
       child.material.depthTest = false;
       child.material.depthWrite = false;
+      child.needsUpdate = true;
       child.material.needsUpdate = true;
     }
   });
