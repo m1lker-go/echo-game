@@ -218,12 +218,30 @@ const {
 } = require('./food');
 
 function createFoodPoint(id) {
-  return createFoodPointCore(id, { isValidFoodPosition });
+  return createFoodPointCore(id, {
+    isValidFoodPosition,
+    random: Math.random,
+    worldHalfSize: WORLD_HALF_SIZE,
+    maxAttempts: 5000,
+    createCandidate() {
+      return {
+        id,
+        x: randomBetween(-WORLD_HALF_SIZE + 60, WORLD_HALF_SIZE - 60),
+        y: randomBetween(-WORLD_HALF_SIZE + 60, WORLD_HALF_SIZE - 60),
+        size: 5 + (id % 3),
+        pulse: id * 0.7,
+        active: true,
+        respawnAt: 0,
+      };
+    },
+  });
 }
 function respawnFoodPoint(point) {
   const replacement = createFoodPoint(point.id);
   point.x = replacement.x;
   point.y = replacement.y;
+  point.size = replacement.size;
+  point.pulse = replacement.pulse;
   point.active = replacement.active;
   point.respawnAt = replacement.respawnAt;
 }
