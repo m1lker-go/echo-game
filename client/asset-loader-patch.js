@@ -28,22 +28,6 @@ GLTFLoader.prototype.load = function (url, onLoad, onProgress, onError) {
   }, onProgress, onError);
 };
 
-// Keep water in the lowest visual layer. game.js intentionally disables depth
-// testing for the flat puddle mesh, so renderOrder must be below characters and trees.
-const originalRender = THREE.WebGLRenderer.prototype.render;
-THREE.WebGLRenderer.prototype.render = function (scene, camera) {
-  scene?.traverse?.((object) => {
-    if (!object || object.isMesh === false && object.type !== 'Group') return;
-    const isWater = object.name === 'patch-grass' || object.name === 'patch-grass-large';
-    if (isWater) object.renderOrder = -1;
-    if (object.children?.length) {
-      const hasWater = object.children.some(child => child.name === 'patch-grass' || child.name === 'patch-grass-large');
-      if (hasWater) object.renderOrder = -1;
-    }
-  });
-  return originalRender.call(this, scene, camera);
-};
-
 // The world snapshot can be emitted immediately when Socket.IO connects, before
 // the game module finishes installing all of its listeners. Ask for it again
 // shortly after connect so the shared tree layout is always received.
