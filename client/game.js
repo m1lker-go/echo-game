@@ -121,10 +121,45 @@ function addWaterModel(water) {
   if (!source || water.root) return;
   const root = cloneSkeleton(source);
   prepareWaterMaterials(root);
+
+  // Normalize model-local transforms first: water assets may be authored with
+  // an origin below/above the actual surface or with a non-ground-facing plane.
+  root.rotation.set(0, 0, 0);
+  root.scale.setScalar(1);
+  root.updateMatrixWorld(true);
+  const bounds = new THREE.Box3().setFromObject(root);
+  const size = bounds.getSize(new THREE.Vector3());
+  const center = bounds.getCenter(new THREE.Vector3());
+
+  // Lay the broadest horizontal face flat in our 2D isometric scene (X/Y plane),
+  // scale the GLB by the shared ×50 convention, and move its center onto ground.
+  if (size.y > size.z && size.y >= size.x) root.rotation.x = Math.PI / 2;
+  else if (size.z > size.x && size.z >= size.y) root.rotation.x = 0;
+
   root.scale.setScalar(WATER_MODEL_BASE_SCALE * water.scale);
-  root.rotation.set(0, 0, Number.isFinite(water.rotation) ? water.rotation : 0);
-  root.renderOrder = -1;
+  root.rotation.z = Number.isFinite(water.rotation) ? water.rotation : 0;
+  root.updateMatrixWorld(true);
+
+  const flatBounds = new THREE.Box3().setFromObject(root);
+  const flatCenter = flatBounds.getCenter(new THREE.Vector3());
+  const flatSize = flatBounds.getSize(new THREE.Vector3());
+  root.position.x = -flatCenter.x;
+  root.position.y = -flatCenter.y;
+  root.position.z = -flatBounds.min.z + 0.5;
+
+  // Render puddles above the ground-layer silhouettes, but below the players.
+  root.traverse(child => {
+    if (!child.isMesh) return;
+    child.renderOrder = 1;
+    if (child.material) {
+      child.material.depthTest = false;
+      child.material.depthWrite = false;
+      child.material.needsUpdate = true;
+    }
+  });
+  root.renderOrder = 1;
   water.root = root;
+  water.localGroundOffset = root.position.z;
   modelScene.add(root);
 }
 function renderWorldWaters(snapshot) {
@@ -161,8 +196,8 @@ function updateWorldWaterPositions() {
     const p = worldToScreenPrecise(water.x, water.y);
     water.root.position.x = p.x - state.width / 2;
     water.root.position.y = -(p.y - state.height / 2);
-    water.root.position.z = -1;
-    water.root.renderOrder = -1;
+    water.root.position.z = water.localGroundOffset ?? 0.5;
+    water.root.renderOrder = 1;
   }
 }
 function isPlayerInWater(x = state.x, y = state.y) {
