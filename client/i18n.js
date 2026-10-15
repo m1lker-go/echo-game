@@ -4,7 +4,7 @@
 
   // Migrate any previous ECHO language preference once, but never clear it during cache reset.
   const STORAGE_KEY = 'echo.language';
-  const LEGACY_STORAGE_KEY = 'echo.language';
+  const LEGACY_STORAGE_KEY = 'i18nextLng';
   const SUPPORTED_LANGUAGES = new Set(['ru', 'en']);
   const DEFAULT_LANGUAGE = 'ru';
   const DICTIONARIES = new Map();
