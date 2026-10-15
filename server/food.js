@@ -5,21 +5,24 @@ function createFoodPoint(id, {
   random = Math.random,
   worldHalfSize = 4200,
   maxAttempts = 5000,
+  createCandidate,
 } = {}) {
   if (typeof isValidFoodPosition !== 'function') {
     throw new TypeError('createFoodPoint requires the server world-position validator');
   }
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const point = {
-      id,
-      x: -worldHalfSize + 60 + random() * (worldHalfSize * 2 - 120),
-      y: -worldHalfSize + 60 + random() * (worldHalfSize * 2 - 120),
-      size: 5 + (id % 3),
-      pulse: id * 0.7,
-      active: true,
-      respawnAt: 0,
-    };
+    const point = typeof createCandidate === 'function'
+      ? createCandidate(id)
+      : {
+          id,
+          x: -worldHalfSize + 60 + random() * (worldHalfSize * 2 - 120),
+          y: -worldHalfSize + 60 + random() * (worldHalfSize * 2 - 120),
+          size: 5 + (id % 3),
+          pulse: id * 0.7,
+          active: true,
+          respawnAt: 0,
+        };
     if (isValidFoodPosition(point)) {
       point.id = id;
       return point;
