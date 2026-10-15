@@ -126,7 +126,8 @@ function addWaterModel(water) {
   const surface = cloneSkeleton(source);
   prepareWaterMaterials(surface);
   surface.rotation.set(Math.PI / 2, 0, 0);
-  surface.scale.setScalar(WATER_MODEL_BASE_SCALE * water.scale);
+  const sizeMultiplier = Number.isFinite(water.sizeMultiplier) ? Math.max(3, Math.min(5, water.sizeMultiplier)) : 4;
+  surface.scale.setScalar(WATER_MODEL_BASE_SCALE * water.scale * sizeMultiplier);
   surface.updateMatrixWorld(true);
 
   // Center the transformed mesh locally and bring its lowest point to depth 0.
@@ -140,12 +141,12 @@ function addWaterModel(water) {
   // while giving each puddle its server-provided in-plane orientation.
   const holder = new THREE.Group();
   holder.rotation.z = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
-  holder.position.z = 0.5;
+  holder.position.z = -1;
   holder.add(surface);
 
   holder.traverse(child => {
     if (!child.isMesh) return;
-    child.renderOrder = 1;
+    child.renderOrder = -1;
     if (child.material) {
       child.material.depthTest = false;
       child.material.depthWrite = false;
@@ -153,7 +154,7 @@ function addWaterModel(water) {
       child.material.needsUpdate = true;
     }
   });
-  holder.renderOrder = 1;
+  holder.renderOrder = -1;
   water.root = holder;
   modelScene.add(holder);
 }
@@ -191,15 +192,15 @@ function updateWorldWaterPositions() {
     const p = worldToScreenPrecise(water.x, water.y);
     water.root.position.x = p.x - state.width / 2;
     water.root.position.y = -(p.y - state.height / 2);
-    water.root.position.z = 0.5;
-    water.root.renderOrder = 1;
+    water.root.position.z = -1;
+    water.root.renderOrder = -1;
   }
 }
 function isPlayerInWater(x = state.x, y = state.y) {
   return worldObjects.waters.some(water => {
     const small = water.model === 'patch-water.glb';
-    const halfWidth = (1.4 * WATER_MODEL_BASE_SCALE * water.scale * (small ? 0.72 : 1)) / 2;
-    const halfDepth = (1.2 * WATER_MODEL_BASE_SCALE * water.scale * (small ? 0.72 : 1)) / 2;
+    const halfWidth = (1.4 * WATER_MODEL_BASE_SCALE * water.scale * (Number.isFinite(water.sizeMultiplier) ? water.sizeMultiplier : 4) * (small ? 0.72 : 1)) / 2;
+    const halfDepth = (1.2 * WATER_MODEL_BASE_SCALE * water.scale * (Number.isFinite(water.sizeMultiplier) ? water.sizeMultiplier : 4) * (small ? 0.72 : 1)) / 2;
     const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
     const dx = x - water.x;
     const dy = y - water.y;
