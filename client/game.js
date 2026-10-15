@@ -23,7 +23,7 @@ const TREE_MODEL_URL = './assets/models/objects/tree.glb';
 const TREE_BASE_SCALE = 50;
 const TREE_SCALE_MIN = 1.5;
 const TREE_SCALE_MAX = 2.5;
-const MODEL_DEPTH_SCALE = 0.12;
+const MODEL_DEPTH_SCALE = 15;
 function createTreeGradientMaterial() {
   return new THREE.ShaderMaterial({
     uniforms: {
