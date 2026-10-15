@@ -261,13 +261,13 @@ io.on('connection', (socket) => {
     if (today !== dayKey) {
       lastPersistedAt = now;
       dayKey = today;
-      enqueueWrite(() => ensureDailyActivityRow(activityProfileId, today));
+      const profileId = activityProfileId;
+      enqueueWrite(() => ensureDailyActivityRow(profileId, today));
       return;
     }
     const elapsed = Math.floor((now - lastPersistedAt) / 1000);
-    if (elapsed <= 0) return;
-    lastPersistedAt += elapsed * 1000;
-    if (elapsed <= 60) {
+    lastPersistedAt = now;
+    if (elapsed > 0 && elapsed <= 60) {
       const profileId = activityProfileId;
       const intervalDate = dayKey;
       enqueueWrite(() => addDailyPlaySeconds(profileId, elapsed, intervalDate));
@@ -319,7 +319,8 @@ io.on('connection', (socket) => {
   socket.on('echo:dailyPing', receiveActivityPing);
 
   socket.on('echo:hello', (payload) => {
-    receiveActivityPing({ activityProfileId: payload?.activityProfileId });
+    const helloProfileId = normalizeActivityProfileId(payload?.activityProfileId);
+    if (helloProfileId && !activityProfileId) receiveActivityPing({ activityProfileId: helloProfileId });
     const requestedSkin = payload?.skin;
     const current = players.get(socket.id);
     if (current && ALLOWED_SKINS.has(requestedSkin)) current.skin = requestedSkin;
