@@ -47,6 +47,11 @@ function syncFood(snapshot) {
     }
   }
 
+  // A server snapshot is authoritative. Remove inactive points from the client cache too,
+  // so a point eaten by any player cannot remain visible locally.
+  for (const id of food.keys()) {
+    if (!nextIds.has(id)) food.delete(id);
+  }
   activeIds = nextIds;
 }
 
@@ -89,6 +94,7 @@ function onSocketConnect() {
 function onSocketDisconnect() {
   isConnected = false;
   activeIds.clear();
+  food.clear();
 }
 
 function findSocket() {
@@ -152,23 +158,19 @@ function draw(time) {
         const dx = cameraX - point.displayX;
         const dy = cameraY - point.displayY;
         const distance = Math.hypot(dx, dy);
+        // Keep the magnet visual-only. Do not move the displayed point until the
+        // authoritative server removes it from the shared snapshot.
         if (distance > 0.001 && distance < FOOD_MAGNET_RADIUS) {
           const travel = Math.min(distance, FOOD_MAGNET_SPEED * dt);
           point.displayX += dx / distance * travel;
           point.displayY += dy / distance * travel;
           point.magnetActive = true;
         } else if (point.magnetActive) {
-          const backX = point.x - point.displayX;
-          const backY = point.y - point.displayY;
-          const backDistance = Math.hypot(backX, backY);
-          if (distance >= FOOD_MAGNET_RADIUS * 1.05) {
-            const travel = Math.min(backDistance, FOOD_RECONCILE_SPEED * dt);
-            if (backDistance > 0.001) {
-              point.displayX += backX / backDistance * travel;
-              point.displayY += backY / backDistance * travel;
-            }
-            if (backDistance <= FOOD_RECONCILE_SPEED * dt) point.magnetActive = false;
-          }
+          // Snap back only visually when leaving the magnet radius; collection and
+          // disappearance are entirely controlled by the server snapshot.
+          point.displayX = point.x;
+          point.displayY = point.y;
+          point.magnetActive = false;
         } else {
           point.displayX = point.x;
           point.displayY = point.y;
