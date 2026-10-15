@@ -16,6 +16,9 @@ const joystick = document.querySelector('#joystick');
 const stick = document.querySelector('#stick');
 const boostButton = document.querySelector('#boost');
 const jumpButton = document.querySelector('#jump');
+const defeatScreen = document.querySelector('#defeat-screen');
+const defeatReplay = document.querySelector('#defeat-replay');
+const defeatMenu = document.querySelector('#defeat-menu');
 
 const state = {
   x: 0, y: 0, vx: 0, vy: 0,
@@ -33,6 +36,10 @@ const state = {
   jumpFromY: 0,
   jumpToX: 0,
   jumpToY: 0,
+  combatUntil: 0,
+  combatOpponentId: null,
+  combatFightId: null,
+  defeated: false,
   socket: null,
   others: new Map(),
   lastSent: 0,
@@ -46,6 +53,7 @@ const FOOD_MAGNET_STRENGTH = 7.5;
 const FOOD_COLLECT_RADIUS = 22;
 const JUMP_DISTANCE = 420;
 const JUMP_DURATION = 200;
+const FIGHT_DURATION = 1000;
 const points = Array.from({ length: 34 }, (_, i) => {
   const angle = i * 2.399963229728653;
   const radius = 170 + (i % 9) * 58 + Math.floor(i / 9) * 100;
@@ -114,18 +122,64 @@ function setupAnimation(root, clips, isOther = false) {
   const idle = findClip(clips, ['idle', 'idle_01', 'idle-01']);
   const run = findClip(clips, ['sprint', 'run', 'running']);
   const walk = run || findClip(clips, ['walk', 'walk_01', 'walk-01']);
+  const attackMeleeRight = findClip(clips, ['attack-melee-right']);
+  const attackMeleeLeft = findClip(clips, ['attack-melee-left']);
+  const attackKickRight = findClip(clips, ['attack-kick-right']);
+  const attackKickLeft = findClip(clips, ['attack-kick-left']);
+  const die = findClip(clips, ['die', 'death']);
   const action = idle || clips[0];
   if (action) mixer.clipAction(action).play();
-  return { mixer, idle, walk, current: action, isOther };
+  return {
+    mixer,
+    idle,
+    walk,
+    attackMeleeRight,
+    attackMeleeLeft,
+    attackKickRight,
+    attackKickLeft,
+    die,
+    current: action,
+    combatUntil: 0,
+    combatAction: null,
+    isOther,
+  };
 }
 
-function switchAnimation(animation, moving) {
+function startAttackAnimation(animation, variant = 'right', until = performance.now() + FIGHT_DURATION) {
   if (!animation) return;
+  const action = variant === 'left'
+    ? (animation.attackMeleeLeft || animation.attackKickLeft || animation.attackMeleeRight || animation.attackKickRight)
+    : (animation.attackMeleeRight || animation.attackKickRight || animation.attackMeleeLeft || animation.attackKickLeft);
+  if (!action) return;
+  if (animation.combatAction !== action) {
+    const current = animation.current ? animation.mixer.clipAction(animation.current) : null;
+    const next = animation.mixer.clipAction(action);
+    current?.fadeOut(0.08);
+    next.reset();
+    next.setLoop(THREE.LoopRepeat, Infinity);
+    next.fadeIn(0.08).play();
+    animation.current = action;
+    animation.combatAction = action;
+  }
+  animation.combatUntil = until;
+}
+
+function switchAnimation(animation, moving, time) {
+  if (!animation) return;
+  if (time < animation.combatUntil && animation.combatAction) {
+    const attack = animation.mixer.clipAction(animation.combatAction);
+    if (!attack.isRunning()) attack.play();
+    return;
+  }
+  if (animation.combatAction && time >= animation.combatUntil) {
+    animation.combatAction = null;
+    animation.combatUntil = 0;
+  }
   const next = moving && animation.walk ? animation.walk : animation.idle;
   if (!next || next === animation.current) return;
   const current = animation.mixer.clipAction(animation.current);
   const nextAction = animation.mixer.clipAction(next);
-  nextAction.reset().fadeIn(0.15).play();
+  nextAction.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.15).play();
   current.fadeOut(0.15);
   animation.current = next;
 }
@@ -183,6 +237,53 @@ function setConnection(status, label) {
   connectionLabel.textContent = label;
 }
 
+function getPlayerPosition(id) {
+  if (!id) return null;
+  if (id === state.socket?.id) return { x: state.x, y: state.y };
+  const player = state.others.get(id);
+  if (!player) return null;
+  return { x: player.displayX ?? player.targetX, y: player.displayY ?? player.targetY };
+}
+
+function beginCombatVisual(playerA, playerB, fightId) {
+  const now = performance.now();
+  const isLocal = playerA === state.socket?.id || playerB === state.socket?.id;
+  const opponentId = playerA === state.socket?.id ? playerB : playerA === state.socket?.id ? playerA : null;
+  if (!isLocal) {
+    const first = state.others.get(playerA);
+    const second = state.others.get(playerB);
+    if (first) { first.combatUntil = now + FIGHT_DURATION; first.combatFightId = fightId; first.fightingWith = playerB; }
+    if (second) { second.combatUntil = now + FIGHT_DURATION; second.combatFightId = fightId; second.fightingWith = playerA; }
+    return;
+  }
+  state.combatUntil = now + FIGHT_DURATION;
+  state.combatOpponentId = opponentId;
+  state.combatFightId = fightId;
+  state.vx = 0;
+  state.vy = 0;
+  const opponent = state.others.get(opponentId);
+  if (opponent) opponent.combatUntil = now + FIGHT_DURATION;
+}
+
+function showDefeat() {
+  state.defeated = true;
+  state.combatUntil = 0;
+  state.combatOpponentId = null;
+  state.vx = 0;
+  state.vy = 0;
+  energyText.textContent = '0';
+  defeatScreen.hidden = false;
+}
+
+function startNewGame() {
+  const url = new URL(window.location.href);
+  url.searchParams.set('play', '1');
+  window.location.href = url.toString();
+}
+
+defeatReplay?.addEventListener('click', startNewGame);
+defeatMenu?.addEventListener('click', returnToMenu);
+
 function connectSocket() {
   if (!window.io) { setConnection('offline', 'режим без сервера'); return; }
   const url = window.ECHO_SERVER_URL || window.location.origin;
@@ -200,6 +301,22 @@ function connectSocket() {
     });
     state.socket.on('disconnect', () => setConnection('offline', 'нет соединения'));
     state.socket.on('connect_error', () => setConnection('offline', 'ожидаем сервер'));
+    state.socket.on('echo:fight', ({ fightId, playerA, playerB }) => {
+      beginCombatVisual(playerA, playerB, fightId);
+    });
+    state.socket.on('echo:combatResult', ({ fightId, result, energy }) => {
+      if (fightId !== state.combatFightId) return;
+      state.combatUntil = 0;
+      state.combatOpponentId = null;
+      state.combatFightId = null;
+      if (result === 'lose') {
+        state.energy = 0;
+        showDefeat();
+      } else {
+        state.energy = Number.isFinite(energy) ? energy : state.energy;
+        energyText.textContent = String(state.energy);
+      }
+    });
     state.socket.on('echo:players', (players) => {
       if (!Array.isArray(players)) return;
       const now = performance.now();
@@ -224,6 +341,8 @@ function connectSocket() {
           displayY: previous?.displayY ?? player.y,
           vx: Number.isFinite(player.vx) ? player.vx : 0,
           vy: Number.isFinite(player.vy) ? player.vy : 0,
+          combatUntil: previous?.combatUntil ?? (player.fightingWith ? now + FIGHT_DURATION : 0),
+          combatFightId: previous?.combatFightId ?? player.fightId ?? null,
         };
         if (!previous) {
           target.previousSnapshotAt = now - 120;
@@ -315,15 +434,15 @@ function drawEnergyLabel(x, y, label, isOther = false) {
   ctx.fillText(String(label), p.x, p.y - (isOther ? 58 : 70)); ctx.restore();
 }
 
-function updateModel(root, animation, x, y, vx, vy, time, label, isOther = false) {
+function updateModel(root, animation, x, y, vx, vy, time, label, isOther = false, faceVx = vx, faceVy = vy) {
   if (!root) return;
   const p = worldToScreenPrecise(x, y);
   root.position.x = p.x - state.width / 2;
   root.position.y = -(p.y - state.height / 2) + Math.sin(time * .0028 + x * .02) * (Math.hypot(vx || 0, vy || 0) > 18 ? 1.3 : 1.8);
   root.position.z = 0;
   const moving = Math.hypot(vx || 0, vy || 0) > 18;
-  updateCharacterFacing(root, vx, vy, ISO);
-  switchAnimation(animation, moving);
+  updateCharacterFacing(root, faceVx, faceVy, ISO);
+  switchAnimation(animation, moving, time);
   drawEnergyLabel(x, y, label, isOther);
 }
 
@@ -356,11 +475,28 @@ function ensureOtherModel(player) {
   return entry;
 }
 
+function getCombatFacing(x, y, opponentId, fallbackX, fallbackY) {
+  const opponent = getPlayerPosition(opponentId);
+  if (!opponent) return { x: fallbackX, y: fallbackY };
+  const dx = opponent.x - x;
+  const dy = opponent.y - y;
+  const length = Math.hypot(dx, dy);
+  if (length < 0.001) return { x: fallbackX, y: fallbackY };
+  return { x: dx / length, y: dy / length };
+}
+
 function drawModels(time, dt) {
   if (!modelCache.ready) return;
   const jumping = time < state.jumpUntil;
-  modelCache.local.visible = !jumping;
-  if (!jumping) updateModel(modelCache.local, modelCache.localAnimation, state.x, state.y, state.vx, state.vy, time, state.energy, false);
+  const localCombat = !state.defeated && time < state.combatUntil;
+  modelCache.local.visible = !jumping && !state.defeated;
+  if (!jumping && !state.defeated) {
+    const face = localCombat
+      ? getCombatFacing(state.x, state.y, state.combatOpponentId, state.vx, state.vy)
+      : { x: state.vx, y: state.vy };
+    updateModel(modelCache.local, modelCache.localAnimation, state.x, state.y, state.vx, state.vy, time, state.energy, false, face.x, face.y);
+    if (localCombat) startAttackAnimation(modelCache.localAnimation, 'right', state.combatUntil);
+  }
   const alive = new Set();
   for (const player of state.others.values()) {
     const entry = ensureOtherModel(player);
@@ -372,7 +508,12 @@ function drawModels(time, dt) {
     const correction = 1 - Math.exp(-18 * dt);
     player.displayX += (predictedX - player.displayX) * correction;
     player.displayY += (predictedY - player.displayY) * correction;
-    updateModel(entry.root, entry.animation, player.displayX, player.displayY, player.vx || 0, player.vy || 0, time, player.energy || 0, true);
+    const remoteCombat = player.combatUntil > time || !!player.fightingWith;
+    const face = remoteCombat
+      ? getCombatFacing(player.displayX, player.displayY, player.fightingWith, player.vx, player.vy)
+      : { x: player.vx || 0, y: player.vy || 0 };
+    if (remoteCombat) startAttackAnimation(entry.animation, player.id.charCodeAt(0) % 2 ? 'left' : 'right', player.combatUntil || time + FIGHT_DURATION);
+    updateModel(entry.root, entry.animation, player.displayX, player.displayY, player.vx || 0, player.vy || 0, time, player.energy || 0, true, face.x, face.y);
   }
   for (const [id, entry] of modelCache.others) {
     if (!alive.has(id)) { modelScene.remove(entry.root); modelCache.others.delete(id); }
@@ -414,7 +555,7 @@ function applyFoodMagnet(dt) {
 
 function triggerJump() {
   const now = performance.now();
-  if (now < state.jumpUntil) return;
+  if (now < state.jumpUntil || state.defeated || state.combatUntil > now) return;
   const directionLength = Math.hypot(state.vx, state.vy);
   if (directionLength < 1) return;
   const dirX = state.vx / directionLength;
@@ -430,7 +571,13 @@ function triggerJump() {
 jumpButton?.addEventListener('pointerdown', triggerJump);
 
 function update(dt, time) {
-  if (time < state.jumpUntil) {
+  if (state.defeated) {
+    state.vx = 0;
+    state.vy = 0;
+  } else if (time < state.combatUntil) {
+    state.vx = 0;
+    state.vy = 0;
+  } else if (time < state.jumpUntil) {
     const progress = Math.min(1, (time - state.jumpStart) / JUMP_DURATION);
     state.x = state.jumpFromX + (state.jumpToX - state.jumpFromX) * progress;
     state.y = state.jumpFromY + (state.jumpToY - state.jumpFromY) * progress;
@@ -447,7 +594,7 @@ function update(dt, time) {
   applyFoodMagnet(dt);
   if (points.every((point) => point.collected)) for (const point of points) { point.collected = false; const angle = Math.random() * Math.PI * 2; const radius = 210 + Math.random() * 1200; point.x = Math.cos(angle) * radius; point.y = Math.sin(angle) * radius; }
   state.cameraX = state.x; state.cameraY = state.y; coordsText.textContent = `${Math.round(state.x)} · ${Math.round(state.y)}`;
-  if (state.socket?.connected && time - state.lastSent > 80) {
+  if (state.socket?.connected && !state.defeated && time - state.lastSent > 80) {
     state.lastSent = time;
     state.socket.emit('echo:move', { x: state.x, y: state.y, energy: state.energy, vx: state.vx, vy: state.vy, skin: selectedModel });
   }
@@ -455,7 +602,7 @@ function update(dt, time) {
 
 function triggerBoost() {
   const now = performance.now();
-  if (now < state.boostCooldownUntil) return;
+  if (now < state.boostCooldownUntil || state.defeated || state.combatUntil > now) return;
   state.boostUntil = now + 700;
   state.boostCooldownUntil = now + 3000;
   boostButton.classList.remove('cooldown', 'ready');
