@@ -10,6 +10,7 @@
 <body>
   <main id="game" aria-label="ECHO game">
     <canvas id="world" aria-label="Игровое поле"></canvas>
+    <canvas id="shared-food" aria-hidden="true"></canvas>
     <canvas id="models" aria-hidden="true"></canvas>
     <div class="vignette"></div>
     <header class="hud">
@@ -72,22 +73,16 @@
 
       <div id="menu-placeholder" class="menu-screen placeholder-screen" hidden>
         <h1 id="placeholder-title">РАЗДЕЛ</h1>
-        <p>Этот раздел появится позже.</p>
+        <p>Этот экран пока готовится</p>
         <button id="placeholder-back" class="menu-back" type="button">Назад</button>
       </div>
     </section>
   </main>
 
   <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
-        "three/addons/utils/SkeletonUtils.js": "./skeleton-utils-wrapper.js"
-      }
-    }
+    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}
   </script>
-  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
   <script type="module" src="./asset-loader-patch.js"></script>
   <script type="module" src="./menu.js"></script>
   <script type="module" src="./jump-cooldown.js"></script>
