@@ -18,64 +18,27 @@ const modelScene=new THREE.Scene(),modelCamera=new THREE.OrthographicCamera(-1,1
 const loader=new GLTFLoader(),DEFAULT_MODEL='character-female-a.glb',ALLOWED_MODELS=new Set(['character-female-a.glb','character-female-b.glb','character-female-c.glb','character-female-d.glb','character-female-e.glb','character-female-f.glb','character-male-a.glb','character-male-b.glb','character-male-c.glb','character-male-d.glb','character-male-e.glb','character-male-f.glb']),selectedModel=ALLOWED_MODELS.has(localStorage.getItem('echo.selectedModel'))?localStorage.getItem('echo.selectedModel'):DEFAULT_MODEL,modelCache={source:null,clips:[],local:null,localAnimation:null,others:new Map(),otherSources:new Map(),ready:false};
 const worldObjects = { trees: [], treeSource: null, treeLoading: false };
 const TREE_MODEL_URL = './assets/models/objects/tree.glb';
-// The server's tree.scale is a per-tree size factor, not a world-unit scale.
-// Apply one deterministic server-generated factor uniformly on all axes.
 const TREE_BASE_SCALE = 50;
 const TREE_SCALE_MIN = 1.5;
 const TREE_SCALE_MAX = 2.5;
-const MODEL_DEPTH_SCALE = 0;
-function createTreeGradientMaterial() {
-  return new THREE.ShaderMaterial({
-    uniforms: {
-      uOpacity: { value: 0.30 }
-    },
-    vertexShader: `
-      varying vec3 vTreeNormal;
-      void main() {
-        vTreeNormal = normalize(normalMatrix * normal);
-        // Keep the GLB's real depth so the depth buffer can decide whether
-        // the tree sits in front of a player at each visible pixel.
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform float uOpacity;
-      varying vec3 vTreeNormal;
-      void main() {
-        vec3 normalDirection = normalize(vTreeNormal);
-        if (!gl_FrontFacing) normalDirection = -normalDirection;
-
-        vec3 lightDirection = normalize(vec3(0.42, 0.24, 0.88));
-        float diffuse = max(dot(normalDirection, lightDirection), 0.0);
-        float gradient = smoothstep(0.12, 0.82, diffuse);
-        float brightness = mix(0.16, 1.0, gradient);
-
-        vec3 lightColor = vec3(0.98, 0.99, 1.0);
-        vec3 shadowColor = vec3(0.16, 0.19, 0.23);
-        vec3 treeColor = mix(shadowColor, lightColor, brightness);
-        gl_FragColor = vec4(treeColor, uOpacity);
-        #include <tonemapping_fragment>
-        #include <colorspace_fragment>
-      }
-    `,
-    transparent: true,
-    opacity: 0.30,
-    // Let the tree's nearest pixels enter the depth buffer, so models behind
-    // the tree are occluded instead of always drawing through it.
-    depthWrite: true,
-    depthTest: true,
-    side: THREE.DoubleSide
-  });
+function createTreeMaterial(sourceMaterial) {
+  const material = sourceMaterial?.clone?.() || new THREE.MeshStandardMaterial({ color: 0xffffff });
+  material.transparent = true;
+  material.opacity = 0.30;
+  material.depthWrite = false;
+  material.depthTest = false;
+  material.side = THREE.DoubleSide;
+  material.needsUpdate = true;
+  return material;
 }
-
 function prepareTreeMaterials(root) {
   root.traverse(child => {
     if (!child.isMesh) return;
     child.material = Array.isArray(child.material)
-      ? child.material.map(() => createTreeGradientMaterial())
-      : createTreeGradientMaterial();
-    child.castShadow = true;
-    child.receiveShadow = true;
+      ? child.material.map(material => createTreeMaterial(material))
+      : createTreeMaterial(child.material);
+    child.castShadow = false;
+    child.receiveShadow = false;
   });
 }
 function addTreeModel(tree) {
@@ -119,7 +82,7 @@ function updateWorldTreePositions() {
     tree.root.position.x = p.x - state.width / 2;
     tree.root.position.y = -(p.y - state.height / 2);
     tree.root.position.z = 0;
-    tree.root.renderOrder = 10;
+    tree.root.renderOrder = 0;
   }
 }
 
