@@ -26,12 +26,23 @@ const TREE_SCALE_MAX = 1.0;
 const MODEL_DEPTH_SCALE = 0.12;
 function createTreeGradientMaterial() {
   return new THREE.ShaderMaterial({
-    uniforms: { uOpacity: { value: 0.45 } },
+    uniforms: {
+      uOpacity: { value: 0.45 },
+      // Draw the tree as a screen-space occluder: its foliage keeps normal
+      // shape/light shading, but all fragments share one stable depth.
+      uDepth: { value: 0.0 }
+    },
     vertexShader: `
       varying vec3 vTreeNormal;
+      uniform float uDepth;
       void main() {
         vTreeNormal = normalize(normalMatrix * normal);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+        // Move all tree surfaces onto the root's depth plane while preserving
+        // their projected X/Y shape. This prevents animated limbs/faces
+        // leaking through front/back parts of the tree mesh.
+        viewPosition.z = -uDepth;
+        gl_Position = projectionMatrix * viewPosition;
       }
     `,
     fragmentShader: `
@@ -41,15 +52,11 @@ function createTreeGradientMaterial() {
         vec3 normalDirection = normalize(vTreeNormal);
         if (!gl_FrontFacing) normalDirection = -normalDirection;
 
-        // Light comes from the camera/front and slightly from the right:
-        // the front stays bright while the left and rear fall into shadow.
         vec3 lightDirection = normalize(vec3(0.42, 0.24, 0.88));
         float diffuse = max(dot(normalDirection, lightDirection), 0.0);
         float gradient = smoothstep(0.12, 0.82, diffuse);
         float brightness = mix(0.16, 1.0, gradient);
 
-        // Keep the tree neutral, but give the shadow a subtle cool tint so
-        // the lighting reads as volume instead of a flat gray fill.
         vec3 lightColor = vec3(0.98, 0.99, 1.0);
         vec3 shadowColor = vec3(0.16, 0.19, 0.23);
         vec3 treeColor = mix(shadowColor, lightColor, brightness);
