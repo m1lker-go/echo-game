@@ -32,7 +32,9 @@
     "russian": "Русский",
     "english": "English",
     "placeholder_preparing": "Этот экран пока готовится",
-    "rating_title": "РЕЙТИНГ"
+    "rating_title": "РЕЙТИНГ",
+    "cache_clearing_status": "ОЧИЩАЕМ КЭШ…",
+    "cache_preparing_status": "Подготавливаем обновление…"
   },
   "game": {
     "connection_pending": "подключение…",
