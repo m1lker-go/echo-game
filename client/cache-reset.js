@@ -16,8 +16,8 @@ if (clearButton) {
     if (!confirmed) return;
 
     clearButton.disabled = true;
-    clearButton.textContent = window.$t('menu:clear_cache', 'Очистить кэш игры') + '…';
-    if (status) status.textContent = window.$t('menu:settings_note', 'Подготавливаем обновление…');
+    clearButton.textContent = window.$t('menu:cache_clearing_status', 'ОЧИЩАЕМ КЭШ…');
+    if (status) status.textContent = window.$t('menu:cache_preparing_status', 'Подготавливаем обновление…');
 
     try {
       // Leave localStorage, sessionStorage, cookies, and IndexedDB intact.
