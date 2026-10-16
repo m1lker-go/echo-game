@@ -25,6 +25,7 @@ effect.style.cssText = [
   'display:block',
   'pointer-events:none',
   'z-index:2.5',
+  'opacity:0',
   `transition:width ${WATER_GIF_PULSE_MS}ms ease-in-out`
 ].join(';');
 
@@ -40,12 +41,14 @@ function stopPulse() {
   pulseRunning = false;
   effect.style.transition = 'none';
   effect.style.width = `${WATER_GIF_MIN_WIDTH}px`;
+  effect.style.opacity = '0';
 }
 
 function pulse() {
   if (!isMoving || pulseRunning) return;
 
   pulseRunning = true;
+  effect.style.opacity = '1';
   effect.style.transition = `width ${WATER_GIF_PULSE_MS}ms ease-in-out`;
   effect.style.width = `${WATER_GIF_MAX_WIDTH}px`;
 
