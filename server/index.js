@@ -381,7 +381,8 @@ function createWorldTrees(waters) {
   }
 
   return trees;
-}const WORLD_TREES = createWorldTrees(WORLD_WATERS);
+}
+const WORLD_TREES = createWorldTrees(WORLD_WATERS);
 
 function createWorldWaters() {
   const waters = [];
