@@ -202,7 +202,7 @@ function applyContourShader(material, modelName) {
           float d = length(vEchoWaterModelXZ - (a + t * ab));
           echoMinDistance = min(echoMinDistance, d);
         }
-        float echoEdgeMask = 1.0 - smoothstep(${EDGE_FADE_START.toFixed(3)}, ${EDGE_FADE_END.toFixed(3)}, echoMinDistance);
+        float echoEdgeMask = smoothstep(${EDGE_FADE_START.toFixed(3)}, ${EDGE_FADE_END.toFixed(3)}, echoMinDistance);
         vec3 echoWaterColor = mix(vec3(${WATER_CENTER_COLOR.r}, ${WATER_CENTER_COLOR.g}, ${WATER_CENTER_COLOR.b}), vec3(${WATER_EDGE_COLOR.r}, ${WATER_EDGE_COLOR.g}, ${WATER_EDGE_COLOR.b}), echoEdgeMask);
         diffuseColor.rgb = echoWaterColor;`
       );
