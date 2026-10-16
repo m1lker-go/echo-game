@@ -4,7 +4,7 @@ const game = document.querySelector('#game');
 // The player is always kept at the center of the camera, so no world projection is needed yet.
 const WATER_GIF_MIN_WIDTH = 40;
 const WATER_GIF_MAX_WIDTH = 80;
-const WATER_GIF_PULSE_MS = 300;
+const WATER_GIF_PULSE_MS = 500;
 const WATER_GIF_MOVEMENT_THRESHOLD = 1;
 
 const effect = document.createElement('img');
