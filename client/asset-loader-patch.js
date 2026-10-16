@@ -141,9 +141,13 @@ THREE.WebGLRenderer.prototype.render = function (scene, camera) {
         child.renderOrder = -100;
         const materials = Array.isArray(child.material) ? child.material : [child.material];
         for (const material of materials) {
-          material.depthTest = true;
-          material.depthWrite = false;
-          material.needsUpdate = true;
+          // Water materials are already configured when created.
+          // Avoid invalidating shaders every animation frame.
+          if (material.depthTest !== true || material.depthWrite !== false) {
+            material.depthTest = true;
+            material.depthWrite = false;
+            material.needsUpdate = true;
+          }
         }
       });
     }
