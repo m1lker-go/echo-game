@@ -1,6 +1,6 @@
-// Mobile-first floor reflections for ECHO's 2D-isometric / Three.js screen-space renderer.
-// One additional pass reuses the ORIGINAL animated objects: no cloned GLBs, skeletons,
-// canvases or framebuffers. Only this client's character and nearby trees participate.
+// Mobile-first, screen-space floor reflections for ECHO.
+// Renders only the local animated character and nearby trees, never other players or water.
+// Reuses the ORIGINAL meshes/skeletons and the existing WebGL context.
 export function createMobileFloorReflections({ THREE, renderer, scene, camera }) {
   const disabledByUrl = new URLSearchParams(location.search).has('noReflections');
   const REFLECTION_LAYER = 1;
@@ -8,50 +8,127 @@ export function createMobileFloorReflections({ THREE, renderer, scene, camera })
   const MAX_TREE_DISTANCE = 510;
   const MIRROR_HEIGHT = 0.72;
   const MIRROR_GAP = 3;
-  // Tilt the mirrored silhouette to screen-right by 45 degrees, regardless of facing.
+  const REFLECTION_OPACITY = 0.15; // at the feet/trunk; 0 at the top
+  const RESOLUTION = 0.5; // half CSS resolution, with linear upscaling for mobile
   const MIRROR_TILT = new THREE.Quaternion().setFromAxisAngle(
     new THREE.Vector3(0, 0, 1), Math.PI / 4
   );
   const reflectionMaterials = new WeakMap();
+  const originalHeights = new WeakMap();
+  const savedClearColor = new THREE.Color();
   let disabledAfterError = false;
+  let target = null;
+  let targetWidth = 0;
+  let targetHeight = 0;
 
-  function reflectionMaterial(source, isTree) {
-    let pair = reflectionMaterials.get(source);
-    if (!pair) {
-      pair = {};
-      reflectionMaterials.set(source, pair);
+  // A small full-screen blur is cheaper than rendering the models several times.
+  const compositeScene = new THREE.Scene();
+  const compositeCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const compositeMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      tReflection: { value: null },
+      texelSize: { value: new THREE.Vector2(1, 1) },
+    },
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
+    fragmentShader: [
+      'uniform sampler2D tReflection;',
+      'uniform vec2 texelSize;',
+      'varying vec2 vUv;',
+      'void main() {',
+      '  vec2 radius = texelSize * 2.0;',
+      '  vec4 sum = texture2D(tReflection, vUv) * 0.28;',
+      '  sum += texture2D(tReflection, vUv + vec2(radius.x, 0.0)) * 0.18;',
+      '  sum += texture2D(tReflection, vUv - vec2(radius.x, 0.0)) * 0.18;',
+      '  sum += texture2D(tReflection, vUv + vec2(0.0, radius.y)) * 0.18;',
+      '  sum += texture2D(tReflection, vUv - vec2(0.0, radius.y)) * 0.18;',
+      // The transparent render target stores premultiplied RGB. Convert back
+      // before normal alpha blending onto the transparent models canvas.
+      '  gl_FragColor = vec4(sum.rgb / max(sum.a, 0.0001), sum.a);',
+      '  #include <colorspace_fragment>',
+      '}',
+    ].join('\n'),
+  });
+  compositeScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), compositeMaterial));
+
+  function ensureTarget(width, height) {
+    const w = Math.max(1, Math.ceil(width * RESOLUTION));
+    const h = Math.max(1, Math.ceil(height * RESOLUTION));
+    if (target && w === targetWidth && h === targetHeight) return;
+    if (target) target.dispose();
+    target = new THREE.WebGLRenderTarget(w, h, {
+      depthBuffer: false,
+      stencilBuffer: false,
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+      generateMipmaps: false,
+    });
+    target.texture.colorSpace = THREE.SRGBColorSpace;
+    targetWidth = w;
+    targetHeight = h;
+    compositeMaterial.uniforms.tReflection.value = target.texture;
+    compositeMaterial.uniforms.texelSize.value.set(1 / w, 1 / h);
+  }
+
+  function getOriginalHeight(root) {
+    const cached = originalHeights.get(root);
+    if (cached) return cached;
+    // Measure the complete model, not the height of one mesh/branch.
+    // This is computed once per model, before its temporary mirror transform.
+    const bounds = new THREE.Box3().setFromObject(root);
+    const top = bounds.max.y - root.position.y;
+    const height = Math.max(12, Number.isFinite(top) && top > 0
+      ? top : bounds.max.y - bounds.min.y || 65);
+    originalHeights.set(root, height);
+    return height;
+  }
+
+  function reflectionMaterial(root, source) {
+    let materials = reflectionMaterials.get(root);
+    if (!materials) {
+      materials = new WeakMap();
+      reflectionMaterials.set(root, materials);
     }
-    const kind = isTree ? 'tree' : 'player';
-    if (pair[kind]) return pair[kind];
+    let material = materials.get(source);
+    if (material) return material;
 
-    // Keep the original skin's diffuse texture, but never change its material.
-    const material = new THREE.MeshBasicMaterial({
+    const originUniform = { value: new THREE.Vector2() };
+    const heightUniform = { value: 65 };
+    material = new THREE.MeshBasicMaterial({
       map: source?.map || null,
       alphaMap: source?.alphaMap || null,
       color: 0x92b5cc,
       transparent: true,
-      // ~30% softer than the original reflections (tree 0.18, player 0.32).
-      opacity: isTree ? 0.12 : 0.22,
+      opacity: REFLECTION_OPACITY,
       depthTest: false,
       depthWrite: false,
       side: THREE.DoubleSide,
       toneMapped: false,
       fog: false,
     });
-
-    // Fade the mirrored silhouette away from the model's ground contact.
-    // The source models use Y-up coordinates; animation skinning happens before
-    // this height is read. This is only a visual effect, not a 3D floor plane.
+    material.userData.echoOrigin = originUniform;
+    material.userData.echoHeight = heightUniform;
     material.onBeforeCompile = shader => {
+      shader.uniforms.uEchoOrigin = originUniform;
+      shader.uniforms.uEchoHeight = heightUniform;
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nvarying float vEchoMirrorHeight;')
-        .replace('#include <skinning_vertex>', '#include <skinning_vertex>\nvEchoMirrorHeight = max(0.0, transformed.y);');
+        .replace('#include <common>',
+          '#include <common>\nvarying float vEchoHeight;\nuniform vec2 uEchoOrigin;\nuniform float uEchoHeight;')
+        .replace('#include <skinning_vertex>',
+          '#include <skinning_vertex>\n' +
+          'vec2 echoWorld = (modelMatrix * vec4(transformed, 1.0)).xy;\n' +
+          // Axis follows the screen-space 45-degree tilted reflection.
+          'vEchoHeight = clamp(dot(echoWorld - uEchoOrigin, vec2(0.70710678, -0.70710678)) / max(uEchoHeight, 1.0), 0.0, 1.0);');
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\nvarying float vEchoMirrorHeight;')
+        .replace('#include <common>', '#include <common>\nvarying float vEchoHeight;')
         .replace('#include <opaque_fragment>',
-          '#include <opaque_fragment>\ngl_FragColor.a *= 1.0 - smoothstep(0.0, 2.8, vEchoMirrorHeight);');
+          '#include <opaque_fragment>\n' +
+          // 15% at the base, continuously fading to fully transparent at the tip.
+          'gl_FragColor.a *= pow(1.0 - smoothstep(0.0, 1.0, vEchoHeight), 1.2);');
     };
-    pair[kind] = material;
+    materials.set(source, material);
     return material;
   }
 
@@ -60,10 +137,8 @@ export function createMobileFloorReflections({ THREE, renderer, scene, camera })
       renderer.render(scene, camera);
       return;
     }
-
     const selected = [];
-    if (local?.visible) selected.push({ root: local, isTree: false });
-
+    if (local?.visible) selected.push(local);
     const playerX = local?.position.x || 0;
     const playerY = local?.position.y || 0;
     const nearby = [];
@@ -79,9 +154,7 @@ export function createMobileFloorReflections({ THREE, renderer, scene, camera })
       nearby.push({ root, distanceSquared });
     }
     nearby.sort((a, b) => a.distanceSquared - b.distanceSquared);
-    for (const tree of nearby.slice(0, MAX_TREES)) {
-      selected.push({ root: tree.root, isTree: true });
-    }
+    for (const tree of nearby.slice(0, MAX_TREES)) selected.push(tree.root);
     if (!selected.length) {
       renderer.render(scene, camera);
       return;
@@ -89,11 +162,17 @@ export function createMobileFloorReflections({ THREE, renderer, scene, camera })
 
     const oldCameraLayers = camera.layers.mask;
     const oldAutoClear = renderer.autoClear;
+    const oldRenderTarget = renderer.getRenderTarget();
+    renderer.getClearColor(savedClearColor);
+    const oldClearAlpha = renderer.getClearAlpha();
     const changedRoots = [];
     const changedMeshes = [];
-    let reflected = false;
+    let renderedReflection = false;
+
     try {
-      for (const { root, isTree } of selected) {
+      ensureTarget(width, height);
+      for (const root of selected) {
+        const mirrorSpan = getOriginalHeight(root) * MIRROR_HEIGHT;
         changedRoots.push({
           root,
           y: root.position.y,
@@ -102,9 +181,8 @@ export function createMobileFloorReflections({ THREE, renderer, scene, camera })
         });
         root.position.y -= MIRROR_GAP;
         root.scale.y *= -MIRROR_HEIGHT;
-        // Pre-multiplication keeps the tilt in screen coordinates, so running
-        // toward/away/sideways cannot rotate the reflection's floor direction.
         root.quaternion.premultiply(MIRROR_TILT);
+
         root.traverse(mesh => {
           if (!mesh.isMesh) return;
           changedMeshes.push({
@@ -113,24 +191,32 @@ export function createMobileFloorReflections({ THREE, renderer, scene, camera })
             layers: mesh.layers.mask,
             frustumCulled: mesh.frustumCulled,
           });
+          const prepare = source => {
+            const result = reflectionMaterial(root, source);
+            result.userData.echoOrigin.value.set(root.position.x, root.position.y);
+            result.userData.echoHeight.value = mirrorSpan;
+            return result;
+          };
           mesh.material = Array.isArray(mesh.material)
-            ? mesh.material.map(source => reflectionMaterial(source, isTree))
-            : reflectionMaterial(mesh.material, isTree);
+            ? mesh.material.map(prepare)
+            : prepare(mesh.material);
           mesh.layers.enable(REFLECTION_LAYER);
           mesh.frustumCulled = false;
         });
       }
-      // All other players and all water keep their original layer (0).
-      // The temporary camera layer renders ONLY the selected mirrored meshes.
+
+      // Render only mirrored local meshes and tree meshes at reduced resolution.
+      // Remote players, water, and scene backgrounds stay on layer 0.
       camera.layers.set(REFLECTION_LAYER);
+      renderer.setRenderTarget(target);
+      renderer.setClearColor(0x000000, 0);
       renderer.autoClear = true;
       renderer.render(scene, camera);
-      reflected = true;
+      renderedReflection = true;
     } catch (error) {
       disabledAfterError = true;
       console.warn('[echo] Floor reflections disabled after rendering error', error);
     } finally {
-      // Restore gameplay-visible objects even if a device fails to render the effect.
       for (const { root, y, sy, quaternion } of changedRoots) {
         root.position.y = y;
         root.scale.y = sy;
@@ -142,12 +228,28 @@ export function createMobileFloorReflections({ THREE, renderer, scene, camera })
         mesh.frustumCulled = frustumCulled;
       }
       camera.layers.mask = oldCameraLayers;
-      renderer.autoClear = reflected ? false : oldAutoClear;
-    }
-    try {
-      renderer.render(scene, camera);
-    } finally {
+      renderer.setRenderTarget(oldRenderTarget);
+      renderer.setClearColor(savedClearColor, oldClearAlpha);
       renderer.autoClear = oldAutoClear;
+    }
+
+    if (renderedReflection) {
+      try {
+        // Blurred reflections go UNDER the unchanged normal scene.
+        renderer.clear(true, true, true);
+        renderer.autoClear = false;
+        renderer.render(compositeScene, compositeCamera);
+        renderer.render(scene, camera);
+      } catch (error) {
+        disabledAfterError = true;
+        console.warn('[echo] Reflection composite failed; falling back to regular rendering', error);
+        renderer.autoClear = true;
+        renderer.render(scene, camera);
+      } finally {
+        renderer.autoClear = oldAutoClear;
+      }
+    } else {
+      renderer.render(scene, camera);
     }
   }
 
