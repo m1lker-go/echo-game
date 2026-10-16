@@ -263,7 +263,7 @@ function createWorldTrees() {
       randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
       scale
     );
-    if (canPlace(candidate, trees) trees.push(candidate);
+    if (canPlace(candidate, trees)) trees.push(candidate);
   }
 
   return trees;
