@@ -8,6 +8,27 @@
 
 const WORLD_HALF_SIZE = 2100;
 
+// Map physical WASD positions, independent of Russian/English layout or
+// Caps Lock. Keep arrow keys and a fallback for browsers without event.code.
+const MOVEMENT_BY_CODE = new Map([
+  ['KeyW', 'w'], ['KeyA', 'a'], ['KeyS', 's'], ['KeyD', 'd'],
+  ['ArrowUp', 'ArrowUp'], ['ArrowDown', 'ArrowDown'],
+  ['ArrowLeft', 'ArrowLeft'], ['ArrowRight', 'ArrowRight']
+]);
+const MOVEMENT_BY_KEY = new Map([
+  ['w', 'w'], ['a', 'a'], ['s', 's'], ['d', 'd'],
+  ['ц', 'w'], ['ф', 'a'], ['ы', 's'], ['в', 'd'],
+  ['ArrowUp', 'ArrowUp'], ['ArrowDown', 'ArrowDown'],
+  ['ArrowLeft', 'ArrowLeft'], ['ArrowRight', 'ArrowRight']
+]);
+
+function normalizeMovementKey(event) {
+  const physical = MOVEMENT_BY_CODE.get(event.code);
+  if (physical) return physical;
+  const key = typeof event.key === 'string' ? event.key : '';
+  return MOVEMENT_BY_KEY.get(key) || MOVEMENT_BY_KEY.get(key.toLowerCase()) || null;
+}
+
 export function bindPlayerControls({ state, joystick, stick, boostButton, triggerBoost }) {
 
   function setJoystick(clientX, clientY) {
@@ -49,10 +70,22 @@ export function bindPlayerControls({ state, joystick, stick, boostButton, trigge
   // so there is only one cooldown timer.
   boostButton.addEventListener('pointerdown', triggerBoost);
   window.addEventListener('keydown', (e) => {
-    state.keys.add(e.key);
+    const key = normalizeMovementKey(e);
+    if (key) {
+      state.keys.add(key);
+      if (key.startsWith('Arrow')) e.preventDefault();
+    }
     if (e.code === 'Space') triggerBoost();
   });
-  window.addEventListener('keyup', (e) => state.keys.delete(e.key));
+  window.addEventListener('keyup', (e) => {
+    const key = normalizeMovementKey(e);
+    if (key) state.keys.delete(key);
+  });
+  // Avoid a stuck movement key when focus is lost while holding it.
+  window.addEventListener('blur', () => state.keys.clear());
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) state.keys.clear();
+  });
 }
 
 export function updatePlayerMovement(state, dt, time, ISO, obstacles = []) {

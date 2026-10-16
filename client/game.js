@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as cloneSkeleton } from 'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/utils/SkeletonUtils.js';
-import { bindPlayerControls, updatePlayerMovement } from './player-controls.js';
+import { bindPlayerControls, updatePlayerMovement } from './player-controls.js?v=echo-keyboard-layout-1';
 import { updateCharacterFacing } from './character-facing.js';
 import { createMobileFloorReflections } from './mobile-floor-reflections.js?v=echo-skeleton-reflection-1';
 import { getWorldViewport } from './viewport-scale.js?v=echo-world-zoom-2';
