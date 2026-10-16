@@ -6,11 +6,11 @@ const WAVE_STEP_DISTANCE = 30;
 const WAVE_MIN_SPEED = 18;
 const WAVE_DURATION = 700;
 const WAVE_DELAY = 88;
-const WAVE_START_RADIUS = 4;
-const WAVE_MAX_RADIUS = 20;
-const WAVE_LINE_WIDTH = 1;
-const WAVE_SAMPLE_COUNT = 64;
-const MAX_WAVES = 12;
+const WAVE_START_RADIUS = 3;
+const WAVE_MAX_RADIUS = 13;
+const WAVE_LINE_WIDTH = 1.15;
+const WAVE_SAMPLE_COUNT = 96;
+const MAX_WAVES = 18;
 
 const game = document.querySelector('#game');
 const canvas = document.createElement('canvas');
@@ -98,10 +98,12 @@ function getWaterAt(x, y) {
 }
 
 function spawnWave(x, y, now) {
-  if (!getWaterAt(x, y)) return;
+  const water = getWaterAt(x, y);
+  if (!water) return;
   while (waves.length + 3 > MAX_WAVES) waves.shift();
   for (let ring = 0; ring < 3; ring += 1) {
-    waves.push({ x, y, born: now + ring * WAVE_DELAY, ring });
+    // Ripple stays at the step's world position as the camera follows the hero.
+    waves.push({ x, y, water, born: now + ring * WAVE_DELAY, ring });
   }
 }
 
@@ -112,8 +114,7 @@ function onPlayerMovement(event) {
   playerY = detail.y;
   playerVX = Number.isFinite(detail.vx) ? detail.vx : 0;
   playerVY = Number.isFinite(detail.vy) ? detail.vy : 0;
-  cameraX = playerX;
-  cameraY = playerY;
+  // Match game.js camera state: the local hero stays at screen center.
   const speed = Math.hypot(playerVX, playerVY);
   const now = performance.now();
   if (speed < WAVE_MIN_SPEED || !getWaterAt(playerX, playerY)) {
@@ -137,15 +138,21 @@ function drawRing(wave, now) {
   const eased = 1 - Math.pow(1 - progress, 2);
   const radius = WAVE_START_RADIUS + (WAVE_MAX_RADIUS - WAVE_START_RADIUS) * eased;
   const fade = 1 - Math.pow(progress, 1.35);
-  const water = getWaterAt(wave.x, wave.y);
-  if (!water) return false;
+  const water = wave.water;
+  if (!water || !isPointOnWater(wave.x, wave.y, water)) return false;
 
+  // Small flattened ellipses, clipped against the current water contour.
+  const horizontalRadius = radius * 1.05;
+  const verticalRadius = radius * 0.42;
+  const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
   ctx.beginPath();
   let drawing = false;
   for (let i = 0; i <= WAVE_SAMPLE_COUNT; i += 1) {
     const a = (i / WAVE_SAMPLE_COUNT) * Math.PI * 2;
-    const worldX = wave.x + Math.cos(a) * radius;
-    const worldY = wave.y + Math.sin(a) * radius;
+    const localX = Math.cos(a) * horizontalRadius;
+    const localY = Math.sin(a) * verticalRadius;
+    const worldX = wave.x + localX * Math.cos(angle) - localY * Math.sin(angle);
+    const worldY = wave.y + localX * Math.sin(angle) + localY * Math.cos(angle);
     const inside = isPointOnWater(worldX, worldY, water);
     const p = worldToScreen(worldX, worldY);
     if (inside) {
@@ -154,9 +161,10 @@ function drawRing(wave, now) {
       drawing = true;
     } else {
       drawing = false;
+      ctx.moveTo(p.x, p.y);
     }
   }
-  ctx.strokeStyle = `rgba(255,255,255,${Math.max(0, fade)})`;
+  ctx.strokeStyle = `rgba(255,255,255,${Math.max(0, fade) * 0.82})`;
   ctx.lineWidth = WAVE_LINE_WIDTH;
   ctx.lineCap = 'round';
   ctx.stroke();
