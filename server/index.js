@@ -161,7 +161,7 @@ const randomBetween = (min, max) => min + worldRandom() * (max - min);
 function overlapsCircle(a, b, radiusA, radiusB, allowedOverlap = 0) {
   return Math.hypot(a.x - b.x, a.y - b.y) < Math.max(0, radiusA + radiusB - allowedOverlap);
 }
-function createWorldTrees(waters) {
+function createWorldTrees() {
   const trees = [];
   const clusterSizes = [2, 3, 5, 7];
   const clusterCount = 12;
@@ -188,13 +188,8 @@ function createWorldTrees(waters) {
     Math.abs(y) <= WORLD_HALF_SIZE - margin;
 
   const isNearSpawn = (x, y) => Math.hypot(x, y) < 440;
-
-  const isTrunkClearOfWater = (candidate, waters) =>
-    !waters.some(water => circleTouchesWater(candidate, water, candidate.collisionRadius + 12));
-
-  const canPlace = (candidate, existing, waters, gapFactor = 0.4) => {
+  const canPlace = (candidate, existing, gapFactor = 0.4) => {
     if (!isInsidePlayableArea(candidate.x, candidate.y) || isNearSpawn(candidate.x, candidate.y)) return false;
-    if (!isTrunkClearOfWater(candidate, waters)) return false;
     return !existing.some(other => overlapsCircle(
       candidate,
       other,
@@ -232,7 +227,6 @@ function createWorldTrees(waters) {
 
           if (!isInsidePlayableArea(attemptTree.x, attemptTree.y) ||
               isNearSpawn(attemptTree.x, attemptTree.y) ||
-              !isTrunkClearOfWater(attemptTree, waters) ||
               trees.some(other => overlapsCircle(
                 attemptTree,
                 other,
@@ -269,7 +263,7 @@ function createWorldTrees(waters) {
       randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
       scale
     );
-    if (canPlace(candidate, trees, waters)) trees.push(candidate);
+    if (canPlace(candidate, trees) trees.push(candidate);
   }
 
   return trees;
