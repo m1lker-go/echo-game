@@ -182,7 +182,7 @@ function applyContourShader(material, modelName) {
         '#include <common>',
         `#include <common>
         varying vec2 vEchoWaterModelXZ;
-        uniform int echoContourCount;
+        uniform float echoContourCount;
         uniform float echoContourAX[${maxSegments}];
         uniform float echoContourAY[${maxSegments}];
         uniform float echoContourBX[${maxSegments}];
@@ -193,7 +193,7 @@ function applyContourShader(material, modelName) {
         `#include <color_fragment>
         float echoMinDistance = 10000.0;
         for (int i = 0; i < ${maxSegments}; i++) {
-          if (i >= echoContourCount) break;
+          if (float(i) >= echoContourCount) break;
           vec2 a = vec2(echoContourAX[i], echoContourAY[i]);
           vec2 b = vec2(echoContourBX[i], echoContourBY[i]);
           vec2 ab = b - a;
