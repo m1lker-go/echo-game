@@ -72,16 +72,27 @@ function pointInPolygon(x, y, vertices) {
   return inside;
 }
 
+function getWaterGeometryPoint(x, y, water) {
+  const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
+  const dx = x - water.x;
+  const dy = y - water.y;
+  const scale = WATER_MODEL_BASE_SCALE * water.scale;
+  if (!isFinite(scale) || scale <= 0) return null;
+  return {
+    x: (dx * Math.cos(angle) + dy * Math.sin(angle)) / scale,
+    y: (-dx * Math.sin(angle) + dy * Math.cos(angle)) / scale
+  };
+}
+
+function isPointOnWater(x, y, water) {
+  const vertices = WATER_GEOMETRY[water.model] || WATER_GEOMETRY['patch-water-large.glb'];
+  const point = getWaterGeometryPoint(x, y, water);
+  return point ? pointInPolygon(point.x, point.y, vertices) : false;
+}
+
 function getWaterAt(x, y) {
   for (const water of waters) {
-    const vertices = WATER_GEOMETRY[water.model] || WATER_GEOMETRY['patch-water-large.glb'];
-    const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
-    const dx = x - water.x;
-    const dy = y - water.y;
-    const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
-    const localY = -dx * Math.sin(angle) + dy * Math.cos(angle);
-    const scale = WATER_MODEL_BASE_SCALE * water.scale;
-    if (isFinite(scale) && scale > 0 && pointInPolygon(localX / scale, localY / scale, vertices)) return water;
+    if (isPointOnWater(x, y, water)) return water;
   }
   return null;
 }
@@ -128,13 +139,6 @@ function drawRing(wave, now) {
   const fade = 1 - Math.pow(progress, 1.35);
   const water = getWaterAt(wave.x, wave.y);
   if (!water) return false;
-  const vertices = WATER_GEOMETRY[water.model] || WATER_GEOMETRY['patch-water-large.glb'];
-  const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
-  const scale = WATER_MODEL_BASE_SCALE * water.scale;
-  const localCenterX = (wave.x - water.x) * Math.cos(angle) + (wave.y - water.y) * Math.sin(angle);
-  const localCenterY = -(wave.x - water.x) * Math.sin(angle) + (wave.y - water.y) * Math.cos(angle);
-  const localX = localCenterX / scale;
-  const localY = localCenterY / scale;
 
   ctx.beginPath();
   let drawing = false;
@@ -142,9 +146,7 @@ function drawRing(wave, now) {
     const a = (i / WAVE_SAMPLE_COUNT) * Math.PI * 2;
     const worldX = wave.x + Math.cos(a) * radius;
     const worldY = wave.y + Math.sin(a) * radius;
-    const lx = localX + (worldX - wave.x) * Math.cos(angle) / scale + (worldY - wave.y) * Math.sin(angle) / scale;
-    const ly = localY - (worldX - wave.x) * Math.sin(angle) / scale + (worldY - wave.y) * Math.cos(angle) / scale;
-    const inside = pointInPolygon(lx, ly, vertices);
+    const inside = isPointOnWater(worldX, worldY, water);
     const p = worldToScreen(worldX, worldY);
     if (inside) {
       if (!drawing) ctx.moveTo(p.x, p.y);
