@@ -281,6 +281,10 @@ function applyStaticTranslations() {
     const translation = window.$t(key, element.textContent);
     if (element.tagName === 'INPUT' && element.hasAttribute('placeholder')) {
       element.placeholder = translation;
+    } else if (element.classList.contains('brand') && element.querySelector('.brand-dot')) {
+      // Keep the blue dot in its own span when changing the game logo language.
+      const dot = element.querySelector('.brand-dot');
+      element.replaceChildren(document.createTextNode(translation.replace(/\.$/, '')), dot);
     } else {
       element.textContent = translation;
     }
