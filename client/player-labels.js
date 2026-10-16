@@ -18,6 +18,10 @@ export function createPlayerLabels(canvas) {
   if (!ctx) return { resize() {}, render() {} };
   let width = 1, height = 1;
   let energyFont = 15, nameFont = 9, localGap = 8, enemyGap = 8;
+  // Independent upward offsets, in virtual world units. The skinned GLB
+  // bounding box extends beyond the hero's visible silhouette.
+  let localEnergyLift = 60, localNameLift = 157;
+  let enemyEnergyLift = 50, enemyNameLift = 132;
   let fontFamily = 'system-ui, sans-serif';
 
   function resize(pixelWidth, pixelHeight, dpr, worldScale) {
@@ -38,6 +42,10 @@ export function createPlayerLabels(canvas) {
     nameFont = read('--echo-player-name-font', 9);
     localGap = read('--echo-player-label-gap', 8);
     enemyGap = read('--echo-enemy-label-gap', 8);
+    localEnergyLift = read('--echo-player-energy-lift', 60);
+    localNameLift = read('--echo-player-name-lift', 157);
+    enemyEnergyLift = read('--echo-enemy-energy-lift', 50);
+    enemyNameLift = read('--echo-enemy-name-lift', 132);
     fontFamily = getComputedStyle(document.documentElement).getPropertyValue('--echo-font-family').trim() || 'system-ui, sans-serif';
   }
 
@@ -72,14 +80,16 @@ export function createPlayerLabels(canvas) {
     const numberHeight = textMetrics(value, energyFont);
     ctx.fillStyle = '#eaf1f7';
     // Bottom of the energy text is exactly gap above the model's head.
-    ctx.fillText(value, px, py - top - gap - numberHeight.bottom);
+    ctx.fillText(value, px, py - top - gap - numberHeight.bottom
+      - (enemy ? enemyEnergyLift : localEnergyLift));
 
     const displayName = typeof name === 'string' && name.trim() ? name : 'Игрок';
     ctx.font = '400 ' + nameFont + 'px ' + fontFamily;
     const nameHeight = textMetrics(displayName, nameFont);
     ctx.fillStyle = enemy ? '#d95b65' : '#c3cfda';
     // Top of the name text is exactly gap below the model's feet.
-    ctx.fillText(displayName, px, py - bottom + gap + nameHeight.top, 130);
+    ctx.fillText(displayName, px, py - bottom + gap + nameHeight.top
+      - (enemy ? enemyNameLift : localNameLift), 130);
     ctx.restore();
   }
 
