@@ -161,7 +161,184 @@ const randomBetween = (min, max) => min + worldRandom() * (max - min);
 function overlapsCircle(a, b, radiusA, radiusB, allowedOverlap = 0) {
   return Math.hypot(a.x - b.x, a.y - b.y) < Math.max(0, radiusA + radiusB - allowedOverlap);
 }
+function createWorldTrees(waters) {
+  const trees = [];
+  const clusterSizes = [2, 3, 5, 7];
+  const clusterCount = 12;
+  const maxAttemptsPerCluster = 160;
+  let nextId = 1;
 
+  const makeTree = (x, y, scale, placementRadius = 100 * scale) => ({
+    id: `tree_${String(nextId++).padStart(3, '0')}`,
+    type: 'tree',
+    x,
+    y,
+    scale,
+    collisionRadius: TREE_COLLISION_RADIUS * scale,
+    placementRadius,
+    rotation: randomBetween(0, Math.PI * 2),
+  });
+
+  const trunksOverlap = (candidate, other, clearance = 12) =>
+    Math.hypot(candidate.x - other.x, candidate.y - other.y) <
+    candidate.collisionRadius + other.collisionRadius + clearance;
+
+  const isInsidePlayableArea = (x, y, margin = 160) =>
+    Math.abs(x) <= WORLD_HALF_SIZE - margin &&
+    Math.abs(y) <= WORLD_HALF_SIZE - margin;
+
+  const isNearSpawn = (x, y) => Math.hypot(x, y) < 440;
+  const isTrunkClearOfWater = candidate =>
+    !waters.some(water => circleTouchesWater(candidate, water, candidate.collisionRadius + 12));
+
+  const isTrunkClearOfWater = (candidate, waters) =>
+    !waters.some(water => circleTouchesWater(candidate, water, candidate.collisionRadius + 12));
+
+  const canPlace = (candidate, existing, waters, gapFactor = 0.4) => {
+    if (!isInsidePlayableArea(candidate.x, candidate.y) || isNearSpawn(candidate.x, candidate.y)) return false;
+    if (!isTrunkClearOfWater(candidate)) return false;
+    if (!isTrunkClearOfWater(candidate, waters)) return false;
+    return !existing.some(other => overlapsCircle(
+      candidate,
+      other,
+      candidate.placementRadius,
+      other.placementRadius,
+      Math.min(candidate.placementRadius, other.placementRadius) * gapFactor
+    ));
+  };
+
+  for (let clusterIndex = 0; clusterIndex < clusterCount && trees.length < 90; clusterIndex += 1) {
+    const clusterSize = clusterSizes[Math.floor(worldRandom() * clusterSizes.length)];
+    let clusterPlaced = false;
+
+    for (let attempt = 0; attempt < maxAttemptsPerCluster && !clusterPlaced; attempt += 1) {
+      const centerX = randomBetween(-WORLD_HALF_SIZE + 420, WORLD_HALF_SIZE - 420);
+      const centerY = randomBetween(-WORLD_HALF_SIZE + 420, WORLD_HALF_SIZE - 420);
+      if (isNearSpawn(centerX, centerY)) continue;
+
+      const cluster = [];
+      let failed = false;
+
+      for (let i = 0; i < clusterSize; i += 1) {
+        let candidate = null;
+        for (let memberAttempt = 0; memberAttempt < 100; memberAttempt += 1) {
+          const angle = randomBetween(0, Math.PI * 2);
+          const distance = randomBetween(35, 125);
+          const scale = randomBetween(TREE_SCALE_MIN, TREE_SCALE_MAX);
+          const placementRadius = 38 * scale;
+          const attemptTree = makeTree(
+            centerX + Math.cos(angle) * distance,
+            centerY + Math.sin(angle) * distance,
+            scale,
+            placementRadius
+          );
+
+          if (!isInsidePlayableArea(attemptTree.x, attemptTree.y) ||
+              isNearSpawn(attemptTree.x, attemptTree.y) ||
+              !isTrunkClearOfWater(attemptTree) ||
+              !isTrunkClearOfWater(attemptTree, waters) ||
+              trees.some(other => overlapsCircle(
+                attemptTree,
+                other,
+                attemptTree.placementRadius,
+                other.placementRadius,
+                Math.min(attemptTree.placementRadius, other.placementRadius) * 0.4
+              )) ||
+              cluster.some(other => trunksOverlap(attemptTree, other))) {
+            continue;
+          }
+          candidate = attemptTree;
+          break;
+        }
+
+        if (!candidate) {
+          failed = true;
+          break;
+        }
+        cluster.push(candidate);
+      }
+
+      if (!failed && cluster.length === clusterSize) {
+        trees.push(...cluster);
+        clusterPlaced = true;
+      }
+    }
+  }
+
+  const targetCount = 90;
+  for (let attempt = 0; attempt < targetCount * 220 && trees.length < targetCount; attempt += 1) {
+    const scale = randomBetween(TREE_SCALE_MIN, TREE_SCALE_MAX);
+    const candidate = makeTree(
+      randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
+      randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
+      scale
+    );
+    if (canPlace(candidate, trees, waters)) trees.push(candidate);
+  }
+
+  return trees;
+}
+// Seven shared water patches. Use a separate seeded RNG so water placement
+// does not change the existing tree/food layout. Large coefficients are spread
+// across the whole playable field instead of clustering around the center.
+const WATER_COUNT = 7;
+const WATER_DAMAGE_INTERVAL_MS = 300;
+const WATER_DAMAGE_AMOUNT = 1;
+const WATER_MODEL_BASE_SCALE = 50;
+const WATER_SCALE_MIN = 7;
+const WATER_SCALE_MAX = 12;
+const WATER_GEOMETRY = require('../shared/water-hazard-contours');
+function getWaterGeometry(water) { return { vertices: WATER_GEOMETRY[water.model] || WATER_GEOMETRY['patch-water-large.glb'] }; }
+function getWaterScale(water) { return WATER_MODEL_BASE_SCALE * water.scale; }
+function isPointInPolygon(x, y, vertices) {
+  let inside = false;
+  for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+    const [xi, yi] = vertices[i], [xj, yj] = vertices[j];
+    const crosses = (yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / ((yj - yi) || Number.EPSILON) + xi;
+    if (crosses) inside = !inside;
+    const cross = (x - xi) * (yj - yi) - (y - yi) * (xj - xi);
+    if (Math.abs(cross) < 1e-7 && x >= Math.min(xi, xj) - 1e-7 && x <= Math.max(xi, xj) + 1e-7 && y >= Math.min(yi, yj) - 1e-7 && y <= Math.max(yi, yj) + 1e-7) return true;
+  }
+  return inside;
+}
+function getWaterFootprint(water) {
+  const scale = getWaterScale(water), vertices = getWaterGeometry(water).vertices;
+  let halfWidth = 0, halfDepth = 0;
+  for (const [x, y] of vertices) { halfWidth = Math.max(halfWidth, Math.abs(x * scale)); halfDepth = Math.max(halfDepth, Math.abs(y * scale)); }
+  return { halfWidth, halfDepth };
+}
+function isPointOnWater(position, water) {
+  const vertices = getWaterGeometry(water).vertices;
+  const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
+  const dx = position.x - water.x, dy = position.y - water.y;
+  const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
+  const localY = -dx * Math.sin(angle) + dy * Math.cos(angle);
+  const scale = getWaterScale(water);
+  return isPointInPolygon(localX / scale, localY / scale, vertices);
+}
+function distanceToWaterPolygon(position, water) {
+  const vertices = getWaterGeometry(water).vertices;
+  const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
+  const dx = position.x - water.x, dy = position.y - water.y;
+  const localX = (dx * Math.cos(angle) + dy * Math.sin(angle)) / getWaterScale(water);
+  const localY = (-dx * Math.sin(angle) + dy * Math.cos(angle)) / getWaterScale(water);
+  let minDistanceSquared = Infinity;
+  for (let i = 0; i < vertices.length; i += 1) {
+    const a = vertices[i], b = vertices[(i + 1) % vertices.length];
+    const abx = b[0] - a[0], aby = b[1] - a[1];
+    const apx = localX - a[0], apy = localY - a[1];
+    const lengthSquared = abx * abx + aby * aby;
+    const t = lengthSquared > 0 ? Math.max(0, Math.min(1, (apx * abx + apy * aby) / lengthSquared)) : 0;
+    const dX = localX - (a[0] + abx * t), dY = localY - (a[1] + aby * t);
+    minDistanceSquared = Math.min(minDistanceSquared, dX * dX + dY * dY);
+  }
+  return Math.sqrt(minDistanceSquared) * getWaterScale(water);
+}
+function circleTouchesWater(position, water, radius) {
+  // A center inside the polygon is always blocked; otherwise compare to the
+  // actual polygon edges so concave/irregular shorelines are respected.
+  return isPointOnWater(position, water) || distanceToWaterPolygon(position, water) <= radius;
+}
 function createWorldWaters() {
   const waters = [];
   const waterRandom = createSeededRandom(WORLD_SEED + 918273);
@@ -232,189 +409,7 @@ function createWorldWaters() {
   return waters;
 }
 const WORLD_WATERS = createWorldWaters();
-function distanceToWaterPolygon(position, water) {
-  const vertices = getWaterGeometry(water).vertices;
-  const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
-  const dx = position.x - water.x, dy = position.y - water.y;
-  const localX = (dx * Math.cos(angle) + dy * Math.sin(angle)) / getWaterScale(water);
-  const localY = (-dx * Math.sin(angle) + dy * Math.cos(angle)) / getWaterScale(water);
-  let minDistanceSquared = Infinity;
-  for (let i = 0; i < vertices.length; i += 1) {
-    const a = vertices[i], b = vertices[(i + 1) % vertices.length];
-    const abx = b[0] - a[0], aby = b[1] - a[1];
-    const apx = localX - a[0], apy = localY - a[1];
-    const lengthSquared = abx * abx + aby * aby;
-    const t = lengthSquared > 0 ? Math.max(0, Math.min(1, (apx * abx + apy * aby) / lengthSquared)) : 0;
-    const dX = localX - (a[0] + abx * t), dY = localY - (a[1] + aby * t);
-    minDistanceSquared = Math.min(minDistanceSquared, dX * dX + dY * dY);
-  }
-  return Math.sqrt(minDistanceSquared) * getWaterScale(water);
-}
-function circleTouchesWater(position, water, radius) {
-  // A center inside the polygon is always blocked; otherwise compare to the
-  // actual polygon edges so concave/irregular shorelines are respected.
-  return isPointOnWater(position, water) || distanceToWaterPolygon(position, water) <= radius;
-}
-
-
-
-function createWorldTrees(waters) {
-  const trees = [];
-  const clusterSizes = [2, 3, 5, 7];
-  const clusterCount = 12;
-  const maxAttemptsPerCluster = 160;
-  let nextId = 1;
-
-  const makeTree = (x, y, scale, placementRadius = 100 * scale) => ({
-    id: `tree_${String(nextId++).padStart(3, '0')}`,
-    type: 'tree',
-    x,
-    y,
-    scale,
-    collisionRadius: TREE_COLLISION_RADIUS * scale,
-    placementRadius,
-    rotation: randomBetween(0, Math.PI * 2),
-  });
-
-  const trunksOverlap = (candidate, other, clearance = 12) =>
-    Math.hypot(candidate.x - other.x, candidate.y - other.y) <
-    candidate.collisionRadius + other.collisionRadius + clearance;
-
-  const isInsidePlayableArea = (x, y, margin = 160) =>
-    Math.abs(x) <= WORLD_HALF_SIZE - margin &&
-    Math.abs(y) <= WORLD_HALF_SIZE - margin;
-
-  const isNearSpawn = (x, y) => Math.hypot(x, y) < 440;
-  const isTrunkClearOfWater = candidate =>
-    !waters.some(water => circleTouchesWater(candidate, water, candidate.collisionRadius + 12));
-  const canPlace = (candidate, existing, gapFactor = 0.4) => {
-    if (!isInsidePlayableArea(candidate.x, candidate.y) || isNearSpawn(candidate.x, candidate.y)) return false;
-    if (!isTrunkClearOfWater(candidate)) return false;
-    return !existing.some(other => overlapsCircle(
-      candidate,
-      other,
-      candidate.placementRadius,
-      other.placementRadius,
-      Math.min(candidate.placementRadius, other.placementRadius) * gapFactor
-    ));
-  };
-
-  for (let clusterIndex = 0; clusterIndex < clusterCount && trees.length < 90; clusterIndex += 1) {
-    const clusterSize = clusterSizes[Math.floor(worldRandom() * clusterSizes.length)];
-    let clusterPlaced = false;
-
-    for (let attempt = 0; attempt < maxAttemptsPerCluster && !clusterPlaced; attempt += 1) {
-      const centerX = randomBetween(-WORLD_HALF_SIZE + 420, WORLD_HALF_SIZE - 420);
-      const centerY = randomBetween(-WORLD_HALF_SIZE + 420, WORLD_HALF_SIZE - 420);
-      if (isNearSpawn(centerX, centerY)) continue;
-
-      const cluster = [];
-      let failed = false;
-
-      for (let i = 0; i < clusterSize; i += 1) {
-        let candidate = null;
-        for (let memberAttempt = 0; memberAttempt < 100; memberAttempt += 1) {
-          const angle = randomBetween(0, Math.PI * 2);
-          const distance = randomBetween(35, 125);
-          const scale = randomBetween(TREE_SCALE_MIN, TREE_SCALE_MAX);
-          const placementRadius = 38 * scale;
-          const attemptTree = makeTree(
-            centerX + Math.cos(angle) * distance,
-            centerY + Math.sin(angle) * distance,
-            scale,
-            placementRadius
-          );
-
-          if (!isInsidePlayableArea(attemptTree.x, attemptTree.y) ||
-              isNearSpawn(attemptTree.x, attemptTree.y) ||
-              !isTrunkClearOfWater(attemptTree) ||
-              trees.some(other => overlapsCircle(
-                attemptTree,
-                other,
-                attemptTree.placementRadius,
-                other.placementRadius,
-                Math.min(attemptTree.placementRadius, other.placementRadius) * 0.4
-              )) ||
-              cluster.some(other => trunksOverlap(attemptTree, other))) {
-            continue;
-          }
-          candidate = attemptTree;
-          break;
-        }
-
-        if (!candidate) {
-          failed = true;
-          break;
-        }
-        cluster.push(candidate);
-      }
-
-      if (!failed && cluster.length === clusterSize) {
-        trees.push(...cluster);
-        clusterPlaced = true;
-      }
-    }
-  }
-
-  const targetCount = 90;
-  for (let attempt = 0; attempt < targetCount * 220 && trees.length < targetCount; attempt += 1) {
-    const scale = randomBetween(TREE_SCALE_MIN, TREE_SCALE_MAX);
-    const candidate = makeTree(
-      randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
-      randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
-      scale
-    );
-    if (canPlace(candidate, trees)) trees.push(candidate);
-  }
-
-  return trees;
-}
 const WORLD_TREES = createWorldTrees(WORLD_WATERS);
-
-// Seven shared water patches. Use a separate seeded RNG so water placement
-// does not change the existing tree/food layout. Large coefficients are spread
-// across the whole playable field instead of clustering around the center.
-const WATER_COUNT = 7;
-const WATER_DAMAGE_INTERVAL_MS = 300;
-const WATER_DAMAGE_AMOUNT = 1;
-const WATER_MODEL_BASE_SCALE = 50;
-const WATER_SCALE_MIN = 7;
-const WATER_SCALE_MAX = 12;
-const WATER_GEOMETRY = require('../shared/water-hazard-contours');
-function getWaterGeometry(water) { return { vertices: WATER_GEOMETRY[water.model] || WATER_GEOMETRY['patch-water-large.glb'] }; }
-function getWaterScale(water) { return WATER_MODEL_BASE_SCALE * water.scale; }
-function isPointInPolygon(x, y, vertices) {
-  let inside = false;
-  for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
-    const [xi, yi] = vertices[i], [xj, yj] = vertices[j];
-    const crosses = (yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / ((yj - yi) || Number.EPSILON) + xi;
-    if (crosses) inside = !inside;
-    const cross = (x - xi) * (yj - yi) - (y - yi) * (xj - xi);
-    if (Math.abs(cross) < 1e-7 && x >= Math.min(xi, xj) - 1e-7 && x <= Math.max(xi, xj) + 1e-7 && y >= Math.min(yi, yj) - 1e-7 && y <= Math.max(yi, yj) + 1e-7) return true;
-  }
-  return inside;
-}
-function getWaterFootprint(water) {
-  const scale = getWaterScale(water), vertices = getWaterGeometry(water).vertices;
-  let halfWidth = 0, halfDepth = 0;
-  for (const [x, y] of vertices) { halfWidth = Math.max(halfWidth, Math.abs(x * scale)); halfDepth = Math.max(halfDepth, Math.abs(y * scale)); }
-  return { halfWidth, halfDepth };
-}
-function isPointOnWater(position, water) {
-  const vertices = getWaterGeometry(water).vertices;
-  const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
-  const dx = position.x - water.x, dy = position.y - water.y;
-  const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
-  const localY = -dx * Math.sin(angle) + dy * Math.cos(angle);
-  const scale = getWaterScale(water);
-  return isPointInPolygon(localX / scale, localY / scale, vertices);
-}
-
-
-
-
-
-
 function isInWater(position) {
   return WORLD_WATERS.some(water => isPointOnWater(position, water));
 }
