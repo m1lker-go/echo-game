@@ -24,86 +24,23 @@
     <div class="center-mark" aria-hidden="true"></div>
     <div class="controls-hint" id="controls-hint" data-i18n="game:controls">WASD / ← ↑ → ↓ — движение</div>
     <div class="mobile-controls" aria-label="Сенсорное управление" data-i18n-aria-label="menu:mobile_controls_aria_label">
-      <div id="joystick" class="joystick" role="application" aria-label="Джойстик" data-i18n-aria-label="menu:joystick_aria_label">
-        <div id="stick" class="stick"></div>
-      </div>
+      <div id="joystick" class="joystick" role="application" aria-label="Джойстик" data-i18n-aria-label="menu:joystick_aria_label"><div id="stick" class="stick"></div></div>
       <div class="ability-stack">
-        <button id="boost" class="ability" type="button" aria-label="Ускорение" data-i18n-aria-label="game:boost_aria_label">
-          <span>»</span><small data-i18n="game:boost">РЫВОК</small><b class="ability-cooldown" aria-hidden="true"></b>
-        </button>
-        <button id="jump" class="ability jump-ability" type="button" aria-label="Прыжок" data-i18n-aria-label="game:jump_aria_label">
-          <span>↑</span><small data-i18n="game:jump">ПРЫЖОК</small>
-        </button>
+        <button id="boost" class="ability" type="button" aria-label="Ускорение" data-i18n-aria-label="game:boost_aria_label"><span>»</span><small data-i18n="game:boost">РЫВОК</small><b class="ability-cooldown" aria-hidden="true"></b></button>
+        <button id="jump" class="ability jump-ability" type="button" aria-label="Прыжок" data-i18n-aria-label="game:jump_aria_label"><span>↑</span><small data-i18n="game:jump">ПРЫЖОК</small></button>
       </div>
     </div>
     <div class="footer"><span data-i18n="menu:prototype_label">ПРОТОТИП 01</span><span id="coords" data-i18n="game:coords_zero">0 · 0</span></div>
-
-    <section id="defeat-screen" class="defeat-screen" hidden aria-label="Поражение" data-i18n-aria-label="game:defeat_aria_label">
-      <div class="defeat-card">
-        <div class="defeat-title" data-i18n="game:defeat_title">ВЫ ПРОИГРАЛИ</div>
-        <div class="defeat-subtitle" data-i18n="game:defeat_subtitle">Ваша энергия закончилась</div>
-        <div class="defeat-buttons">
-          <button id="defeat-replay" class="menu-button" type="button" data-i18n="game:replay">Сыграть ещё</button>
-          <button id="defeat-menu" class="menu-button" type="button" data-i18n="game:back_to_menu">Назад в меню</button>
-        </div>
-      </div>
-    </section>
-
+    <section id="defeat-screen" class="defeat-screen" hidden aria-label="Поражение" data-i18n-aria-label="game:defeat_aria_label"><div class="defeat-card"><div class="defeat-title" data-i18n="game:defeat_title">ВЫ ПРОИГРАЛИ</div><div class="defeat-subtitle" data-i18n="game:defeat_subtitle">Ваша энергия закончилась</div><div class="defeat-buttons"><button id="defeat-replay" class="menu-button" type="button" data-i18n="game:replay">Сыграть ещё</button><button id="defeat-menu" class="menu-button" type="button" data-i18n="game:back_to_menu">Назад в меню</button></div></div></section>
     <section id="main-menu" class="main-menu" aria-label="Главное меню" data-i18n-aria-label="menu:main_aria_label">
       <canvas id="menu-food" class="menu-food" aria-hidden="true"></canvas>
-
-      <div id="menu-main" class="menu-screen menu-main-screen" aria-label="Главный экран меню" data-i18n-aria-label="menu:main_screen_aria_label">
-        <div class="menu-logo" data-i18n="menu:logo">ЭХО.</div>
-        <div class="menu-buttons">
-          <button id="menu-start" class="menu-button" type="button" data-i18n="menu:start">Начать игру</button>
-          <button id="menu-character-button" class="menu-button" type="button" data-i18n="menu:character">Персонаж</button>
-          <button id="menu-settings" class="menu-button" type="button" data-i18n="menu:settings">Настройки</button>
-          <button id="menu-rating" class="menu-button" type="button" data-i18n="menu:rating">Рейтинг</button>
-        </div>
-      </div>
-
-      <div id="menu-character" class="menu-screen character-screen" hidden aria-label="Выбор персонажа" data-i18n-aria-label="menu:character_screen_aria_label">
-        <div class="menu-page-head">
-          <h1 data-i18n="menu:choose_character_title">ПЕРСОНАЖ</h1>
-          <p data-i18n="menu:choose_character_hint">Выбери того, кто появится в игре</p>
-        </div>
-        <div id="character-grid" class="character-grid"></div>
-        <button id="character-back" class="menu-back" type="button" data-i18n="menu:back">Назад</button>
-      </div>
-
-      <div id="menu-placeholder" class="menu-screen placeholder-screen" hidden aria-label="Раздел меню" data-i18n-aria-label="menu:placeholder_screen_aria_label">
-        <h1 id="placeholder-title" data-i18n="menu:rating_title">РАЗДЕЛ</h1>
-        <p id="placeholder-description" data-i18n="menu:placeholder_preparing">Этот экран пока готовится</p>
-        <button id="placeholder-back" class="menu-back" type="button" data-i18n="menu:back">Назад</button>
-      </div>
-
-      <div id="menu-settings-screen" class="menu-screen settings-screen" hidden aria-label="Настройки игры" data-i18n-aria-label="menu:settings_screen_aria_label">
-        <h1 data-i18n="menu:settings_title">НАСТРОЙКИ</h1>
-        <p class="settings-note" data-i18n="menu:settings_note">Обслуживание игры</p>
-        <div class="settings-language-row">
-          <span class="settings-language-label" data-i18n="menu:language">Язык</span>
-          <div class="settings-language-options" role="group" aria-label="Language" data-i18n-aria-label="menu:language_options_aria_label">
-            <button id="language-ru" class="language-option" type="button" data-language="ru" aria-pressed="false">
-              <img class="language-flag language-flag-ru" src="./assets/icons/icon-ru.webp" alt="" aria-hidden="true" style="display:block;width:28px;height:20px;object-fit:cover;border-radius:2px;" />
-              <span data-i18n="menu:russian">Русский</span>
-            </button>
-            <button id="language-en" class="language-option" type="button" data-language="en" aria-pressed="false">
-              <img class="language-flag language-flag-en" src="./assets/icons/icon-en.webp" alt="" aria-hidden="true" style="display:block;width:28px;height:20px;object-fit:cover;border-radius:2px;" />
-              <span data-i18n="menu:english">English</span>
-            </button>
-          </div>
-        </div>
-        <button id="settings-clear-cache" class="menu-button settings-cache-button" type="button" data-i18n="menu:clear_cache">Очистить кэш игры</button>
-        <p class="settings-note" data-i18n="menu:clear_cache_note">Перезагрузит ECHO и запросит свежие файлы. Профиль и выбранный персонаж сохранятся.</p>
-        <p id="settings-cache-status" class="settings-status" role="status" aria-live="polite"></p>
-        <button id="settings-back" class="menu-back" type="button" data-i18n="menu:back">Назад</button>
-      </div>
+      <div id="menu-main" class="menu-screen menu-main-screen" aria-label="Главный экран меню" data-i18n-aria-label="menu:main_screen_aria_label"><div class="menu-logo" data-i18n="menu:logo">ЭХО.</div><div class="menu-buttons"><button id="menu-start" class="menu-button" type="button" data-i18n="menu:start">Начать игру</button><button id="menu-character-button" class="menu-button" type="button" data-i18n="menu:character">Персонаж</button><button id="menu-settings" class="menu-button" type="button" data-i18n="menu:settings">Настройки</button><button id="menu-rating" class="menu-button" type="button" data-i18n="menu:rating">Рейтинг</button></div></div>
+      <div id="menu-character" class="menu-screen character-screen" hidden aria-label="Выбор персонажа" data-i18n-aria-label="menu:character_screen_aria_label"><div class="menu-page-head"><h1 data-i18n="menu:choose_character_title">ПЕРСОНАЖ</h1><p data-i18n="menu:choose_character_hint">Выбери того, кто появится в игре</p></div><div id="character-grid" class="character-grid"></div><button id="character-back" class="menu-back" type="button" data-i18n="menu:back">Назад</button></div>
+      <div id="menu-placeholder" class="menu-screen placeholder-screen" hidden aria-label="Раздел меню" data-i18n-aria-label="menu:placeholder_screen_aria_label"><h1 id="placeholder-title" data-i18n="menu:rating_title">РАЗДЕЛ</h1><p id="placeholder-description" data-i18n="menu:placeholder_preparing">Этот экран пока готовится</p><button id="placeholder-back" class="menu-back" type="button" data-i18n="menu:back">Назад</button></div>
+      <div id="menu-settings-screen" class="menu-screen settings-screen" hidden aria-label="Настройки игры" data-i18n-aria-label="menu:settings_screen_aria_label"><h1 data-i18n="menu:settings_title">НАСТРОЙКИ</h1><p class="settings-note" data-i18n="menu:settings_note">Обслуживание игры</p><div class="settings-language-row"><span class="settings-language-label" data-i18n="menu:language">Язык</span><div class="settings-language-options" role="group" aria-label="Language" data-i18n-aria-label="menu:language_options_aria_label"><button id="language-ru" class="language-option" type="button" data-language="ru" aria-pressed="false"><img class="language-flag language-flag-ru" src="./assets/icons/icon-ru.webp" alt="" aria-hidden="true" style="display:block;width:28px;height:20px;object-fit:cover;border-radius:2px;" /><span data-i18n="menu:russian">Русский</span></button><button id="language-en" class="language-option" type="button" data-language="en" aria-pressed="false"><img class="language-flag language-flag-en" src="./assets/icons/icon-en.webp" alt="" aria-hidden="true" style="display:block;width:28px;height:20px;object-fit:cover;border-radius:2px;" /><span data-i18n="menu:english">English</span></button></div></div><button id="settings-clear-cache" class="menu-button settings-cache-button" type="button" data-i18n="menu:clear_cache">Очистить кэш игры</button><p class="settings-note" data-i18n="menu:clear_cache_note">Перезагрузит ECHO и запросит свежие файлы. Профиль и выбранный персонаж сохранятся.</p><p id="settings-cache-status" class="settings-status" role="status" aria-live="polite"></p><button id="settings-back" class="menu-back" type="button" data-i18n="menu:back">Назад</button></div>
     </section>
   </main>
-
-  <script type="importmap">
-    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}
-  </script>
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
   <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
   <script type="module" src="./i18n.js?v=echo-i18n-1"></script>
   <script type="module" src="./modal.js?v=echo-modal-3"></script>
@@ -113,7 +50,7 @@
   <script type="module" src="./cache-reset.js?v=echo-settings-5"></script>
   <script type="module" src="./jump-cooldown.js"></script>
   <script type="module" src="./shared-food.js"></script>
-  <script type="module" src="./water-effect.js?v=echo-water-boundary-debug-5"></script>
+  <script type="module" src="./water-effect.js?v=echo-water-boundary-debug-6"></script>
   <script type="module" src="./game.js"></script>
   <script type="module" src="./world-boundary.js"></script>
 </body>
