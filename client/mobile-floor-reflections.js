@@ -6,12 +6,12 @@ export function createMobileFloorReflections({ THREE, renderer, scene, camera })
   const REFLECTION_LAYER = 1;
   const MIRROR_HEIGHT = 0.72;
   const MIRROR_GAP = 3;
-  const BASE_OPACITY = 0.15; // feet: 15%; reflected top: 0%
+  const BASE_OPACITY = 0.08; // feet: 8%; reflected top: 0%
 
-  // After mirroring Y, +135 degrees sends the silhouette towards screen
-  // upper-right (+X,+Y), regardless of the character's facing animation.
+  // After mirroring Y, +45 degrees sends the silhouette towards screen
+  // lower-right (+X,-Y), regardless of the character's facing animation.
   const MIRROR_TILT = new THREE.Quaternion().setFromAxisAngle(
-    new THREE.Vector3(0, 0, 1), Math.PI * 0.75
+    new THREE.Vector3(0, 0, 1), Math.PI * 0.25
   );
   const reflectedMaterials = new WeakMap();
   const modelHeights = new WeakMap();
@@ -58,7 +58,7 @@ export function createMobileFloorReflections({ THREE, renderer, scene, camera })
         .replace('#include <skinning_vertex>',
           '#include <skinning_vertex>\n' +
           'vec2 echoXY = (modelMatrix * vec4(transformed, 1.0)).xy;\n' +
-          'vEchoFade = clamp(dot(echoXY - uEchoBase, vec2(0.70710678, 0.70710678)) / max(uEchoSpan, 1.0), 0.0, 1.0);');
+          'vEchoFade = clamp(dot(echoXY - uEchoBase, vec2(0.70710678, -0.70710678)) / max(uEchoSpan, 1.0), 0.0, 1.0);');
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', '#include <common>\nvarying float vEchoFade;')
         .replace('#include <opaque_fragment>',
