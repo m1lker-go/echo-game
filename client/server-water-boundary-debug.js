@@ -34,16 +34,9 @@ export function createServerWaterBoundaryDebug(game) {
     const total = Array.isArray(waters) ? waters.length : 0;
 
     for (const water of Array.isArray(waters) ? waters : []) {
-      // These exact collision vertices are sent from the server, not an
-      // approximation based on the client's visible water model.
-      const contour = water.serverContour;
+      // Server world-space polygon, projected with the SAME camera as the grid.
+      const contour = water.serverContourWorld;
       if (!Array.isArray(contour) || contour.length < 3) continue;
-      const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
-      const cos = Math.cos(angle);
-      const sin = Math.sin(angle);
-      const size = 50 * water.scale; // server getWaterScale(water)
-      if (!Number.isFinite(size) || size <= 0) continue;
-
       let valid = true;
       const screenPoints = [];
       for (const point of contour) {
@@ -51,11 +44,8 @@ export function createServerWaterBoundaryDebug(game) {
           valid = false;
           break;
         }
-        // Inverse of server getWaterLocalPosition; then normal isometric camera.
-        const dx = size * (point[0] * cos - point[1] * sin);
-        const dy = size * (point[0] * sin + point[1] * cos);
-        const relativeX = water.x + dx - cameraX;
-        const relativeY = water.y + dy - cameraY;
+        const relativeX = point[0] - cameraX;
+        const relativeY = point[1] - cameraY;
         screenPoints.push({
           x: viewWidth / 2 + (relativeX - relativeY) * 0.8660254,
           y: viewHeight / 2 + (relativeX + relativeY) * 0.5,

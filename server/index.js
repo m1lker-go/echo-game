@@ -167,6 +167,7 @@ const WATER_MODEL_BASE_SCALE = 50;
 const WATER_SCALE_MIN = 7;
 const WATER_SCALE_MAX = 12;
 const WATER_GEOMETRY = require('../shared/water-hazard-contours');
+const { worldPointToLocalWater, projectWaterContour } = require('../shared/water-visual-space');
 function getWaterGeometry(water) { return { vertices: WATER_GEOMETRY[water.model] || WATER_GEOMETRY['patch-water-large.glb'] }; }
 function getWaterScale(water) { return WATER_MODEL_BASE_SCALE * water.scale; }
 function isPointInPolygon(x, y, vertices) {
@@ -180,20 +181,19 @@ function isPointInPolygon(x, y, vertices) {
   }
   return inside;
 }
+function getWaterWorldContour(water) {
+  return water.worldContour || projectWaterContour(water, getWaterGeometry(water).vertices);
+}
 function getWaterFootprint(water) {
-  const scale = getWaterScale(water), vertices = getWaterGeometry(water).vertices;
   let halfWidth = 0, halfDepth = 0;
-  for (const [x, y] of vertices) { halfWidth = Math.max(halfWidth, Math.abs(x * scale)); halfDepth = Math.max(halfDepth, Math.abs(y * scale)); }
+  for (const [x, y] of getWaterWorldContour(water)) {
+    halfWidth = Math.max(halfWidth, Math.abs(x - water.x));
+    halfDepth = Math.max(halfDepth, Math.abs(y - water.y));
+  }
   return { halfWidth, halfDepth };
 }
 function getWaterLocalPosition(position, water) {
-  const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
-  const dx = position.x - water.x, dy = position.y - water.y;
-  const scale = getWaterScale(water);
-  return {
-    x: (dx * Math.cos(angle) + dy * Math.sin(angle)) / scale,
-    y: (-dx * Math.sin(angle) + dy * Math.cos(angle)) / scale,
-  };
+  return worldPointToLocalWater(position, water);
 }
 function distanceToWaterSegment(point, a, b) {
   const dx = b[0] - a[0], dy = b[1] - a[1];
@@ -312,6 +312,8 @@ function createWorldWaters() {
       candidateWater.y = point.y;
       candidate = { ...candidateWater, collisionRadius: Math.hypot(footprint.halfWidth, footprint.halfDepth) };
     }
+    // Cache the visible water footprint for server-side checks and snapshots.
+    candidate.worldContour = getWaterWorldContour(candidate);
     waters.push(candidate);
   }
 
@@ -368,21 +370,16 @@ function createWorldTrees(waters) {
   // polygon. Tangency is allowed; there is intentionally no extra margin.
   const treeOverlapsWater = (tree) => waters.some(water => {
     if (isPointOnWater(tree, water)) return true;
-    const vertices = getWaterGeometry(water).vertices;
-    const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
-    const dx = tree.x - water.x, dy = tree.y - water.y;
-    const localCenter = {
-      x: (dx * Math.cos(angle) + dy * Math.sin(angle)) / getWaterScale(water),
-      y: (-dx * Math.sin(angle) + dy * Math.cos(angle)) / getWaterScale(water),
-    };
-    const scale = getWaterScale(water);
-    const localRadius = tree.collisionRadius / scale;
+    // A tree's collision radius is expressed in world units. Compute segment
+    // clearance in the same space, not in unprojected model coordinates.
+    const vertices = getWaterWorldContour(water);
     let minDistance = Infinity;
-    for (let i = 0; i < vertices.length; i += 1) {
-      const distance = distanceToSegment(localCenter, vertices[i], vertices[(i + 1) % vertices.length]);
-      minDistance = Math.min(minDistance, distance);
+    for (let i = 0; i < vertices.length; i++) {
+      minDistance = Math.min(minDistance, distanceToSegment(
+        tree, vertices[i], vertices[(i + 1) % vertices.length]
+      ));
     }
-    return minDistance < localRadius;
+    return minDistance < tree.collisionRadius;
   });
 
   const canPlace = (candidate, existing, gapFactor = 0.4) => {
@@ -498,10 +495,10 @@ function createWorldSnapshot() {
   return {
     seed: WORLD_SEED,
     trees: WORLD_TREES.map(({ id, type, x, y, scale, rotation, collisionRadius }) => ({ id, type, x, y, scale, rotation, collisionRadius })),
-    // Send authoritative server collision polygon for optional client diagnostic.
-    waters: WORLD_WATERS.map(({ id, type, model, x, y, scale, rotation, collisionRadius }) => ({
+    // Client collision and red debug overlay consume this exact server polygon.
+    waters: WORLD_WATERS.map(({ id, type, model, x, y, scale, rotation, collisionRadius, worldContour }) => ({
       id, type, model, x, y, scale, rotation, collisionRadius,
-      serverContour: getWaterGeometry({ model }).vertices,
+      serverContourWorld: worldContour,
     })),
   };
 }

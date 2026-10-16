@@ -27,7 +27,7 @@ jobs:
           node --check server/index.js
           node --check server/db.js
           node --check server/food.js
-          node --test server/test/food.test.js
+          node --test server/test/*.test.js
           node --input-type=module --check < client/shared-food.js
           node --input-type=module --check < client/game.js
           node --input-type=module --check < client/menu.js
@@ -80,7 +80,7 @@ jobs:
             node --check server/index.js
             node --check server/db.js
             node --check server/food.js
-            node --test server/test/food.test.js
+            node --test server/test/*.test.js
             node --input-type=module --check < client/shared-food.js
             node --input-type=module --check < client/game.js
             node --input-type=module --check < client/menu.js
@@ -158,7 +158,7 @@ jobs:
             node --check server/index.js
             node --check server/db.js
             node --check server/food.js
-            node --test server/test/food.test.js
+            node --test server/test/*.test.js
             node --input-type=module --check < client/shared-food.js
             node --input-type=module --check < client/game.js
             node --input-type=module --check < client/menu.js
