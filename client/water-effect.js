@@ -22,7 +22,7 @@ effect.setAttribute('aria-hidden', 'true');
 effect.draggable = false;
 effect.style.cssText = [
   'position:absolute','left:50%','top:50%',`width:${WATER_GIF_MIN_WIDTH}px`,'height:auto','max-width:none','max-height:none',
-  'transform:translate(-50%,-50%)','display:block','pointer-events:none','z-index:2.5','opacity:0',
+  'transform:translate(-50%,-50%) scale(var(--echo-world-scale, 1))','display:block','pointer-events:none','z-index:2.5','opacity:0',
   `transition:width ${WATER_GIF_PULSE_MS}ms ease-in-out`
 ].join(';');
 game?.appendChild(effect);
