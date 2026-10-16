@@ -371,50 +371,6 @@ function createWorldTrees(waters) {
 }
 const WORLD_TREES = createWorldTrees(WORLD_WATERS);
 
-// Seven shared water patches. Use a separate seeded RNG so water placement
-// does not change the existing tree/food layout. Large coefficients are spread
-// across the whole playable field instead of clustering around the center.
-const WATER_COUNT = 7;
-const WATER_DAMAGE_INTERVAL_MS = 300;
-const WATER_DAMAGE_AMOUNT = 1;
-const WATER_MODEL_BASE_SCALE = 50;
-const WATER_SCALE_MIN = 7;
-const WATER_SCALE_MAX = 12;
-const WATER_GEOMETRY = require('../shared/water-hazard-contours');
-function getWaterGeometry(water) { return { vertices: WATER_GEOMETRY[water.model] || WATER_GEOMETRY['patch-water-large.glb'] }; }
-function getWaterScale(water) { return WATER_MODEL_BASE_SCALE * water.scale; }
-function isPointInPolygon(x, y, vertices) {
-  let inside = false;
-  for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
-    const [xi, yi] = vertices[i], [xj, yj] = vertices[j];
-    const crosses = (yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / ((yj - yi) || Number.EPSILON) + xi;
-    if (crosses) inside = !inside;
-    const cross = (x - xi) * (yj - yi) - (y - yi) * (xj - xi);
-    if (Math.abs(cross) < 1e-7 && x >= Math.min(xi, xj) - 1e-7 && x <= Math.max(xi, xj) + 1e-7 && y >= Math.min(yi, yj) - 1e-7 && y <= Math.max(yi, yj) + 1e-7) return true;
-  }
-  return inside;
-}
-function getWaterFootprint(water) {
-  const scale = getWaterScale(water), vertices = getWaterGeometry(water).vertices;
-  let halfWidth = 0, halfDepth = 0;
-  for (const [x, y] of vertices) { halfWidth = Math.max(halfWidth, Math.abs(x * scale)); halfDepth = Math.max(halfDepth, Math.abs(y * scale)); }
-  return { halfWidth, halfDepth };
-}
-function isPointOnWater(position, water) {
-  const vertices = getWaterGeometry(water).vertices;
-  const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
-  const dx = position.x - water.x, dy = position.y - water.y;
-  const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
-  const localY = -dx * Math.sin(angle) + dy * Math.cos(angle);
-  const scale = getWaterScale(water);
-  return isPointInPolygon(localX / scale, localY / scale, vertices);
-}
-
-
-
-
-
-
 function isInWater(position) {
   return WORLD_WATERS.some(water => isPointOnWater(position, water));
 }
