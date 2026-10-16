@@ -26,6 +26,8 @@
   --echo-status-font: 10px;
   --echo-status-gap: 8px;
   --echo-status-stack-gap: 7px;
+  --echo-status-dx: 0px;
+  --echo-status-dy: 0px;
   --echo-connection-dot-size: 6px;
   --echo-exit-width: 138px;
   --echo-exit-height: 30px;
@@ -43,6 +45,12 @@
   --echo-energy-hint-font: 8px;
   --echo-energy-dx: 0px;
   --echo-energy-dy: 0px;
+  --echo-energy-label-dx: 0px;
+  --echo-energy-label-dy: 0px;
+  --echo-energy-value-dx: 0px;
+  --echo-energy-value-dy: 0px;
+  --echo-energy-hint-dx: 0px;
+  --echo-energy-hint-dy: 0px;
 
   /* Gamepad: sizes, offsets and icon/text sizes are all independent */
   --echo-controls-bottom: 34px;
@@ -77,6 +85,8 @@
   --echo-coords-dy: 0px;
   --echo-controls-hint-bottom: 28px;
   --echo-controls-hint-font: 9px;
+  --echo-controls-hint-dx: 0px;
+  --echo-controls-hint-dy: 0px;
 
   /* Menus / defeat panel use the same height scale, not world coordinates */
   --echo-menu-logo-font: 46px;
@@ -84,6 +94,19 @@
   --echo-menu-buttons-gap: 12px;
   --echo-menu-button-height: 58px;
   --echo-menu-button-font: 16px;
+  /* Each main-menu button has independent height and screen-position offset. */
+  --echo-menu-start-height: 58px;
+  --echo-menu-start-dx: 0px;
+  --echo-menu-start-dy: 0px;
+  --echo-menu-character-height: 58px;
+  --echo-menu-character-dx: 0px;
+  --echo-menu-character-dy: 0px;
+  --echo-menu-settings-height: 58px;
+  --echo-menu-settings-dx: 0px;
+  --echo-menu-settings-dy: 0px;
+  --echo-menu-rating-height: 58px;
+  --echo-menu-rating-dx: 0px;
+  --echo-menu-rating-dy: 0px;
   --echo-menu-back-height: 50px;
   --echo-menu-back-font: 14px;
   --echo-menu-max-width: 390px;
@@ -112,6 +135,10 @@
 #game .status {
   font-size: calc(var(--echo-status-font) * var(--echo-ui-scale));
   gap: calc(var(--echo-status-gap) * var(--echo-ui-scale));
+  transform: translate(
+    calc(var(--echo-status-dx) * var(--echo-ui-scale)),
+    calc(var(--echo-status-dy) * var(--echo-ui-scale))
+  );
 }
 #game #connection-dot {
   width: calc(var(--echo-connection-dot-size) * var(--echo-ui-scale));
@@ -138,9 +165,27 @@
     calc(var(--echo-energy-dy) * var(--echo-ui-scale))
   );
 }
-#game .stats-label { font-size: calc(var(--echo-energy-label-font) * var(--echo-ui-scale)); }
-#game .stats strong { font-size: calc(var(--echo-energy-value-font) * var(--echo-ui-scale)); }
-#game .stats-hint { font-size: calc(var(--echo-energy-hint-font) * var(--echo-ui-scale)); }
+#game .stats-label {
+  font-size: calc(var(--echo-energy-label-font) * var(--echo-ui-scale));
+  transform: translate(
+    calc(var(--echo-energy-label-dx) * var(--echo-ui-scale)),
+    calc(var(--echo-energy-label-dy) * var(--echo-ui-scale))
+  );
+}
+#game .stats strong {
+  font-size: calc(var(--echo-energy-value-font) * var(--echo-ui-scale));
+  transform: translate(
+    calc(var(--echo-energy-value-dx) * var(--echo-ui-scale)),
+    calc(var(--echo-energy-value-dy) * var(--echo-ui-scale))
+  );
+}
+#game .stats-hint {
+  font-size: calc(var(--echo-energy-hint-font) * var(--echo-ui-scale));
+  transform: translate(
+    calc(var(--echo-energy-hint-dx) * var(--echo-ui-scale)),
+    calc(var(--echo-energy-hint-dy) * var(--echo-ui-scale))
+  );
+}
 
 #game .mobile-controls {
   bottom: max(calc(var(--echo-controls-bottom) * var(--echo-ui-scale)), env(safe-area-inset-bottom, 0px));
@@ -210,6 +255,10 @@
 #game .controls-hint {
   font-size: calc(var(--echo-controls-hint-font) * var(--echo-ui-scale));
   bottom: max(calc(var(--echo-controls-hint-bottom) * var(--echo-ui-scale)), env(safe-area-inset-bottom, 0px));
+  transform: translate(
+    calc(-50% + var(--echo-controls-hint-dx) * var(--echo-ui-scale)),
+    calc(var(--echo-controls-hint-dy) * var(--echo-ui-scale))
+  );
 }
 
 /* Main menu buttons and text scale with height; widths still obey real screen edges. */
@@ -222,6 +271,34 @@
 #game .menu-button {
   height: calc(var(--echo-menu-button-height) * var(--echo-ui-scale));
   font-size: calc(var(--echo-menu-button-font) * var(--echo-ui-scale));
+}
+#game #menu-start {
+  height: calc(var(--echo-menu-start-height) * var(--echo-ui-scale));
+  transform: translate(
+    calc(var(--echo-menu-start-dx) * var(--echo-ui-scale)),
+    calc(var(--echo-menu-start-dy) * var(--echo-ui-scale))
+  );
+}
+#game #menu-character-button {
+  height: calc(var(--echo-menu-character-height) * var(--echo-ui-scale));
+  transform: translate(
+    calc(var(--echo-menu-character-dx) * var(--echo-ui-scale)),
+    calc(var(--echo-menu-character-dy) * var(--echo-ui-scale))
+  );
+}
+#game #menu-settings {
+  height: calc(var(--echo-menu-settings-height) * var(--echo-ui-scale));
+  transform: translate(
+    calc(var(--echo-menu-settings-dx) * var(--echo-ui-scale)),
+    calc(var(--echo-menu-settings-dy) * var(--echo-ui-scale))
+  );
+}
+#game #menu-rating {
+  height: calc(var(--echo-menu-rating-height) * var(--echo-ui-scale));
+  transform: translate(
+    calc(var(--echo-menu-rating-dx) * var(--echo-ui-scale)),
+    calc(var(--echo-menu-rating-dy) * var(--echo-ui-scale))
+  );
 }
 #game .menu-back {
   width: min(calc(var(--echo-menu-max-width) * var(--echo-ui-scale)), calc(100% - 20px));
