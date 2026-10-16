@@ -1,0 +1,243 @@
+/*
+ * ECHO UI LAYOUT — all dimensions below are specified for a 700px-high screen.
+ * Client/game.js supplies --echo-ui-scale = actual game height / 700.
+ * Change each value independently; the camera and world are NOT affected.
+ *
+ * Separate positions:
+ *  --echo-joystick-left / --echo-controls-right: distance to REAL screen edges
+ *  --echo-controls-bottom: distance from REAL screen bottom
+ *  --echo-joystick-dx/dy, --echo-boost-dx/dy, --echo-jump-dx/dy:
+ *    individual fine-tuning from each element's normal anchored position.
+ * Zero means "don't move".
+ *
+ * CSS safe-area insets remain in physical pixels (phone notch / gesture bar).
+ */
+
+#game {
+  --echo-ui-scale: 1;
+
+  /* HUD: logo and connection controls */
+  --echo-hud-top: 22px;
+  --echo-hud-left: 22px;
+  --echo-hud-right: 22px;
+  --echo-brand-font: 15px;
+  --echo-brand-dx: 0px;
+  --echo-brand-dy: 0px;
+  --echo-status-font: 10px;
+  --echo-status-gap: 8px;
+  --echo-status-stack-gap: 7px;
+  --echo-connection-dot-size: 6px;
+  --echo-exit-width: 138px;
+  --echo-exit-height: 30px;
+  --echo-exit-font: 9px;
+  --echo-exit-pad-x: 13px;
+  --echo-exit-dx: 0px;
+  --echo-exit-dy: 0px;
+
+  /* Energy readout */
+  --echo-energy-top: 76px;
+  --echo-energy-left: 22px;
+  --echo-energy-gap: 4px;
+  --echo-energy-label-font: 9px;
+  --echo-energy-value-font: 29px;
+  --echo-energy-hint-font: 8px;
+  --echo-energy-dx: 0px;
+  --echo-energy-dy: 0px;
+
+  /* Gamepad: sizes, offsets and icon/text sizes are all independent */
+  --echo-controls-bottom: 34px;
+  --echo-joystick-left: 24px;
+  --echo-controls-right: 24px;
+  --echo-joystick-size: 112px;
+  --echo-stick-size: 42px;
+  --echo-joystick-dx: 0px;
+  --echo-joystick-dy: 0px;
+  --echo-buttons-gap: 12px;
+  --echo-boost-size: 64px;
+  --echo-boost-icon-font: 28px;
+  --echo-boost-text-font: 7px;
+  --echo-boost-dx: 0px;
+  --echo-boost-dy: 0px;
+  --echo-jump-size: 64px;
+  --echo-jump-icon-font: 28px;
+  --echo-jump-text-font: 7px;
+  --echo-jump-dx: 0px;
+  --echo-jump-dy: 0px;
+  --echo-cooldown-font: 32px;
+
+  /* Bottom text: each has its own position and size */
+  --echo-footer-bottom: 22px;
+  --echo-footer-left: 22px;
+  --echo-footer-right: 22px;
+  --echo-prototype-font: 8px;
+  --echo-coords-font: 8px;
+  --echo-prototype-dx: 0px;
+  --echo-prototype-dy: 0px;
+  --echo-coords-dx: 0px;
+  --echo-coords-dy: 0px;
+  --echo-controls-hint-bottom: 28px;
+  --echo-controls-hint-font: 9px;
+
+  /* Menus / defeat panel use the same height scale, not world coordinates */
+  --echo-menu-logo-font: 46px;
+  --echo-menu-gap: 46px;
+  --echo-menu-buttons-gap: 12px;
+  --echo-menu-button-height: 58px;
+  --echo-menu-button-font: 16px;
+  --echo-menu-back-height: 50px;
+  --echo-menu-back-font: 14px;
+  --echo-menu-max-width: 390px;
+  --echo-menu-title-font: 32px;
+  --echo-menu-description-font: 11px;
+  --echo-character-card-font: 10px;
+  --echo-settings-hint-font: 11px;
+  --echo-language-option-font: 12px;
+  --echo-defeat-title-font: 42px;
+  --echo-defeat-subtitle-font: 10px;
+}
+
+#game .hud {
+  top: max(calc(var(--echo-hud-top) * var(--echo-ui-scale)), env(safe-area-inset-top, 0px));
+  left: max(calc(var(--echo-hud-left) * var(--echo-ui-scale)), env(safe-area-inset-left, 0px));
+  right: max(calc(var(--echo-hud-right) * var(--echo-ui-scale)), env(safe-area-inset-right, 0px));
+}
+#game .brand {
+  font-size: calc(var(--echo-brand-font) * var(--echo-ui-scale));
+  transform: translate(
+    calc(var(--echo-brand-dx) * var(--echo-ui-scale)),
+    calc(var(--echo-brand-dy) * var(--echo-ui-scale))
+  );
+}
+#game .status-stack { gap: calc(var(--echo-status-stack-gap) * var(--echo-ui-scale)); }
+#game .status {
+  font-size: calc(var(--echo-status-font) * var(--echo-ui-scale));
+  gap: calc(var(--echo-status-gap) * var(--echo-ui-scale));
+}
+#game #connection-dot {
+  width: calc(var(--echo-connection-dot-size) * var(--echo-ui-scale));
+  height: calc(var(--echo-connection-dot-size) * var(--echo-ui-scale));
+  flex: 0 0 auto;
+}
+#game .game-exit {
+  min-width: calc(var(--echo-exit-width) * var(--echo-ui-scale));
+  height: calc(var(--echo-exit-height) * var(--echo-ui-scale));
+  padding: 0 calc(var(--echo-exit-pad-x) * var(--echo-ui-scale));
+  font-size: calc(var(--echo-exit-font) * var(--echo-ui-scale));
+  transform: translate(
+    calc(var(--echo-exit-dx) * var(--echo-ui-scale)),
+    calc(var(--echo-exit-dy) * var(--echo-ui-scale))
+  );
+}
+
+#game .stats {
+  top: calc(var(--echo-energy-top) * var(--echo-ui-scale));
+  left: max(calc(var(--echo-energy-left) * var(--echo-ui-scale)), env(safe-area-inset-left, 0px));
+  gap: calc(var(--echo-energy-gap) * var(--echo-ui-scale));
+  transform: translate(
+    calc(var(--echo-energy-dx) * var(--echo-ui-scale)),
+    calc(var(--echo-energy-dy) * var(--echo-ui-scale))
+  );
+}
+#game .stats-label { font-size: calc(var(--echo-energy-label-font) * var(--echo-ui-scale)); }
+#game .stats strong { font-size: calc(var(--echo-energy-value-font) * var(--echo-ui-scale)); }
+#game .stats-hint { font-size: calc(var(--echo-energy-hint-font) * var(--echo-ui-scale)); }
+
+#game .mobile-controls {
+  bottom: max(calc(var(--echo-controls-bottom) * var(--echo-ui-scale)), env(safe-area-inset-bottom, 0px));
+  padding-left: max(calc(var(--echo-joystick-left) * var(--echo-ui-scale)), env(safe-area-inset-left, 0px));
+  padding-right: max(calc(var(--echo-controls-right) * var(--echo-ui-scale)), env(safe-area-inset-right, 0px));
+}
+#game .joystick {
+  width: calc(var(--echo-joystick-size) * var(--echo-ui-scale));
+  height: calc(var(--echo-joystick-size) * var(--echo-ui-scale));
+  transform: translate(
+    calc(var(--echo-joystick-dx) * var(--echo-ui-scale)),
+    calc(var(--echo-joystick-dy) * var(--echo-ui-scale))
+  );
+}
+#game .stick {
+  width: calc(var(--echo-stick-size) * var(--echo-ui-scale));
+  height: calc(var(--echo-stick-size) * var(--echo-ui-scale));
+}
+#game .ability-stack { gap: calc(var(--echo-buttons-gap) * var(--echo-ui-scale)); }
+#game #boost {
+  width: calc(var(--echo-boost-size) * var(--echo-ui-scale));
+  height: calc(var(--echo-boost-size) * var(--echo-ui-scale));
+  transform: translate(
+    calc(var(--echo-boost-dx) * var(--echo-ui-scale)),
+    calc(var(--echo-boost-dy) * var(--echo-ui-scale))
+  );
+}
+#game #jump {
+  width: calc(var(--echo-jump-size) * var(--echo-ui-scale));
+  height: calc(var(--echo-jump-size) * var(--echo-ui-scale));
+  transform: translate(
+    calc(var(--echo-jump-dx) * var(--echo-ui-scale)),
+    calc(var(--echo-jump-dy) * var(--echo-ui-scale))
+  );
+}
+#game #boost > span:not(.ability-cooldown) {
+  font-size: calc(var(--echo-boost-icon-font) * var(--echo-ui-scale));
+  line-height: 1;
+}
+#game #jump > span:not(.ability-cooldown) {
+  font-size: calc(var(--echo-jump-icon-font) * var(--echo-ui-scale));
+  line-height: 1;
+}
+#game #boost > small { font-size: calc(var(--echo-boost-text-font) * var(--echo-ui-scale)); }
+#game #jump > small { font-size: calc(var(--echo-jump-text-font) * var(--echo-ui-scale)); }
+#game .ability-cooldown { font-size: calc(var(--echo-cooldown-font) * var(--echo-ui-scale)); }
+
+#game .footer {
+  bottom: max(calc(var(--echo-footer-bottom) * var(--echo-ui-scale)), env(safe-area-inset-bottom, 0px));
+  left: max(calc(var(--echo-footer-left) * var(--echo-ui-scale)), env(safe-area-inset-left, 0px));
+  right: max(calc(var(--echo-footer-right) * var(--echo-ui-scale)), env(safe-area-inset-right, 0px));
+}
+#game .footer > span:first-child {
+  font-size: calc(var(--echo-prototype-font) * var(--echo-ui-scale));
+  transform: translate(
+    calc(var(--echo-prototype-dx) * var(--echo-ui-scale)),
+    calc(var(--echo-prototype-dy) * var(--echo-ui-scale))
+  );
+}
+#game #coords {
+  font-size: calc(var(--echo-coords-font) * var(--echo-ui-scale));
+  transform: translate(
+    calc(var(--echo-coords-dx) * var(--echo-ui-scale)),
+    calc(var(--echo-coords-dy) * var(--echo-ui-scale))
+  );
+}
+#game .controls-hint {
+  font-size: calc(var(--echo-controls-hint-font) * var(--echo-ui-scale));
+  bottom: max(calc(var(--echo-controls-hint-bottom) * var(--echo-ui-scale)), env(safe-area-inset-bottom, 0px));
+}
+
+/* Main menu buttons and text scale with height; widths still obey real screen edges. */
+#game .menu-main-screen { gap: calc(var(--echo-menu-gap) * var(--echo-ui-scale)); }
+#game .menu-logo { font-size: calc(var(--echo-menu-logo-font) * var(--echo-ui-scale)); }
+#game .menu-buttons {
+  gap: calc(var(--echo-menu-buttons-gap) * var(--echo-ui-scale));
+  width: min(calc(var(--echo-menu-max-width) * var(--echo-ui-scale)), calc(100% - 20px));
+}
+#game .menu-button {
+  height: calc(var(--echo-menu-button-height) * var(--echo-ui-scale));
+  font-size: calc(var(--echo-menu-button-font) * var(--echo-ui-scale));
+}
+#game .menu-back {
+  width: min(calc(var(--echo-menu-max-width) * var(--echo-ui-scale)), calc(100% - 20px));
+  height: calc(var(--echo-menu-back-height) * var(--echo-ui-scale));
+  font-size: calc(var(--echo-menu-back-font) * var(--echo-ui-scale));
+}
+#game .menu-page-head h1, #game .placeholder-screen h1, #game .settings-screen h1 {
+  font-size: calc(var(--echo-menu-title-font) * var(--echo-ui-scale));
+}
+#game .menu-page-head p, #game .placeholder-screen p {
+  font-size: calc(var(--echo-menu-description-font) * var(--echo-ui-scale));
+}
+#game .character-card-name { font-size: calc(var(--echo-character-card-font) * var(--echo-ui-scale)); }
+#game .settings-note, #game .settings-language-label {
+  font-size: calc(var(--echo-settings-hint-font) * var(--echo-ui-scale));
+}
+#game .language-option { font-size: calc(var(--echo-language-option-font) * var(--echo-ui-scale)); }
+#game .defeat-title { font-size: calc(var(--echo-defeat-title-font) * var(--echo-ui-scale)); }
+#game .defeat-subtitle { font-size: calc(var(--echo-defeat-subtitle-font) * var(--echo-ui-scale)); }
