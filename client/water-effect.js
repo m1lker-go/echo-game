@@ -147,6 +147,7 @@ function distanceToContour(point, vertices) {
 
 const contourMaterials = new WeakSet();
 const debugWaterLines = new Set();
+const debugWaterRoots = new WeakSet();
 
 function updateDebugWaterLineResolution() {
   const canvas = document.querySelector('#models');
@@ -157,15 +158,18 @@ function updateDebugWaterLineResolution() {
 }
 
 function addDebugWaterBoundary(root, modelName) {
-  if (!DEBUG_WATER_BOUNDARY) return;
+  if (!DEBUG_WATER_BOUNDARY || debugWaterRoots.has(root)) return;
   const contour = WATER_GEOMETRY[modelName];
-  if (!Array.isArray(contour) || contour.length < 3) return;
+  if (!Array.isArray(contour) || contour.length < 3) {
+    console.warn('[echo] missing server water contour for debug line:', modelName);
+    return;
+  }
 
-  // This is the SERVER collision polygon itself — not the visible OBJ/GLB edge.
-  // It is a line only, with no fill, and inherits the exact water holder transform.
+  // Server collision vertices are (x,y); the water surface uses model local XZ.
+  // Build the line in XZ so it shares the exact holder rotation and scale.
   const positions = [];
-  for (const [x, y] of contour) positions.push(x, y, 0);
-  positions.push(contour[0][0], contour[0][1], 0);
+  for (const [x, y] of contour) positions.push(x, 0, y);
+  positions.push(contour[0][0], 0, contour[0][1]);
 
   const geometry = new LineGeometry();
   geometry.setPositions(positions);
@@ -173,22 +177,29 @@ function addDebugWaterBoundary(root, modelName) {
     color: 0xff0000,
     linewidth: DEBUG_WATER_BOUNDARY_WIDTH_PX,
     transparent: true,
-    opacity: 0.95,
+    opacity: 1,
     depthTest: false,
     depthWrite: false,
     toneMapped: false,
   });
   const line = new Line2(geometry, material);
   line.name = 'echo-server-water-boundary-debug';
-  line.rotation.x = Math.PI / 2;
-  line.position.y = 0.012;
-  const surface = root.children.find(child => child.isObject3D && child !== line);
-  if (surface?.scale?.x) line.scale.setScalar(surface.scale.x);
-  line.renderOrder = 20;
+  line.position.y = 0.04;
+  line.renderOrder = 1000;
   root.add(line);
-  line.computeLineDistances();
   debugWaterLines.add(material);
+  debugWaterRoots.add(root);
   updateDebugWaterLineResolution();
+}
+
+function handleWaterModel(root, modelName) {
+  if (!root || !modelName) return;
+  addDebugWaterBoundary(root, modelName);
+  root.traverse((child) => {
+    if (!child.isMesh || !child.material) return;
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+    for (const material of materials) applyContourShader(material, modelName);
+  });
 }
 
 function applyContourShader(material, modelName) {
@@ -273,17 +284,18 @@ function watchWaterModels() {
   const renderer = document.querySelector('#models');
   if (!renderer) return;
 
-  // game.js creates each water mesh with a neutral MeshBasicMaterial and tags
-  // its source model here when it creates the water root.
+  // Subscribe before game.js runs and handle events if a water model appears later.
   window.addEventListener('echo:water-model-created', (event) => {
     const { root, model } = event.detail || {};
-    if (!root || !model) return;
-    addDebugWaterBoundary(root, model);
-    root.traverse((child) => {
-      if (!child.isMesh || !child.material) return;
-      const materials = Array.isArray(child.material) ? child.material : [child.material];
-      for (const material of materials) applyContourShader(material, model);
-    });
+    handleWaterModel(root, model);
+  });
+
+  // Also handle any roots already attached to the scene, in case the event fired first.
+  // game.js stores these tagged roots on each current water object.
+  window.addEventListener('echo:water-models-ready', (event) => {
+    for (const water of event.detail?.waters || []) {
+      handleWaterModel(water?.root, water?.model);
+    }
   });
 }
 
