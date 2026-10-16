@@ -33,6 +33,7 @@ game?.appendChild(effect);
 
 let pulseTimer = null;
 let isMoving = false;
+let isOnWater = false;
 let pulseRunning = false;
 
 function stopPulse() {
@@ -45,7 +46,7 @@ function stopPulse() {
 }
 
 function pulse() {
-  if (!isMoving || pulseRunning) return;
+  if (!isMoving || !isOnWater || pulseRunning) return;
 
   pulseRunning = true;
   effect.style.opacity = '1';
@@ -58,12 +59,25 @@ function pulse() {
     effect.style.width = `${WATER_GIF_MIN_WIDTH}px`;
     pulseRunning = false;
 
-    if (isMoving) {
+    if (isMoving && isOnWater) {
       void effect.offsetWidth;
       pulse();
     }
   }, WATER_GIF_PULSE_MS);
 }
+
+function updateEffectState() {
+  if (isMoving && isOnWater) {
+    pulse();
+  } else {
+    stopPulse();
+  }
+}
+
+window.addEventListener('echo:water-state', (event) => {
+  isOnWater = Boolean(event.detail?.inWater ?? event.detail?.isInWater ?? event.detail?.water);
+  updateEffectState();
+});
 
 window.addEventListener('echo:player-movement', (event) => {
   const vx = Number(event.detail?.vx) || 0;
@@ -73,9 +87,5 @@ window.addEventListener('echo:player-movement', (event) => {
   if (movingNow === isMoving) return;
 
   isMoving = movingNow;
-  if (isMoving) {
-    pulse();
-  } else {
-    stopPulse();
-  }
+  updateEffectState();
 });
