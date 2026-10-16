@@ -2,9 +2,11 @@ const foodCanvas = document.querySelector('#shared-food');
 const energyText = document.querySelector('#energy');
 
 // The magnet is visual only; collection and disappearance remain server-authoritative.
-const FOOD_MAGNET_RADIUS = 84 * 0.9;
+// Keep the visual magnet radius aligned with the server collection radius (60),
+// otherwise food can start flying toward the player before the server is allowed
+// to collect it, reach the player, snap back to its real position, and fly again.
+const FOOD_MAGNET_RADIUS = 60;
 const FOOD_MAGNET_SPEED = 520;
-const FOOD_RECONCILE_SPEED = 260;
 const ISO_X = 0.8660254;
 const ISO_Y = 0.5;
 
