@@ -17,18 +17,58 @@ const WORLD={spacing:84},ISO={x:.8660254,y:.5},JUMP_DISTANCE=420,JUMP_DURATION=2
 const modelScene=new THREE.Scene(),modelCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,1000);modelCamera.position.z=100;const modelRenderer=new THREE.WebGLRenderer({canvas:modelCanvas,alpha:true,antialias:true});modelRenderer.setPixelRatio(Math.min(devicePixelRatio||1,2));modelRenderer.outputColorSpace=THREE.SRGBColorSpace;modelRenderer.setClearColor(0,0);const ambientLight=new THREE.AmbientLight(0x4f6b7d,2.0);modelScene.add(ambientLight);const keyLight=new THREE.DirectionalLight(0xb9dcf5,3.6);keyLight.position.set(-100,57.735,0);modelScene.add(keyLight);
 
 const groundCanvas=document.createElement('canvas');groundCanvas.width=256;groundCanvas.height=256;const groundCtx=groundCanvas.getContext('2d');for(let y=0;y<256;y++){for(let x=0;x<256;x++){const n=128+Math.floor((Math.random()-.5)*34);groundCtx.fillStyle=`rgb(${n},${n},${n})`;groundCtx.fillRect(x,y,1,1);}}const groundNoiseTexture=new THREE.CanvasTexture(groundCanvas);groundNoiseTexture.colorSpace=THREE.NoColorSpace;groundNoiseTexture.wrapS=THREE.RepeatWrapping;groundNoiseTexture.wrapT=THREE.RepeatWrapping;groundNoiseTexture.repeat.set(12,12);groundNoiseTexture.needsUpdate=true;
-// Transform the 4200 x 4200 world square through the same projection as the 2D grid.
-// This keeps the ground a diamond in world isometric space, without touching grid/border drawing.
+
+// Dedicated surface texture: cold ground tint and the same diagonal grid as the world overlay.
+// UVs follow world X/Y, so these lines remain aligned with the existing isometric projection.
+const FIELD_SIZE=4200,FIELD_HALF=FIELD_SIZE/2,FIELD_TEXTURE_SIZE=1024,FIELD_GRID_SPACING=84;
+const fieldCanvas=document.createElement('canvas');
+fieldCanvas.width=FIELD_TEXTURE_SIZE;fieldCanvas.height=FIELD_TEXTURE_SIZE;
+const fieldCtx=fieldCanvas.getContext('2d');
+const fieldGradient=fieldCtx.createLinearGradient(0,0,FIELD_TEXTURE_SIZE,FIELD_TEXTURE_SIZE);
+fieldGradient.addColorStop(0,'#263744');
+fieldGradient.addColorStop(.5,'#1c2a35');
+fieldGradient.addColorStop(1,'#243642');
+fieldCtx.fillStyle=fieldGradient;
+fieldCtx.fillRect(0,0,FIELD_TEXTURE_SIZE,FIELD_TEXTURE_SIZE);
+const fieldGrain=fieldCtx.createImageData(FIELD_TEXTURE_SIZE,FIELD_TEXTURE_SIZE);
+for(let i=0;i<fieldGrain.data.length;i+=4){const n=(Math.random()-.5)*10;fieldGrain.data[i]=n>0?n:0;fieldGrain.data[i+1]=n>0?n:0;fieldGrain.data[i+2]=n>0?n:0;fieldGrain.data[i+3]=12;}
+fieldCtx.putImageData(fieldGrain,0,0);
+fieldCtx.save();
+fieldCtx.strokeStyle='rgba(169,198,228,.20)';
+fieldCtx.lineWidth=1;
+fieldCtx.beginPath();
+for(let coord=-FIELD_HALF;coord<=FIELD_HALF;coord+=FIELD_GRID_SPACING){
+  const t=((coord+FIELD_HALF)/FIELD_SIZE)*FIELD_TEXTURE_SIZE;
+  fieldCtx.moveTo(t,0);fieldCtx.lineTo(t,FIELD_TEXTURE_SIZE);
+  fieldCtx.moveTo(0,t);fieldCtx.lineTo(FIELD_TEXTURE_SIZE,t);
+}
+fieldCtx.stroke();
+fieldCtx.fillStyle='rgba(195,222,247,.22)';
+for(let x=0;x<=FIELD_TEXTURE_SIZE;x+=FIELD_GRID_SPACING/FIELD_SIZE*FIELD_TEXTURE_SIZE){
+  for(let y=0;y<=FIELD_TEXTURE_SIZE;y+=FIELD_GRID_SPACING/FIELD_SIZE*FIELD_TEXTURE_SIZE){
+    fieldCtx.fillRect(x-1,y-1,2,2);
+  }
+}
+fieldCtx.restore();
+const fieldTexture=new THREE.CanvasTexture(fieldCanvas);
+fieldTexture.colorSpace=THREE.SRGBColorSpace;
+fieldTexture.wrapS=THREE.ClampToEdgeWrapping;
+fieldTexture.wrapT=THREE.ClampToEdgeWrapping;
+fieldTexture.anisotropy=modelRenderer.capabilities.getMaxAnisotropy();
+fieldTexture.needsUpdate=true;
+
+// Use the same world-to-screen isometric matrix as the game's 2D projection.
 const groundIsoMatrix=new THREE.Matrix4().set(
   ISO.x,-ISO.x,0,0,
   ISO.y, ISO.y,0,0,
   0,0,1,0,
   0,0,0,1
 );
-const groundGeometry=new THREE.PlaneGeometry(4200,4200,1,1);
+const groundGeometry=new THREE.PlaneGeometry(FIELD_SIZE,FIELD_SIZE,1,1);
 groundGeometry.applyMatrix4(groundIsoMatrix);
 const groundMaterial=new THREE.MeshPhysicalMaterial({
-  color:0x202a33,
+  color:0xffffff,
+  map:fieldTexture,
   roughness:.32,
   metalness:0,
   ior:1.45,
@@ -47,6 +87,41 @@ const groundPlane=new THREE.Mesh(groundGeometry,groundMaterial);
 groundPlane.position.set(0,0,-2);
 groundPlane.renderOrder=-10;
 modelScene.add(groundPlane);
+
+// Separate emissive boundary and broad additive halo: do not bake the glow into the opaque floor.
+const boundaryShape=new THREE.Shape();
+boundaryShape.moveTo(-FIELD_HALF,-FIELD_HALF);
+boundaryShape.lineTo(FIELD_HALF,-FIELD_HALF);
+boundaryShape.lineTo(FIELD_HALF,FIELD_HALF);
+boundaryShape.lineTo(-FIELD_HALF,FIELD_HALF);
+boundaryShape.closePath();
+const boundaryPoints=[
+  [-FIELD_HALF,-FIELD_HALF],[FIELD_HALF,-FIELD_HALF],
+  [FIELD_HALF,FIELD_HALF],[-FIELD_HALF,FIELD_HALF],[-FIELD_HALF,-FIELD_HALF]
+].map(([x,y])=>{const p=isoProject(x,y);return new THREE.Vector3(p.x,p.y,0);});
+const boundaryGeometry=new THREE.BufferGeometry().setFromPoints(boundaryPoints);
+const boundaryHalo=new THREE.Line(boundaryGeometry,new THREE.LineBasicMaterial({
+  color:0x35baff,transparent:true,opacity:.18,blending:THREE.AdditiveBlending,
+  depthTest:false,depthWrite:false,toneMapped:false
+}));
+boundaryHalo.scale.set(1.035,1.035,1);
+boundaryHalo.position.z=-.8;
+boundaryHalo.renderOrder=10;
+modelScene.add(boundaryHalo);
+const boundaryGlow=new THREE.Line(boundaryGeometry,new THREE.LineBasicMaterial({
+  color:0x50caff,transparent:true,opacity:.68,blending:THREE.AdditiveBlending,
+  depthTest:false,depthWrite:false,toneMapped:false
+}));
+boundaryGlow.position.z=-.7;
+boundaryGlow.renderOrder=11;
+modelScene.add(boundaryGlow);
+const boundaryCore=new THREE.Line(boundaryGeometry,new THREE.LineBasicMaterial({
+  color:0xb8efff,transparent:true,opacity:.92,
+  depthTest:false,depthWrite:false,toneMapped:false
+}));
+boundaryCore.position.z=-.6;
+boundaryCore.renderOrder=12;
+modelScene.add(boundaryCore);
 
 const loader=new GLTFLoader(),DEFAULT_MODEL='character-female-a.glb',ALLOWED_MODELS=new Set(['character-female-a.glb','character-female-b.glb','character-female-c.glb','character-female-d.glb','character-female-e.glb','character-female-f.glb','character-male-a.glb','character-male-b.glb','character-male-c.glb','character-male-d.glb','character-male-e.glb','character-male-f.glb']),selectedModel=ALLOWED_MODELS.has(localStorage.getItem('echo.selectedModel'))?localStorage.getItem('echo.selectedModel'):DEFAULT_MODEL,modelCache={source:null,clips:[],local:null,localAnimation:null,localReflection:null,others:new Map(),otherSources:new Map(),ready:false};
 const worldObjects = {trees: [],treeSource: null,treeLoading: false,waters: [],waterSources: new Map(),waterLoading: new Set(),};
