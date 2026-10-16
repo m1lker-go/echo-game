@@ -22,7 +22,7 @@
   --echo-hud-top: 22px;
   --echo-hud-left: 22px;
   --echo-hud-right: 22px;
-  --echo-brand-font: 15px;
+  --echo-brand-font: 30px;
   --echo-brand-dx: 0px;
   --echo-brand-dy: 0px;
   --echo-status-font: 10px;
@@ -96,14 +96,9 @@
   --echo-jump-dy: 0px;
   --echo-cooldown-font: 64px;
 
-  /* Bottom text: each has its own position and size */
-  --echo-footer-bottom: 22px;
-  --echo-footer-left: 22px;
-  --echo-footer-right: 22px;
-  --echo-prototype-font: 8px;
-  --echo-coords-font: 8px;
-  --echo-prototype-dx: 0px;
-  --echo-prototype-dy: 0px;
+  /* Top-center coordinates, height-relative, independently tunable. */
+  --echo-coords-top: 8px;
+  --echo-coords-font: 16px;
   --echo-coords-dx: 0px;
   --echo-coords-dy: 0px;
   --echo-controls-hint-bottom: 28px;
@@ -256,22 +251,23 @@
 #game #jump > small { font-size: calc(var(--echo-jump-text-font) * var(--echo-ui-scale)); }
 #game .ability-cooldown { font-size: calc(var(--echo-cooldown-font) * var(--echo-ui-scale)); }
 
-#game .footer {
-  bottom: max(calc(var(--echo-footer-bottom) * var(--echo-ui-scale)), env(safe-area-inset-bottom, 0px));
-  left: max(calc(var(--echo-footer-left) * var(--echo-ui-scale)), env(safe-area-inset-left, 0px));
-  right: max(calc(var(--echo-footer-right) * var(--echo-ui-scale)), env(safe-area-inset-right, 0px));
-}
-#game .footer > span:first-child {
-  font-size: calc(var(--echo-prototype-font) * var(--echo-ui-scale));
-  transform: translate(
-    calc(var(--echo-prototype-dx) * var(--echo-ui-scale)),
-    calc(var(--echo-prototype-dy) * var(--echo-ui-scale))
-  );
-}
 #game #coords {
+  position: absolute;
+  z-index: 6;
+  top: max(calc(var(--echo-coords-top) * var(--echo-ui-scale)), env(safe-area-inset-top, 0px));
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  width: max-content;
+  max-width: calc(100% - 24px);
   font-size: calc(var(--echo-coords-font) * var(--echo-ui-scale));
+  line-height: 1;
+  white-space: nowrap;
+  text-align: center;
+  color: #aeb9c7;
+  pointer-events: none;
   transform: translate(
-    calc(var(--echo-coords-dx) * var(--echo-ui-scale)),
+    calc(-50% + var(--echo-coords-dx) * var(--echo-ui-scale)),
     calc(var(--echo-coords-dy) * var(--echo-ui-scale))
   );
 }

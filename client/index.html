@@ -7,7 +7,7 @@
   <title>ECHO</title>
   <link rel="icon" type="image/png" href="./assets/icons/favicon.png" />
   <link rel="stylesheet" href="./style.css?v=echo-language-selector-3" />
-  <link rel="stylesheet" href="./ui-layout.css?v=echo-labels-up-1" />
+  <link rel="stylesheet" href="./ui-layout.css?v=echo-hud-coords-top-1" />
   <link rel="stylesheet" href="./world-minimap.css?v=echo-minimap-1" />
   <link rel="preload" href="./assets/fonts/SchuelerSuperXP-Regular_0.otf" as="font" type="font/otf" crossorigin />
   <link rel="stylesheet" href="./echo-font.css?v=echo-global-font-1" />
@@ -51,7 +51,7 @@
         <button id="jump" class="ability jump-ability" type="button" aria-label="Прыжок" data-i18n-aria-label="game:jump_aria_label"><span>↑</span><small data-i18n="game:jump">ПРЫЖОК</small></button>
       </div>
     </div>
-    <div class="footer"><span data-i18n="menu:prototype_label">ПРОТОТИП 01</span><span id="coords" data-i18n="game:coords_zero">0 · 0</span></div>
+    <div id="coords" data-i18n="game:coords_zero">0 · 0</div>
     <section id="defeat-screen" class="defeat-screen" hidden aria-label="Поражение" data-i18n-aria-label="game:defeat_aria_label"><div class="defeat-card"><div class="defeat-title" data-i18n="game:defeat_title">ВЫ ПРОИГРАЛИ</div><div class="defeat-subtitle" data-i18n="game:defeat_subtitle">Ваша энергия закончилась</div><div class="defeat-buttons"><button id="defeat-replay" class="menu-button" type="button" data-i18n="game:replay">Сыграть ещё</button><button id="defeat-menu" class="menu-button" type="button" data-i18n="game:back_to_menu">Назад в меню</button></div></div></section>
     <section id="main-menu" class="main-menu" aria-label="Главное меню" data-i18n-aria-label="menu:main_aria_label">
       <canvas id="menu-food" class="menu-food" aria-hidden="true"></canvas>
