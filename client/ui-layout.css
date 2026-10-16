@@ -334,6 +334,16 @@
     calc(var(--echo-menu-rating-dy) * var(--echo-ui-scale))
   );
 }
+/* Main-screen-only typography and spacing: larger text, gaps take space from buttons. */
+#game .menu-main-screen .menu-logo {
+  font-size: clamp(32px, calc(54px * var(--echo-ui-scale)), 70px);
+}
+#game .menu-main-screen .menu-buttons {
+  gap: clamp(12px, calc(26px * var(--echo-ui-scale)), 34px);
+}
+#game .menu-main-screen .menu-buttons > .menu-button {
+  font-size: clamp(15px, calc(20px * var(--echo-ui-scale)), 26px);
+}
 #game .menu-back {
   width: min(calc(var(--echo-menu-max-width) * var(--echo-ui-scale)), calc(100% - 20px));
   height: calc(var(--echo-menu-back-height) * var(--echo-ui-scale));
