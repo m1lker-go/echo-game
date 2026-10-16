@@ -69,5 +69,3 @@ if (typeof module !== 'undefined' && module.exports) {
   }
   module.exports = ECHO_WATER_HAZARD_CONTOURS;
 }
-
-export default ECHO_WATER_HAZARD_CONTOURS;
