@@ -97,7 +97,7 @@
   --echo-cooldown-font: 64px;
 
   /* Top-center coordinates, height-relative, independently tunable. */
-  --echo-coords-top: 8px;
+  --echo-coords-top: 22px;
   --echo-coords-font: 16px;
   --echo-coords-dx: 0px;
   --echo-coords-dy: 0px;
@@ -141,17 +141,26 @@
   top: max(calc(var(--echo-hud-top) * var(--echo-ui-scale)), env(safe-area-inset-top, 0px));
   left: max(calc(var(--echo-hud-left) * var(--echo-ui-scale)), env(safe-area-inset-left, 0px));
   right: max(calc(var(--echo-hud-right) * var(--echo-ui-scale)), env(safe-area-inset-right, 0px));
+  /* The logo sets the vertical origin for all three top labels. */
+  align-items: flex-start;
 }
 #game .brand {
   font-size: calc(var(--echo-brand-font) * var(--echo-ui-scale));
+  line-height: 1;
   transform: translate(
     calc(var(--echo-brand-dx) * var(--echo-ui-scale)),
     calc(var(--echo-brand-dy) * var(--echo-ui-scale))
   );
 }
-#game .status-stack { gap: calc(var(--echo-status-stack-gap) * var(--echo-ui-scale)); }
+#game .status-stack {
+  gap: calc(var(--echo-status-stack-gap) * var(--echo-ui-scale));
+  /* Center the connection label within the logo-height row.
+     The Exit button remains below it. */
+  padding-top: calc((var(--echo-brand-font) - var(--echo-status-font)) * var(--echo-ui-scale) / 2);
+}
 #game .status {
   font-size: calc(var(--echo-status-font) * var(--echo-ui-scale));
+  line-height: 1;
   gap: calc(var(--echo-status-gap) * var(--echo-ui-scale));
   transform: translate(
     calc(var(--echo-status-dx) * var(--echo-ui-scale)),
@@ -260,6 +269,10 @@
   bottom: auto;
   width: max-content;
   max-width: calc(100% - 24px);
+  height: calc(var(--echo-brand-font) * var(--echo-ui-scale));
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: calc(var(--echo-coords-font) * var(--echo-ui-scale));
   line-height: 1;
   white-space: nowrap;
