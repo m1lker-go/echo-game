@@ -140,7 +140,7 @@ function onPlayerMovement(event) {
   }
   const dtDistance = speed * Math.min(.05, Math.max(0, (now - lastMovementAt) / 1000));
   distanceAccumulator += dtDistance;
-  if (distanceAccumulator >= WAVE_STEP_DISTANCE) {
+  while (distanceAccumulator >= WAVE_STEP_DISTANCE) {
     distanceAccumulator -= WAVE_STEP_DISTANCE;
     spawnWave(playerX, playerY, now);
   }
