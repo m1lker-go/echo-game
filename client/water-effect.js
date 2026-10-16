@@ -5,6 +5,7 @@ const game = document.querySelector('#game');
 const WATER_GIF_MIN_WIDTH = 40;
 const WATER_GIF_MAX_WIDTH = 80;
 const WATER_GIF_PULSE_MS = 300;
+const WATER_GIF_MOVEMENT_THRESHOLD = 1;
 
 const effect = document.createElement('img');
 effect.id = 'water-step-effect';
@@ -30,18 +31,48 @@ effect.style.cssText = [
 game?.appendChild(effect);
 
 let pulseTimer = null;
+let isMoving = false;
+let pulseRunning = false;
+
+function stopPulse() {
+  clearTimeout(pulseTimer);
+  pulseTimer = null;
+  pulseRunning = false;
+  effect.style.transition = 'none';
+  effect.style.width = `${WATER_GIF_MIN_WIDTH}px`;
+}
 
 function pulse() {
+  if (!isMoving || pulseRunning) return;
+
+  pulseRunning = true;
+  effect.style.transition = `width ${WATER_GIF_PULSE_MS}ms ease-in-out`;
   effect.style.width = `${WATER_GIF_MAX_WIDTH}px`;
 
-  clearTimeout(pulseTimer);
   pulseTimer = setTimeout(() => {
+    pulseTimer = null;
     effect.style.transition = 'none';
     effect.style.width = `${WATER_GIF_MIN_WIDTH}px`;
-    void effect.offsetWidth;
-    effect.style.transition = `width ${WATER_GIF_PULSE_MS}ms ease-in-out`;
-    pulse();
+    pulseRunning = false;
+
+    if (isMoving) {
+      void effect.offsetWidth;
+      pulse();
+    }
   }, WATER_GIF_PULSE_MS);
 }
 
-pulse();
+window.addEventListener('echo:player-movement', (event) => {
+  const vx = Number(event.detail?.vx) || 0;
+  const vy = Number(event.detail?.vy) || 0;
+  const movingNow = Math.hypot(vx, vy) > WATER_GIF_MOVEMENT_THRESHOLD;
+
+  if (movingNow === isMoving) return;
+
+  isMoving = movingNow;
+  if (isMoving) {
+    pulse();
+  } else {
+    stopPulse();
+  }
+});
