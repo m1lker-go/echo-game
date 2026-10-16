@@ -17,6 +17,14 @@ const WORLD={spacing:84},ISO={x:.8660254,y:.5},JUMP_DISTANCE=420,JUMP_DURATION=2
 const modelScene=new THREE.Scene(),modelCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,1000);modelCamera.position.z=100;const modelRenderer=new THREE.WebGLRenderer({canvas:modelCanvas,alpha:true,antialias:true});modelRenderer.setPixelRatio(Math.min(devicePixelRatio||1,2));modelRenderer.outputColorSpace=THREE.SRGBColorSpace;modelRenderer.setClearColor(0,0);const ambientLight=new THREE.AmbientLight(0x4f6b7d,2.0);modelScene.add(ambientLight);const keyLight=new THREE.DirectionalLight(0xb9dcf5,3.6);keyLight.position.set(-100,57.735,0);modelScene.add(keyLight);
 
 const groundCanvas=document.createElement('canvas');groundCanvas.width=256;groundCanvas.height=256;const groundCtx=groundCanvas.getContext('2d');for(let y=0;y<256;y++){for(let x=0;x<256;x++){const n=128+Math.floor((Math.random()-.5)*34);groundCtx.fillStyle=`rgb(${n},${n},${n})`;groundCtx.fillRect(x,y,1,1);}}const groundNoiseTexture=new THREE.CanvasTexture(groundCanvas);groundNoiseTexture.colorSpace=THREE.NoColorSpace;groundNoiseTexture.wrapS=THREE.RepeatWrapping;groundNoiseTexture.wrapT=THREE.RepeatWrapping;groundNoiseTexture.repeat.set(12,12);groundNoiseTexture.needsUpdate=true;
+// Keep the ground deliberately subdued: the existing 2D grid and boundary artwork
+// stay on top, while the transparent renderer leaves everything outside the map black.
+const groundMaterial=new THREE.MeshPhysicalMaterial({color:0x202a33,roughness:.72,metalness:.015,reflectivity:.12,clearcoat:.035,clearcoatRoughness:.7,roughnessMap:groundNoiseTexture,bumpMap:groundNoiseTexture,bumpScale:.045,transparent:true,opacity:.34,depthWrite:false,side:THREE.DoubleSide});
+const groundPlane=new THREE.Mesh(new THREE.PlaneGeometry(4200,4200,1,1),groundMaterial);
+groundPlane.rotation.x=0;
+groundPlane.position.set(0,0,-2);
+groundPlane.renderOrder=-10;
+modelScene.add(groundPlane);
 const groundMaterial=new THREE.MeshPhysicalMaterial({color:0x536b79,roughness:.38,metalness:.04,reflectivity:.38,clearcoat:.14,clearcoatRoughness:.42,roughnessMap:groundNoiseTexture,bumpMap:groundNoiseTexture,bumpScale:.22});const groundPlane=new THREE.Mesh(new THREE.PlaneGeometry(4200,4200,1,1),groundMaterial);groundPlane.position.set(0,0,-2);groundPlane.renderOrder=-10;modelScene.add(groundPlane);
 
 const loader=new GLTFLoader(),DEFAULT_MODEL='character-female-a.glb',ALLOWED_MODELS=new Set(['character-female-a.glb','character-female-b.glb','character-female-c.glb','character-female-d.glb','character-female-e.glb','character-female-f.glb','character-male-a.glb','character-male-b.glb','character-male-c.glb','character-male-d.glb','character-male-e.glb','character-male-f.glb']),selectedModel=ALLOWED_MODELS.has(localStorage.getItem('echo.selectedModel'))?localStorage.getItem('echo.selectedModel'):DEFAULT_MODEL,modelCache={source:null,clips:[],local:null,localAnimation:null,others:new Map(),otherSources:new Map(),ready:false};
