@@ -6,16 +6,14 @@ export function createMobileFloorReflections({THREE,renderer,camera,scene,cloneS
   const reflectedRoots = new WeakMap();
   const materialCache = new WeakMap();
   const mirrorCamera = camera;
-  const maxTrees = 9;
+  const maxTrees = 6;
   const maxTreeDistance = 580;
   let target = null;
   let targetWidth = 0, targetHeight = 0;
   let active = [];
   const mirroredGround = new THREE.Group();
   reflectionScene.add(mirroredGround);
-  const offset = new THREE.Vector3();
-  const planeNormal = new THREE.Vector3(0, 1, 0);
-  const discardColor = new THREE.Color('#7399AB');
+    const discardColor = new THREE.Color('#7399AB');
 
   function material(source, isTree) {
     let entry = materialCache.get(source);
@@ -141,6 +139,7 @@ export function createMobileFloorReflections({THREE,renderer,camera,scene,cloneS
     const prev=renderer.getRenderTarget();
     const autoClear=renderer.autoClear;
     renderer.setRenderTarget(target);
+    renderer.autoClear=true;
     renderer.setClearColor(0x000000,0);
     renderer.clear(true,true,true);
     renderer.render(reflectionScene,mirrorCamera);
