@@ -8,6 +8,10 @@ export function createMobileFloorReflections({ THREE, renderer, scene, camera })
   const MAX_TREE_DISTANCE = 510;
   const MIRROR_HEIGHT = 0.72;
   const MIRROR_GAP = 3;
+  // Tilt the mirrored silhouette to screen-right by 45 degrees, regardless of facing.
+  const MIRROR_TILT = new THREE.Quaternion().setFromAxisAngle(
+    new THREE.Vector3(0, 0, 1), Math.PI / 4
+  );
   const reflectionMaterials = new WeakMap();
   let disabledAfterError = false;
 
@@ -26,7 +30,8 @@ export function createMobileFloorReflections({ THREE, renderer, scene, camera })
       alphaMap: source?.alphaMap || null,
       color: 0x92b5cc,
       transparent: true,
-      opacity: isTree ? 0.18 : 0.32,
+      // ~30% softer than the original reflections (tree 0.18, player 0.32).
+      opacity: isTree ? 0.12 : 0.22,
       depthTest: false,
       depthWrite: false,
       side: THREE.DoubleSide,
@@ -89,9 +94,17 @@ export function createMobileFloorReflections({ THREE, renderer, scene, camera })
     let reflected = false;
     try {
       for (const { root, isTree } of selected) {
-        changedRoots.push({ root, y: root.position.y, sy: root.scale.y });
+        changedRoots.push({
+          root,
+          y: root.position.y,
+          sy: root.scale.y,
+          quaternion: root.quaternion.clone(),
+        });
         root.position.y -= MIRROR_GAP;
         root.scale.y *= -MIRROR_HEIGHT;
+        // Pre-multiplication keeps the tilt in screen coordinates, so running
+        // toward/away/sideways cannot rotate the reflection's floor direction.
+        root.quaternion.premultiply(MIRROR_TILT);
         root.traverse(mesh => {
           if (!mesh.isMesh) return;
           changedMeshes.push({
@@ -118,9 +131,10 @@ export function createMobileFloorReflections({ THREE, renderer, scene, camera })
       console.warn('[echo] Floor reflections disabled after rendering error', error);
     } finally {
       // Restore gameplay-visible objects even if a device fails to render the effect.
-      for (const { root, y, sy } of changedRoots) {
+      for (const { root, y, sy, quaternion } of changedRoots) {
         root.position.y = y;
         root.scale.y = sy;
+        root.quaternion.copy(quaternion);
       }
       for (const { mesh, material, layers, frustumCulled } of changedMeshes) {
         mesh.material = material;
