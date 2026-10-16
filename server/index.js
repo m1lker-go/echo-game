@@ -498,7 +498,11 @@ function createWorldSnapshot() {
   return {
     seed: WORLD_SEED,
     trees: WORLD_TREES.map(({ id, type, x, y, scale, rotation, collisionRadius }) => ({ id, type, x, y, scale, rotation, collisionRadius })),
-    waters: WORLD_WATERS.map(({ id, type, model, x, y, scale, rotation, collisionRadius }) => ({ id, type, model, x, y, scale, rotation, collisionRadius })),
+    // Send authoritative server collision polygon for optional client diagnostic.
+    waters: WORLD_WATERS.map(({ id, type, model, x, y, scale, rotation, collisionRadius }) => ({
+      id, type, model, x, y, scale, rotation, collisionRadius,
+      serverContour: getWaterGeometry({ model }).vertices,
+    })),
   };
 }
 function isBlockedByTree(position, clearance = 0) {
