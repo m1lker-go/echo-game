@@ -1,0 +1,39 @@
+name: ECHO lighting tune
+on:
+  push:
+    paths:
+      - '.github/workflows/echo-lighting-tune.yml'
+
+jobs:
+  tune:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update light colors
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('client/game.js')
+          s=p.read_text()
+          s2=s.replace('new THREE.AmbientLight(0x7895a8,2.0)','new THREE.AmbientLight(0x4f6b7d,2.0)').replace('new THREE.DirectionalLight(0xe5f4ff,3.6)','new THREE.DirectionalLight(0xb9dcf5,3.6)')
+          if s2 == s:
+              raise SystemExit('Expected light colors not found')
+          p.write_text(s2)
+          PY
+      - name: Commit change
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add client/game.js
+          git commit -m 'Tune ECHO lighting colors for visible twilight tint'
+          git push
+      - name: Remove temporary workflow
+        if: always()
+        run: |
+          rm -f .github/workflows/echo-lighting-tune.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -u .github/workflows/echo-lighting-tune.yml
+          git diff --cached --quiet || (git commit -m 'Remove temporary lighting workflow' && git push)
