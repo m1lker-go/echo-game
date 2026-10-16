@@ -1,0 +1,33 @@
+name: ECHO lighting color update
+on:
+  push:
+    paths:
+      - .github/workflows/echo-lighting-update.yml
+permissions:
+  contents: write
+jobs:
+  update-lighting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update lighting colors
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('client/game.js')
+          s = p.read_text()
+          old = "const ambientLight=new THREE.AmbientLight(0xffffff,2.0);modelScene.add(ambientLight);const keyLight=new THREE.DirectionalLight(0xffffff,3.6);"
+          new = "const ambientLight=new THREE.AmbientLight(0x7895a8,2.0);modelScene.add(ambientLight);const keyLight=new THREE.DirectionalLight(0xe5f4ff,3.6);"
+          if old not in s:
+              raise SystemExit('Expected lighting declaration not found; no changes made.')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add client/game.js .github/workflows/echo-lighting-update.yml
+          git rm .github/workflows/echo-lighting-update.yml
+          git commit -m "Update ECHO lighting colors"
+          git push
