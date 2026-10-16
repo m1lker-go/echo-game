@@ -4,6 +4,7 @@ import { clone as cloneSkeleton } from 'https://cdn.jsdelivr.net/npm/three@0.180
 import { bindPlayerControls, updatePlayerMovement } from './player-controls.js';
 import { updateCharacterFacing } from './character-facing.js';
 import { createMobileFloorReflections } from './mobile-floor-reflections.js';
+import { getWorldViewport } from './viewport-scale.js';
 
 const activityProfileStorageKey = 'echo.activityProfileId';
 let activityProfileId = localStorage.getItem(activityProfileStorageKey);
@@ -47,7 +48,29 @@ function startAttackAnimation(a,v='right',until=performance.now()+FIGHT_DURATION
 function switchAnimation(a,moving,time){if(!a)return;if(time<a.combatUntil&&a.combatAction){const attack=a.mixer.clipAction(a.combatAction);if(!attack.isRunning())attack.play();return;}if(a.combatAction&&time>=a.combatUntil){a.combatAction=null;a.combatUntil=0;}const next=moving&&a.walk?a.walk:a.idle;if(!next||next===a.current)return;const current=a.mixer.clipAction(a.current),nextAction=a.mixer.clipAction(next);nextAction.reset().setLoop(THREE.LoopRepeat,Infinity).fadeIn(.15).play();current.fadeOut(.15);a.current=next;}
 function loadCharacterModel(file,onLoaded,onError){const safe=ALLOWED_MODELS.has(file)?file:DEFAULT_MODEL;loader.load(`./assets/models/${safe}`,g=>onLoaded(g,safe),undefined,e=>{console.error(`[echo] failed to load character GLB: ${safe}`,e);onError?.(e,safe);});}
 function createLocalModel(file){loadCharacterModel(file,(g,file2)=>{modelCache.source=g.scene;modelCache.clips=g.animations||[];const local=new THREE.Group(),visible=prepareModel(g.scene,false);local.add(visible);modelCache.local=local;modelCache.localAnimation=setupAnimation(visible,modelCache.clips,false);local.userData.animation=modelCache.localAnimation;modelScene.add(local);modelCache.ready=true;console.log(`[echo] GLB loaded: ${file2}; animations: ${modelCache.clips.length}`);console.log('[echo] available animations:',modelCache.clips.map(c=>c.name));});}createLocalModel(selectedModel);
-function resize(){const r=canvas.getBoundingClientRect();state.dpr=Math.min(devicePixelRatio||1,2);state.width=Math.max(1,r.width);state.height=Math.max(1,r.height);canvas.width=Math.round(state.width*state.dpr);canvas.height=Math.round(state.height*state.dpr);ctx.setTransform(state.dpr,0,0,state.dpr,0,0);modelRenderer.setPixelRatio(state.dpr);modelRenderer.setSize(state.width,state.height,false);modelCamera.left=-state.width/2;modelCamera.right=state.width/2;modelCamera.top=state.height/2;modelCamera.bottom=-state.height/2;modelCamera.updateProjectionMatrix();}addEventListener('resize',resize,{passive:true});resize();
+function resize(){
+  const rect=canvas.getBoundingClientRect();
+  const pixelWidth=Math.max(1,rect.width),pixelHeight=Math.max(1,rect.height);
+  const viewport=getWorldViewport(pixelWidth,pixelHeight);
+  state.dpr=Math.min(devicePixelRatio||1,2);
+  // All world coordinates use the same virtual 700-unit vertical field of view.
+  // Only the horizontal world view grows/shrinks with the real screen aspect.
+  state.width=viewport.width;
+  state.height=viewport.height;
+  state.worldScale=viewport.scale;
+  canvas.width=Math.round(pixelWidth*state.dpr);
+  canvas.height=Math.round(pixelHeight*state.dpr);
+  ctx.setTransform(state.dpr*viewport.scale,0,0,state.dpr*viewport.scale,0,0);
+  modelRenderer.setPixelRatio(state.dpr);
+  modelRenderer.setSize(pixelWidth,pixelHeight,false);
+  modelCamera.left=-viewport.width/2;
+  modelCamera.right=viewport.width/2;
+  modelCamera.top=viewport.height/2;
+  modelCamera.bottom=-viewport.height/2;
+  modelCamera.updateProjectionMatrix();
+  // Centered water-step overlay is part of the world, not the real-screen HUD.
+  document.querySelector('#game')?.style.setProperty('--echo-world-scale',String(viewport.scale));
+}addEventListener('resize',resize,{passive:true});resize();
 function setConnection(s,l){connectionDot.classList.toggle('online',s==='online');connectionDot.classList.toggle('offline',s==='offline');connectionLabel.textContent=window.$t?window.$t(l,l):l;}function getPlayerPosition(id){if(!id)return null;if(id===state.socket?.id)return{x:state.x,y:state.y};const p=state.others.get(id);return p?{x:p.displayX??p.targetX,y:p.displayY??p.targetY}:null;}
 function beginCombatVisual(a,b,fid){const now=performance.now(),local=a===state.socket?.id||b===state.socket?.id,oid=a===state.socket?.id?b:a===state.socket?.id?a:null;if(!local){const x=state.others.get(a),y=state.others.get(b);if(x){x.combatUntil=now+FIGHT_DURATION;x.combatFightId=fid;x.fightingWith=b;}if(y){y.combatUntil=now+FIGHT_DURATION;y.combatFightId=fid;y.fightingWith=a;}return;}state.combatUntil=now+FIGHT_DURATION;state.combatOpponentId=oid;state.combatFightId=fid;state.vx=0;state.vy=0;const o=state.others.get(oid);if(o)o.combatUntil=now+FIGHT_DURATION;}
 function showDefeat(){state.defeated=true;state.combatUntil=0;state.combatOpponentId=null;state.vx=0;state.vy=0;energyText.textContent='0';defeatScreen.hidden=false;}function startNewGame(){const u=new URL(location.href);u.searchParams.set('play','1');location.href=u.toString();}defeatReplay?.addEventListener('click',startNewGame);defeatMenu?.addEventListener('click',returnToMenu);
