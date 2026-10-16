@@ -69,7 +69,11 @@ function resize(){
   modelCamera.bottom=-viewport.height/2;
   modelCamera.updateProjectionMatrix();
   // Centered water-step overlay is part of the world, not the real-screen HUD.
-  document.querySelector('#game')?.style.setProperty('--echo-world-scale',String(viewport.scale));
+  const gameElement=document.querySelector('#game');
+  gameElement?.style.setProperty('--echo-world-scale',String(viewport.scale));
+  // HUD and menu have separate per-element CSS sizing/position tokens.
+  // Both use the same real screen-height ratio but never scale the world canvas twice.
+  gameElement?.style.setProperty('--echo-ui-scale',String(viewport.scale));
 }addEventListener('resize',resize,{passive:true});resize();
 function setConnection(s,l){connectionDot.classList.toggle('online',s==='online');connectionDot.classList.toggle('offline',s==='offline');connectionLabel.textContent=window.$t?window.$t(l,l):l;}function getPlayerPosition(id){if(!id)return null;if(id===state.socket?.id)return{x:state.x,y:state.y};const p=state.others.get(id);return p?{x:p.displayX??p.targetX,y:p.displayY??p.targetY}:null;}
 function beginCombatVisual(a,b,fid){const now=performance.now(),local=a===state.socket?.id||b===state.socket?.id,oid=a===state.socket?.id?b:a===state.socket?.id?a:null;if(!local){const x=state.others.get(a),y=state.others.get(b);if(x){x.combatUntil=now+FIGHT_DURATION;x.combatFightId=fid;x.fightingWith=b;}if(y){y.combatUntil=now+FIGHT_DURATION;y.combatFightId=fid;y.fightingWith=a;}return;}state.combatUntil=now+FIGHT_DURATION;state.combatOpponentId=oid;state.combatFightId=fid;state.vx=0;state.vy=0;const o=state.others.get(oid);if(o)o.combatUntil=now+FIGHT_DURATION;}
