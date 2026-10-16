@@ -405,7 +405,7 @@ function createWorldWaters() {
   return waters;
 }
 const WORLD_WATERS = createWorldWaters();
-const WORLD_TREES = createWorldTrees(WORLD_WATERS);
+const WORLD_TREES = createWorldTrees();
 function isInWater(position) {
   return WORLD_WATERS.some(water => isPointOnWater(position, water));
 }
