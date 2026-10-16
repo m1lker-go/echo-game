@@ -36,10 +36,31 @@ let isMoving = false;
 let isOnWater = false;
 let pulseRunning = false;
 
+function ensureOpacityAnimation() {
+  if (!effect.animate) return null;
+
+  return effect.animate([
+    { opacity: 0, offset: 0 },
+    { opacity: 0.7, offset: 0.2 },
+    { opacity: 0.7, offset: 0.4 },
+    { opacity: 0.5, offset: 0.6 },
+    { opacity: 0.3, offset: 0.8 },
+    { opacity: 0.1, offset: 1 }
+  ], {
+    duration: WATER_GIF_PULSE_MS,
+    easing: 'ease-in-out',
+    fill: 'forwards'
+  });
+}
+
+let opacityAnimation = null;
+
 function stopPulse() {
   clearTimeout(pulseTimer);
   pulseTimer = null;
   pulseRunning = false;
+  opacityAnimation?.cancel();
+  opacityAnimation = null;
   effect.style.transition = 'none';
   effect.style.width = `${WATER_GIF_MIN_WIDTH}px`;
   effect.style.opacity = '0';
@@ -49,14 +70,18 @@ function pulse() {
   if (!isMoving || !isOnWater || pulseRunning) return;
 
   pulseRunning = true;
-  effect.style.opacity = '1';
+  opacityAnimation?.cancel();
+  opacityAnimation = ensureOpacityAnimation();
   effect.style.transition = `width ${WATER_GIF_PULSE_MS}ms ease-in-out`;
   effect.style.width = `${WATER_GIF_MAX_WIDTH}px`;
 
   pulseTimer = setTimeout(() => {
     pulseTimer = null;
+    opacityAnimation?.cancel();
+    opacityAnimation = null;
     effect.style.transition = 'none';
     effect.style.width = `${WATER_GIF_MIN_WIDTH}px`;
+    effect.style.opacity = '0';
     pulseRunning = false;
 
     if (isMoving && isOnWater) {
