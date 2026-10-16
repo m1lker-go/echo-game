@@ -75,7 +75,8 @@ export function createServerWaterBoundaryDebug(game) {
     ctx.shadowColor = '#000';
     ctx.shadowBlur = 4 / scale;
     ctx.textAlign = 'center';
-    ctx.font = 'bold ' + (12 / scale) + 'px monospace';
+    const fontFamily = getComputedStyle(document.documentElement).getPropertyValue('--echo-font-family').trim() || 'system-ui, sans-serif';
+    ctx.font = '700 ' + (12 / scale) + 'px ' + fontFamily;
     ctx.fillStyle = outlined ? '#ff5a5a' : '#ffacac';
     ctx.fillText(
       'SERVER WATER: ' + outlined + '/' + total + (outlined ? ' (collision outlines)' : ' (waiting for contours)'),

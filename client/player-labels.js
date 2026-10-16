@@ -18,6 +18,7 @@ export function createPlayerLabels(canvas) {
   if (!ctx) return { resize() {}, render() {} };
   let width = 1, height = 1;
   let energyFont = 15, nameFont = 9, localGap = 8, enemyGap = 8;
+  let fontFamily = 'system-ui, sans-serif';
 
   function resize(pixelWidth, pixelHeight, dpr, worldScale) {
     const scale = Math.max(0.01, worldScale);
@@ -37,6 +38,7 @@ export function createPlayerLabels(canvas) {
     nameFont = read('--echo-player-name-font', 9);
     localGap = read('--echo-player-label-gap', 8);
     enemyGap = read('--echo-enemy-label-gap', 8);
+    fontFamily = getComputedStyle(document.documentElement).getPropertyValue('--echo-font-family').trim() || 'system-ui, sans-serif';
   }
 
   function textMetrics(text, fontSize) {
@@ -66,14 +68,14 @@ export function createPlayerLabels(canvas) {
     ctx.textBaseline = 'alphabetic';
 
     const value = String(Math.max(0, Math.round(Number(energy) || 0)));
-    ctx.font = '500 ' + energyFont + 'px Inter, system-ui, sans-serif';
+    ctx.font = '500 ' + energyFont + 'px ' + fontFamily;
     const numberHeight = textMetrics(value, energyFont);
     ctx.fillStyle = '#eaf1f7';
     // Bottom of the energy text is exactly gap above the model's head.
     ctx.fillText(value, px, py - top - gap - numberHeight.bottom);
 
     const displayName = typeof name === 'string' && name.trim() ? name : 'Игрок';
-    ctx.font = '400 ' + nameFont + 'px Inter, system-ui, sans-serif';
+    ctx.font = '400 ' + nameFont + 'px ' + fontFamily;
     const nameHeight = textMetrics(displayName, nameFont);
     ctx.fillStyle = enemy ? '#d95b65' : '#c3cfda';
     // Top of the name text is exactly gap below the model's feet.

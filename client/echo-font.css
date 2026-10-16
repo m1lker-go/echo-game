@@ -1,0 +1,16 @@
+/* ONE central font setting for the entire ECHO game, all languages. */
+@font-face {
+  font-family: "EchoSuperXP";
+  src: url("./assets/fonts/SchuelerSuperXP-Regular_0.otf") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+:root {
+  --echo-font-family: "EchoSuperXP", system-ui, sans-serif;
+}
+/* Overrides older font-family and font shorthand in all existing stylesheets.
+   All translated text uses this same font, no locale editing necessary. */
+:where(html, body, body *, body *::before, body *::after) {
+  font-family: var(--echo-font-family) !important;
+}

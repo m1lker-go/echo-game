@@ -6,8 +6,8 @@ import { updateCharacterFacing } from './character-facing.js';
 import { createMobileFloorReflections } from './mobile-floor-reflections.js?v=echo-skeleton-reflection-1';
 import { getWorldViewport } from './viewport-scale.js?v=echo-world-zoom-2';
 import { createWorldMinimap } from './world-minimap.js?v=echo-isometric-minimap-1';
-import { createPlayerLabels, measurePlayerLabelBounds } from './player-labels.js?v=echo-minimal-labels-2';
-import { createServerWaterBoundaryDebug } from './server-water-boundary-debug.js?v=echo-water-world-projection-1';
+import { createPlayerLabels, measurePlayerLabelBounds } from './player-labels.js?v=echo-global-font-1';
+import { createServerWaterBoundaryDebug } from './server-water-boundary-debug.js?v=echo-global-font-1';
 
 const activityProfileStorageKey = 'echo.activityProfileId';
 let activityProfileId = localStorage.getItem(activityProfileStorageKey);

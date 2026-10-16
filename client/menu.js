@@ -251,7 +251,8 @@ function createCharacterCard(file, label) {
       context.fillStyle = '#080808';
       context.fillRect(0, 0, canvas.width, canvas.height);
       context.fillStyle = '#aeb8c4';
-      context.font = '12px system-ui, sans-serif';
+      const fontFamily = getComputedStyle(document.documentElement).getPropertyValue('--echo-font-family').trim() || 'system-ui, sans-serif';
+      context.font = '12px ' + fontFamily;
       context.textAlign = 'center';
       context.fillText('МОДЕЛЬ НЕ ЗАГРУЖЕНА', canvas.width / 2, canvas.height / 2);
     }
