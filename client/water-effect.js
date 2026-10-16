@@ -1,10 +1,15 @@
 import * as THREE from 'three';
+import { Line2 } from 'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/lines/Line2.js';
+import { LineGeometry } from 'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/lines/LineGeometry.js';
+import { LineMaterial } from 'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/lines/LineMaterial.js';
 import WATER_GEOMETRY from './water-hazard-contours.js';
 
 const WATER_CENTER_COLOR = new THREE.Color(0x38d8ff);
 const WATER_EDGE_COLOR = new THREE.Color(0x06245f);
 const EDGE_FADE_START = 0.035;
 const EDGE_FADE_END = 0.24;
+const DEBUG_WATER_BOUNDARY = true;
+const DEBUG_WATER_BOUNDARY_WIDTH_PX = 3.5;
 
 // Keep the animated footstep GIF separate from the rendered water surface.
 const game = document.querySelector('#game');
@@ -141,6 +146,50 @@ function distanceToContour(point, vertices) {
 }
 
 const contourMaterials = new WeakSet();
+const debugWaterLines = new Set();
+
+function updateDebugWaterLineResolution() {
+  const canvas = document.querySelector('#models');
+  if (!canvas) return;
+  const width = Math.max(1, canvas.clientWidth || canvas.width || 1);
+  const height = Math.max(1, canvas.clientHeight || canvas.height || 1);
+  for (const material of debugWaterLines) material.resolution.set(width, height);
+}
+
+function addDebugWaterBoundary(root, modelName) {
+  if (!DEBUG_WATER_BOUNDARY) return;
+  const contour = WATER_GEOMETRY[modelName];
+  if (!Array.isArray(contour) || contour.length < 3) return;
+
+  // This is the SERVER collision polygon itself — not the visible OBJ/GLB edge.
+  // It is a line only, with no fill, and inherits the exact water holder transform.
+  const positions = [];
+  for (const [x, y] of contour) positions.push(x, y, 0);
+  positions.push(contour[0][0], contour[0][1], 0);
+
+  const geometry = new LineGeometry();
+  geometry.setPositions(positions);
+  const material = new LineMaterial({
+    color: 0xff0000,
+    linewidth: DEBUG_WATER_BOUNDARY_WIDTH_PX,
+    transparent: true,
+    opacity: 0.95,
+    depthTest: false,
+    depthWrite: false,
+    toneMapped: false,
+  });
+  const line = new Line2(geometry, material);
+  line.name = 'echo-server-water-boundary-debug';
+  line.rotation.x = Math.PI / 2;
+  line.position.y = 0.012;
+  const surface = root.children.find(child => child.isObject3D && child !== line);
+  if (surface?.scale?.x) line.scale.setScalar(surface.scale.x);
+  line.renderOrder = 20;
+  root.add(line);
+  line.computeLineDistances();
+  debugWaterLines.add(material);
+  updateDebugWaterLineResolution();
+}
 
 function applyContourShader(material, modelName) {
   if (!material || contourMaterials.has(material)) return;
@@ -229,6 +278,7 @@ function watchWaterModels() {
   window.addEventListener('echo:water-model-created', (event) => {
     const { root, model } = event.detail || {};
     if (!root || !model) return;
+    addDebugWaterBoundary(root, model);
     root.traverse((child) => {
       if (!child.isMesh || !child.material) return;
       const materials = Array.isArray(child.material) ? child.material : [child.material];
@@ -237,4 +287,6 @@ function watchWaterModels() {
   });
 }
 
+window.addEventListener('resize', updateDebugWaterLineResolution, { passive: true });
 watchWaterModels();
+updateDebugWaterLineResolution();
