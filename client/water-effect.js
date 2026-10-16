@@ -165,11 +165,11 @@ function addDebugWaterBoundary(root, modelName) {
     return;
   }
 
-  // Server collision vertices are (x,y); the water surface uses model local XZ.
-  // Build the line in XZ so it shares the exact holder rotation and scale.
+  // The model surface uses local XZ and is scaled by getWaterScale(water).
+  // Keep the diagnostic ring in the same local plane and offset it toward the camera.
   const positions = [];
-  for (const [x, y] of contour) positions.push(x, 0, y);
-  positions.push(contour[0][0], 0, contour[0][1]);
+  for (const [x, y] of contour) positions.push(x, y, 0);
+  positions.push(contour[0][0], contour[0][1], 0);
 
   const geometry = new LineGeometry();
   geometry.setPositions(positions);
@@ -184,7 +184,8 @@ function addDebugWaterBoundary(root, modelName) {
   });
   const line = new Line2(geometry, material);
   line.name = 'echo-server-water-boundary-debug';
-  line.position.y = 0.04;
+  line.rotation.x = -Math.PI / 2;
+  line.position.z = 0.04;
   line.renderOrder = 1000;
   root.add(line);
   debugWaterLines.add(material);
