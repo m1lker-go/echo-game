@@ -219,7 +219,7 @@ function getWaterDamageDepth(water) {
     minY = Math.min(minY, y);
     maxY = Math.max(maxY, y);
   }
-  // Find the deepest part from the actual contour, not from model center.
+  // Estimate maximum polygon depth from its actual contour, not the model center.
   const samplesPerAxis = 40;
   let deepestDistance = 0;
   for (let yi = 0; yi <= samplesPerAxis; yi += 1) {
@@ -236,8 +236,13 @@ function getWaterDamageDepth(water) {
 function getWaterDamageInterval(position, water) {
   const local = getWaterLocalPosition(position, water);
   const vertices = getWaterGeometry(water).vertices;
-  const depthRatio = Math.max(0, Math.min(1, getWaterBoundaryDistanceLocal(local, vertices) / getWaterDamageDepth(water)));
-  return Math.round(WATER_DAMAGE_INTERVAL_EDGE_MS + (WATER_DAMAGE_INTERVAL_CENTER_MS - WATER_DAMAGE_INTERVAL_EDGE_MS) * depthRatio);
+  const depthRatio = Math.max(0, Math.min(1,
+    getWaterBoundaryDistanceLocal(local, vertices) / getWaterDamageDepth(water)
+  ));
+  return Math.round(
+    WATER_DAMAGE_INTERVAL_EDGE_MS +
+    (WATER_DAMAGE_INTERVAL_CENTER_MS - WATER_DAMAGE_INTERVAL_EDGE_MS) * depthRatio
+  );
 }
 function isPointOnWater(position, water) {
   const local = getWaterLocalPosition(position, water);
@@ -465,8 +470,8 @@ function createWorldTrees(waters) {
 }
 const WORLD_TREES = createWorldTrees(WORLD_WATERS);
 
-// Damage uses only the actual polygon contour: no body radius, model center,
-// or extra shoreline buffer is used.
+// Damage is based only on the actual water polygon contour. No body radius,
+// center-distance shortcut, or extra shoreline buffer is used.
 setInterval(() => {
   const now = Date.now();
   for (const player of players.values()) {
