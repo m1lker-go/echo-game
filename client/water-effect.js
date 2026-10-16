@@ -26,7 +26,7 @@ THREE.MeshBasicMaterial.prototype.onBeforeCompile = function(shader, renderer) {
       '#include <color_fragment>',
       `#include <color_fragment>
       float echoWaterDistance = length(vEchoWaterPosition / vec2(0.7, 0.6));
-      float echoWaterEdge = smoothstep(0.08, 0.92, echoWaterDistance);
+      float echoWaterEdge = smoothstep(0.28, 0.72, echoWaterDistance);
       vec3 echoWaterColor = mix(vec3(${WATER_CENTER_COLOR.r}, ${WATER_CENTER_COLOR.g}, ${WATER_CENTER_COLOR.b}), vec3(${WATER_EDGE_COLOR.r}, ${WATER_EDGE_COLOR.g}, ${WATER_EDGE_COLOR.b}), echoWaterEdge);
       diffuseColor.rgb = echoWaterColor;`
     );
