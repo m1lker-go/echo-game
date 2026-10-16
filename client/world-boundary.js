@@ -1,3 +1,5 @@
+import { getWorldViewport } from './viewport-scale.js';
+
 const canvas = document.querySelector('#world');
 
 const FIELD_CELLS = 50;
@@ -75,8 +77,7 @@ function drawBoundary(time = performance.now()) {
   }
 
   const dpr = canvas.width / rect.width;
-  const width = rect.width;
-  const height = rect.height;
+  const { width, height, scale } = getWorldViewport(rect.width, rect.height);
   const corners = [
     worldToScreen(-FIELD_HALF, -FIELD_HALF, playerX, playerY, width, height),
     worldToScreen(FIELD_HALF, -FIELD_HALF, playerX, playerY, width, height),
@@ -98,7 +99,7 @@ function drawBoundary(time = performance.now()) {
   };
 
   ctx.save();
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
   ctx.beginPath();
   ctx.rect(0, 0, width, height);
   ctx.moveTo(corners[0].x, corners[0].y);
@@ -144,4 +145,3 @@ jumpButton?.addEventListener('pointerdown', (event) => {
   }
 }, true);
 
-import './ground-reflections.js';
