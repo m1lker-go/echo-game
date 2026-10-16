@@ -1,3 +1,5 @@
+import { getWorldViewport } from './viewport-scale.js';
+
 const foodCanvas = document.querySelector('#shared-food');
 const energyText = document.querySelector('#energy');
 
@@ -144,13 +146,12 @@ function draw(time) {
 
   if (foodCanvas && isConnected) {
     const rect = foodCanvas.getBoundingClientRect();
-    const width = rect.width || 1;
-    const height = rect.height || 1;
+    const { width, height, scale } = getWorldViewport(rect.width, rect.height);
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const ctx = foodCanvas.getContext('2d');
 
     if (ctx) {
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
       ctx.clearRect(0, 0, width, height);
       // Expose lightweight counters while debugging visibility of the authoritative snapshot.
       let visibleCount = 0;
