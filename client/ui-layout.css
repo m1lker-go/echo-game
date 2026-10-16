@@ -54,10 +54,10 @@
   --echo-player-label-gap: 8px;
   --echo-enemy-label-gap: 8px;
   /* Upward compensation for oversized animated-GLB bounds. */
-  --echo-player-energy-lift: 30px;
-  --echo-player-name-lift: 30px;
-  --echo-enemy-energy-lift: 30px;
-  --echo-enemy-name-lift: 30px;
+  --echo-player-energy-lift: 45px;
+  --echo-player-name-lift: 15px;
+  --echo-enemy-energy-lift: 45px;
+  --echo-enemy-name-lift: 15px;
 
   /* Energy readout */
   --echo-energy-top: 76px;
