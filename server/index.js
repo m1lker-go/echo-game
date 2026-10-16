@@ -271,29 +271,6 @@ function createWorldWaters() {
 }
 const WORLD_WATERS = createWorldWaters();
 
-function distanceToWaterPolygon(position, water) {
-  const vertices = getWaterGeometry(water).vertices;
-  const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
-  const dx = position.x - water.x, dy = position.y - water.y;
-  const localX = (dx * Math.cos(angle) + dy * Math.sin(angle)) / getWaterScale(water);
-  const localY = (-dx * Math.sin(angle) + dy * Math.cos(angle)) / getWaterScale(water);
-  let minDistanceSquared = Infinity;
-  for (let i = 0; i < vertices.length; i += 1) {
-    const a = vertices[i], b = vertices[(i + 1) % vertices.length];
-    const abx = b[0] - a[0], aby = b[1] - a[1];
-    const apx = localX - a[0], apy = localY - a[1];
-    const lengthSquared = abx * abx + aby * aby;
-    const t = lengthSquared > 0 ? Math.max(0, Math.min(1, (apx * abx + apy * aby) / lengthSquared)) : 0;
-    const dX = localX - (a[0] + abx * t), dY = localY - (a[1] + aby * t);
-    minDistanceSquared = Math.min(minDistanceSquared, dX * dX + dY * dY);
-  }
-  return Math.sqrt(minDistanceSquared) * getWaterScale(water);
-}
-function circleTouchesWater(position, water, radius) {
-  // A center inside the polygon is always blocked; otherwise compare to the
-  // actual polygon edges so concave/irregular shorelines are respected.
-  return isPointOnWater(position, water) || distanceToWaterPolygon(position, water) <= radius;
-}
 function createWorldTrees(waters) {
   const trees = [];
   const clusterSizes = [2, 3, 5, 7];
@@ -404,8 +381,104 @@ function createWorldTrees(waters) {
   }
 
   return trees;
+}const WORLD_TREES = createWorldTrees(WORLD_WATERS);
+
+function createWorldWaters() {
+  const waters = [];
+  const waterRandom = createSeededRandom(WORLD_SEED + 918273);
+  const randomWaterBetween = (min, max) => min + waterRandom() * (max - min);
+  const variants = ['patch-water.glb', 'patch-water.glb', 'patch-water.glb', 'patch-water-large.glb', 'patch-water-large.glb', 'patch-water-large.glb', 'patch-water-large.glb'];
+
+  // Keep the existing count, but distribute targets across the four quadrants
+  // so the larger puddles cover the whole map, including outer areas.
+  const sectors = [
+    { minX: -1, maxX: -0.15, minY: -1, maxY: -0.15 },
+    { minX: 0.15, maxX: 1, minY: -1, maxY: -0.15 },
+    { minX: -1, maxX: -0.15, minY: 0.15, maxY: 1 },
+    { minX: 0.15, maxX: 1, minY: 0.15, maxY: 1 },
+    { minX: -1, maxX: 1, minY: -1, maxY: -0.15 },
+    { minX: -1, maxX: 1, minY: 0.15, maxY: 1 },
+    { minX: -1, maxX: 1, minY: -1, maxY: 1 },
+  ];
+
+  for (let index = 0; index < WATER_COUNT; index += 1) {
+    const model = variants[index];
+    const scale = randomWaterBetween(WATER_SCALE_MIN, WATER_SCALE_MAX);
+    const candidateWater = {
+      id: `water_${String(index + 1).padStart(2, '0')}`,
+      type: 'water',
+      model,
+      x: 0,
+      y: 0,
+      scale,
+      rotation: randomWaterBetween(0, Math.PI * 2),
+      collisionRadius: 0,
+    };
+    const footprint = getWaterFootprint(candidateWater);
+    const sector = sectors[index];
+    const minX = Math.max(-WORLD_HALF_SIZE + footprint.halfWidth + 60, sector.minX * (WORLD_HALF_SIZE - footprint.halfWidth - 60));
+    const maxX = Math.min(WORLD_HALF_SIZE - footprint.halfWidth - 60, sector.maxX * (WORLD_HALF_SIZE - footprint.halfWidth - 60));
+    const minY = Math.max(-WORLD_HALF_SIZE + footprint.halfDepth + 60, sector.minY * (WORLD_HALF_SIZE - footprint.halfDepth - 60));
+    const maxY = Math.min(WORLD_HALF_SIZE - footprint.halfDepth - 60, sector.maxY * (WORLD_HALF_SIZE - footprint.halfDepth - 60));
+    let candidate = null;
+
+    for (let attempt = 0; attempt < 2500; attempt += 1) {
+      const point = {
+        x: randomWaterBetween(minX, maxX),
+        y: randomWaterBetween(minY, maxY),
+      };
+      candidateWater.x = point.x;
+      candidateWater.y = point.y;
+      const rotatedFootprint = Math.hypot(footprint.halfWidth, footprint.halfDepth);
+      if (waters.some(other => Math.hypot(point.x - other.x, point.y - other.y) <
+        rotatedFootprint + Math.hypot(getWaterFootprint(other).halfWidth, getWaterFootprint(other).halfDepth) + 20)) continue;
+      candidate = { ...candidateWater, collisionRadius: rotatedFootprint };
+      break;
+    }
+
+    if (!candidate) {
+      // With very large puddles, avoid startup failure by allowing separation
+      // based on the visible centers while still keeping each patch in bounds.
+      const point = {
+        x: randomWaterBetween(-WORLD_HALF_SIZE + footprint.halfWidth + 60, WORLD_HALF_SIZE - footprint.halfWidth - 60),
+        y: randomWaterBetween(-WORLD_HALF_SIZE + footprint.halfDepth + 60, WORLD_HALF_SIZE - footprint.halfDepth - 60),
+      };
+      candidateWater.x = point.x;
+      candidateWater.y = point.y;
+      candidate = { ...candidateWater, collisionRadius: Math.hypot(footprint.halfWidth, footprint.halfDepth) };
+    }
+    waters.push(candidate);
+  }
+
+  return waters;
 }
-const WORLD_TREES = createWorldTrees(WORLD_WATERS);
+const WORLD_WATERS = createWorldWaters();
+
+function distanceToWaterPolygon(position, water) {
+  const vertices = getWaterGeometry(water).vertices;
+  const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
+  const dx = position.x - water.x, dy = position.y - water.y;
+  const localX = (dx * Math.cos(angle) + dy * Math.sin(angle)) / getWaterScale(water);
+  const localY = (-dx * Math.sin(angle) + dy * Math.cos(angle)) / getWaterScale(water);
+  let minDistanceSquared = Infinity;
+  for (let i = 0; i < vertices.length; i += 1) {
+    const a = vertices[i], b = vertices[(i + 1) % vertices.length];
+    const abx = b[0] - a[0], aby = b[1] - a[1];
+    const apx = localX - a[0], apy = localY - a[1];
+    const lengthSquared = abx * abx + aby * aby;
+    const t = lengthSquared > 0 ? Math.max(0, Math.min(1, (apx * abx + apy * aby) / lengthSquared)) : 0;
+    const dX = localX - (a[0] + abx * t), dY = localY - (a[1] + aby * t);
+    minDistanceSquared = Math.min(minDistanceSquared, dX * dX + dY * dY);
+  }
+  return Math.sqrt(minDistanceSquared) * getWaterScale(water);
+}
+function circleTouchesWater(position, water, radius) {
+  // A center inside the polygon is always blocked; otherwise compare to the
+  // actual polygon edges so concave/irregular shorelines are respected.
+  return isPointOnWater(position, water) || distanceToWaterPolygon(position, water) <= radius;
+}
+
+
 
 function isInWater(position) {
   return WORLD_WATERS.some(water => isPointOnWater(position, water));
