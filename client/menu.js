@@ -437,5 +437,8 @@ requestAnimationFrame(drawFood);
 const params = new URLSearchParams(window.location.search);
 if (params.get('play') === '1') {
   menu.classList.add('is-hidden');
-  window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+  // Only remove auto-start; later modules still need debugWater/noReflections.
+  const cleanedUrl = new URL(window.location.href);
+  cleanedUrl.searchParams.delete('play');
+  window.history.replaceState({}, document.title, cleanedUrl.pathname + cleanedUrl.search + cleanedUrl.hash);
 }
