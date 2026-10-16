@@ -109,4 +109,8 @@ export function updatePlayerMovement(state, dt, time, ISO, obstacles = []) {
     state.vx = 0;
     state.vy = 0;
   }
+
+  window.dispatchEvent(new CustomEvent('echo:player-movement', {
+    detail: { x: state.x, y: state.y, vx: state.vx, vy: state.vy }
+  }));
 }
