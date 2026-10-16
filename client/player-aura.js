@@ -42,14 +42,14 @@ if (game && worldCanvas) {
     const x = state.width / 2;
     const y = state.height / 2;
     const pulse = 1 + Math.sin(time * 0.0014) * 0.025;
-    const radius = Math.min(state.width, state.height) * 0.38 * pulse;
+    const radius = Math.min(state.width, state.height) * 0.62 * pulse;
 
     const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
-    glow.addColorStop(0, 'rgba(185, 225, 255, .18)');
-    glow.addColorStop(.16, 'rgba(155, 205, 242, .13)');
-    glow.addColorStop(.42, 'rgba(120, 172, 215, .07)');
-    glow.addColorStop(.72, 'rgba(91, 137, 180, .025)');
-    glow.addColorStop(1, 'rgba(70, 110, 150, 0)');
+    glow.addColorStop(0, 'rgba(190, 225, 239, .22)');
+    glow.addColorStop(.16, 'rgba(150, 190, 207, .16)');
+    glow.addColorStop(.42, 'rgba(115, 153, 171, .09)');
+    glow.addColorStop(.72, 'rgba(67, 100, 118, .03)');
+    glow.addColorStop(1, 'rgba(20, 35, 47, 0)');
 
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, state.width, state.height);
