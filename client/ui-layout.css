@@ -273,7 +273,22 @@
 }
 
 /* Main menu buttons and text scale with height; widths still obey real screen edges. */
-#game .menu-main-screen { gap: calc(var(--echo-menu-gap) * var(--echo-ui-scale)); }
+/* Fill the main menu vertically: fixed compact gaps, equal-size touch buttons. */
+#game .menu-main-screen {
+  justify-content: flex-start;
+  gap: clamp(16px, calc(24px * var(--echo-ui-scale)), 32px);
+  padding-top: max(16px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+}
+#game .menu-main-screen .menu-logo { flex: 0 0 auto; }
+#game .menu-main-screen .menu-buttons {
+  flex: 1 1 0;
+  min-height: 0;
+}
+#game .menu-main-screen .menu-buttons > .menu-button {
+  flex: 1 1 0;
+  min-height: 0;
+}
 #game .menu-logo { font-size: calc(var(--echo-menu-logo-font) * var(--echo-ui-scale)); }
 #game .menu-buttons {
   gap: calc(var(--echo-menu-buttons-gap) * var(--echo-ui-scale));
@@ -284,28 +299,28 @@
   font-size: calc(var(--echo-menu-button-font) * var(--echo-ui-scale));
 }
 #game #menu-start {
-  height: calc(var(--echo-menu-start-height) * var(--echo-ui-scale));
+  height: auto;
   transform: translate(
     calc(var(--echo-menu-start-dx) * var(--echo-ui-scale)),
     calc(var(--echo-menu-start-dy) * var(--echo-ui-scale))
   );
 }
 #game #menu-character-button {
-  height: calc(var(--echo-menu-character-height) * var(--echo-ui-scale));
+  height: auto;
   transform: translate(
     calc(var(--echo-menu-character-dx) * var(--echo-ui-scale)),
     calc(var(--echo-menu-character-dy) * var(--echo-ui-scale))
   );
 }
 #game #menu-settings {
-  height: calc(var(--echo-menu-settings-height) * var(--echo-ui-scale));
+  height: auto;
   transform: translate(
     calc(var(--echo-menu-settings-dx) * var(--echo-ui-scale)),
     calc(var(--echo-menu-settings-dy) * var(--echo-ui-scale))
   );
 }
 #game #menu-rating {
-  height: calc(var(--echo-menu-rating-height) * var(--echo-ui-scale));
+  height: auto;
   transform: translate(
     calc(var(--echo-menu-rating-dx) * var(--echo-ui-scale)),
     calc(var(--echo-menu-rating-dy) * var(--echo-ui-scale))
