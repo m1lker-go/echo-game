@@ -28,9 +28,8 @@ GLTFLoader.prototype.load = function (url, onLoad, onProgress, onError) {
   }, onProgress, onError);
 };
 
-// Keep water visually below characters and trees. Water holders are deliberately
-// positioned at z=-1 by game.js, while trees/characters stay at z=0. Enforce a
-// stronger render-order gap at render time without changing their world position.
+// Keep the existing render order for now. Water appearance is configured in
+// game.js when its material is created, rather than mutating materials every frame.
 const originalRender = THREE.WebGLRenderer.prototype.render;
 THREE.WebGLRenderer.prototype.render = function (scene, camera) {
   if (scene?.isScene) {
@@ -38,21 +37,7 @@ THREE.WebGLRenderer.prototype.render = function (scene, camera) {
       if (object?.position?.z !== -1 || !object.children?.length) continue;
       object.renderOrder = -100;
       object.traverse((child) => {
-        if (!child.isMesh) return;
-        child.renderOrder = -100;
-        if (!child.material) return;
-        const materials = Array.isArray(child.material) ? child.material : [child.material];
-        for (const material of materials) {
-          material.color?.setHex(0x71888d);
-          if ('metalness' in material) material.metalness = 0.10;
-          if ('roughness' in material) material.roughness = 0.18;
-          material.transparent = true;
-          material.opacity = 0.34;
-          material.depthWrite = false;
-          material.depthTest = false;
-          material.side = THREE.DoubleSide;
-          material.needsUpdate = true;
-        }
+        if (child.isMesh) child.renderOrder = -100;
       });
     }
   }
