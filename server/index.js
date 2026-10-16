@@ -610,7 +610,8 @@ function finishFight(fight) {
 
   const winnerEnergyBefore = winnerState.energy;
   const loserEnergy = loserState.energy;
-  winnerState.energy = Math.min(MAX_ENERGY, winnerState.energy + loserEnergy);
+  const reward = Math.round(loserEnergy * 0.30);
+  winnerState.energy = Math.min(MAX_ENERGY, winnerEnergyBefore + reward);
   loserState.energy = 0;
   winnerState.fightingWith = null;
   winnerState.fightId = null;
@@ -621,7 +622,7 @@ function finishFight(fight) {
     fightId: fight.id,
     result: 'win',
     energy: winnerState.energy,
-    gained: loserEnergy,
+    gained: winnerState.energy - winnerEnergyBefore,
     opponentId: loserState.id,
     previousEnergy: winnerEnergyBefore,
   });
