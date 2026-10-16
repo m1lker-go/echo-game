@@ -49,6 +49,12 @@
     "language_options_aria_label": "Выбор языка"
   },
   "game": {
+    "map_short": "КАРТА",
+    "map_title": "КАРТА МИРА",
+    "map_open": "Открыть карту мира",
+    "map_close": "Закрыть карту",
+    "map_you": "Вы",
+    "map_players": "Другие игроки",
     "connection_pending": "подключение…",
     "connection_online": "сервер подключён",
     "connection_offline": "нет соединения",

@@ -38,6 +38,15 @@
   --echo-exit-dx: 0px;
   --echo-exit-dy: 0px;
 
+  /* Isometric mini-map: independent size and position, height-relative. */
+  --echo-minimap-top: 98px;
+  --echo-minimap-right: 22px;
+  --echo-minimap-width: 172px;
+  --echo-minimap-height: 116px;
+  --echo-minimap-caption-font: 9px;
+  --echo-minimap-dx: 0px;
+  --echo-minimap-dy: 0px;
+
   /* Energy readout */
   --echo-energy-top: 76px;
   --echo-energy-left: 22px;

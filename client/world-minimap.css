@@ -1,0 +1,111 @@
+/* Height-relative HUD mini-map. A Canvas diamond, NOT a rectangular image. */
+#game .echo-minimap-button {
+  position: absolute;
+  z-index: 9;
+  top: max(calc(var(--echo-minimap-top, 98px) * var(--echo-ui-scale, 1)), env(safe-area-inset-top, 0px));
+  right: max(calc(var(--echo-minimap-right, 22px) * var(--echo-ui-scale, 1)), env(safe-area-inset-right, 0px));
+  width: calc(var(--echo-minimap-width, 172px) * var(--echo-ui-scale, 1));
+  height: calc(var(--echo-minimap-height, 116px) * var(--echo-ui-scale, 1));
+  transform: translate(
+    calc(var(--echo-minimap-dx, 0px) * var(--echo-ui-scale, 1)),
+    calc(var(--echo-minimap-dy, 0px) * var(--echo-ui-scale, 1))
+  );
+  display: block;
+  padding: 0;
+  border: 0;
+  appearance: none;
+  background: transparent;
+  color: #b9dcee;
+  cursor: pointer;
+  touch-action: manipulation;
+  pointer-events: auto;
+}
+#game .echo-minimap-button canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+#game .echo-minimap-button:focus-visible {
+  outline: 2px solid #86eaff;
+  outline-offset: 2px;
+}
+#game .echo-minimap-caption {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: calc(var(--echo-minimap-caption-font, 9px) * var(--echo-ui-scale, 1));
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-shadow: 0 1px 5px #000;
+  pointer-events: none;
+}
+#game .echo-minimap-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: block;
+  background: rgba(2, 7, 16, 0.59);
+  touch-action: manipulation;
+  pointer-events: auto;
+}
+#game .echo-minimap-overlay[hidden] { display: none !important; }
+#game .echo-minimap-full {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+#game .echo-minimap-header {
+  position: absolute;
+  z-index: 1;
+  top: max(14px, env(safe-area-inset-top, 0px));
+  left: max(20px, env(safe-area-inset-left, 0px));
+  right: max(20px, env(safe-area-inset-right, 0px));
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+  color: #e1f5ff;
+  font-size: clamp(14px, 2.8vh, 24px);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+#game .echo-minimap-close {
+  pointer-events: auto;
+  min-width: 42px;
+  min-height: 42px;
+  padding: 0;
+  border: 1px solid rgba(170, 221, 255, 0.42);
+  border-radius: 50%;
+  background: rgba(13, 28, 47, 0.72);
+  color: #eaf8ff;
+  font: 500 28px/1 system-ui, sans-serif;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+#game .echo-minimap-close:focus-visible { outline: 2px solid #6be6ff; outline-offset: 2px; }
+#game .echo-minimap-legend {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  display: flex;
+  gap: clamp(12px, 3vw, 32px);
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  pointer-events: none;
+  color: rgba(215, 234, 249, 0.85);
+  font-size: clamp(11px, 1.8vh, 15px);
+  letter-spacing: 0.05em;
+}
+#game .echo-minimap-legend > span { display: inline-flex; align-items: center; gap: 7px; }
+#game .echo-map-dot { display: inline-block; flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; }
+#game .echo-map-dot-local { background: #6be6ff; box-shadow: 0 0 9px rgba(88, 219, 255, 0.8); }
+#game .echo-map-dot-remote { background: #ff4f5e; box-shadow: 0 0 9px rgba(255, 65, 91, 0.8); }

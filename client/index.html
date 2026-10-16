@@ -7,7 +7,8 @@
   <title>ECHO</title>
   <link rel="icon" type="image/png" href="./assets/icons/favicon.png" />
   <link rel="stylesheet" href="./style.css?v=echo-language-selector-3" />
-  <link rel="stylesheet" href="./ui-layout.css?v=echo-controls-zoom-2" />
+  <link rel="stylesheet" href="./ui-layout.css?v=echo-minimap-1" />
+  <link rel="stylesheet" href="./world-minimap.css?v=echo-minimap-1" />
 </head>
 <body>
   <main id="game" aria-label="ECHO game" data-i18n-aria-label="menu:game_aria_label">
@@ -22,6 +23,21 @@
         <button id="game-exit" class="game-exit" type="button" data-i18n="game:exit">Покинуть игру</button>
       </div>
     </header>
+    <button id="echo-minimap-open" class="echo-minimap-button" type="button" aria-controls="echo-minimap-overlay" aria-expanded="false" aria-label="Открыть карту мира" data-i18n-aria-label="game:map_open">
+      <canvas id="echo-minimap-mini" aria-hidden="true"></canvas>
+      <span class="echo-minimap-caption" data-i18n="game:map_short">КАРТА</span>
+    </button>
+    <section id="echo-minimap-overlay" class="echo-minimap-overlay" hidden role="dialog" aria-modal="true" aria-label="Карта мира" data-i18n-aria-label="game:map_title">
+      <canvas id="echo-minimap-full" class="echo-minimap-full" aria-hidden="true"></canvas>
+      <div class="echo-minimap-header">
+        <span data-i18n="game:map_title">КАРТА МИРА</span>
+        <button id="echo-minimap-close" class="echo-minimap-close" type="button" aria-label="Закрыть карту" data-i18n-aria-label="game:map_close">×</button>
+      </div>
+      <div class="echo-minimap-legend">
+        <span><i class="echo-map-dot echo-map-dot-local"></i><span data-i18n="game:map_you">Вы</span></span>
+        <span><i class="echo-map-dot echo-map-dot-remote"></i><span data-i18n="game:map_players">Другие игроки</span> <span id="echo-minimap-player-count">0</span></span>
+      </div>
+    </section>
     <div class="stats"><span class="stats-label" data-i18n="game:energy">ЭНЕРГИЯ</span><strong id="energy">0</strong><span class="stats-hint" data-i18n="game:prototype">тестовое поле</span></div>
     <div class="center-mark" aria-hidden="true"></div>
     <div class="controls-hint" id="controls-hint" data-i18n="game:controls">WASD / ← ↑ → ↓ — движение</div>
@@ -54,7 +70,7 @@
   <script type="module" src="./shared-food.js?v=echo-world-zoom-2"></script>
   <script type="module" src="./water-effect.js?v=echo-water-gradient-contour-fix-2"></script>
   <script type="module" src="./player-aura.js?v=echo-player-aura-1"></script>
-  <script type="module" src="./game.js?v=echo-world-zoom-2"></script>
+  <script type="module" src="./game.js?v=echo-isometric-minimap-1"></script>
   <script type="module" src="./world-boundary.js?v=echo-world-zoom-2"></script>
 </body>
 </html>

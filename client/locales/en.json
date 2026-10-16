@@ -49,6 +49,12 @@
     "language_options_aria_label": "Language selection"
   },
   "game": {
+    "map_short": "MAP",
+    "map_title": "WORLD MAP",
+    "map_open": "Open world map",
+    "map_close": "Close map",
+    "map_you": "You",
+    "map_players": "Other players",
     "connection_pending": "connecting…",
     "connection_online": "server connected",
     "connection_offline": "connection lost",
