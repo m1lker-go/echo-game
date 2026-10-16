@@ -162,474 +162,7 @@ function overlapsCircle(a, b, radiusA, radiusB, allowedOverlap = 0) {
   return Math.hypot(a.x - b.x, a.y - b.y) < Math.max(0, radiusA + radiusB - allowedOverlap);
 }
 
-// Seven shared water patches. Use a separate seeded RNG so water placement
-// does not change the existing tree/food layout. Large coefficients are spread
-// across the whole playable field instead of clustering around the center.
-const WATER_COUNT = 7;
-const WATER_DAMAGE_INTERVAL_MS = 300;
-const WATER_DAMAGE_AMOUNT = 1;
-const WATER_MODEL_BASE_SCALE = 50;
-const WATER_SCALE_MIN = 7;
-const WATER_SCALE_MAX = 12;
-const WATER_GEOMETRY = require('../shared/water-hazard-contours');
-function getWaterGeometry(water) { return { vertices: WATER_GEOMETRY[water.model] || WATER_GEOMETRY['patch-water-large.glb'] }; }
-function getWaterScale(water) { return WATER_MODEL_BASE_SCALE * water.scale; }
-function isPointInPolygon(x, y, vertices) {
-  let inside = false;
-  for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
-    const [xi, yi] = vertices[i], [xj, yj] = vertices[j];
-    const crosses = (yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / ((yj - yi) || Number.EPSILON) + xi;
-    if (crosses) inside = !inside;
-    const cross = (x - xi) * (yj - yi) - (y - yi) * (xj - xi);
-    if (Math.abs(cross) < 1e-7 && x >= Math.min(xi, xj) - 1e-7 && x <= Math.max(xi, xj) + 1e-7 && y >= Math.min(yi, yj) - 1e-7 && y <= Math.max(yi, yj) + 1e-7) return true;
-  }
-  return inside;
-}
-function getWaterFootprint(water) {
-  const scale = getWaterScale(water), vertices = getWaterGeometry(water).vertices;
-  let halfWidth = 0, halfDepth = 0;
-  for (const [x, y] of vertices) { halfWidth = Math.max(halfWidth, Math.abs(x * scale)); halfDepth = Math.max(halfDepth, Math.abs(y * scale)); }
-  return { halfWidth, halfDepth };
-}
-function isPointOnWater(position, water) {
-  const vertices = getWaterGeometry(water).vertices;
-  const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
-  const dx = position.x - water.x, dy = position.y - water.y;
-  const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
-  const localY = -dx * Math.sin(angle) + dy * Math.cos(angle);
-  const scale = getWaterScale(water);
-  return isPointInPolygon(localX / scale, localY / scale, vertices);
-}
-
-
-
-
-
-
-function isInWater(position) {
-  return WORLD_WATERS.some(water => isPointOnWater(position, water));
-}
-
-// Water damage is checked independently of movement packets. The player's
-// world X/Y position is the character's central axis: no body-radius or model
-// bounds are used here. If that axis is on the visible puddle footprint,
-// energy drains every 300ms while the player remains there.
-setInterval(() => {
-  const now = Date.now();
-  for (const player of players.values()) {
-    if (!player || player.defeated || player.fightingWith) continue;
-    const inWater = isInWater(player);
-    if (!inWater) {
-      player.inWater = false;
-      player.lastWaterDamageAt = 0;
-      continue;
-    }
-    if (!player.inWater) {
-      player.inWater = true;
-      player.lastWaterDamageAt = now;
-      continue;
-    }
-    if (now - player.lastWaterDamageAt < WATER_DAMAGE_INTERVAL_MS) continue;
-    const damageTicks = Math.floor((now - player.lastWaterDamageAt) / WATER_DAMAGE_INTERVAL_MS);
-    player.energy = Math.max(0, player.energy - damageTicks * WATER_DAMAGE_AMOUNT);
-    player.lastWaterDamageAt += damageTicks * WATER_DAMAGE_INTERVAL_MS;
-  }
-}, WATER_DAMAGE_INTERVAL_MS);
-
-function createWorldSnapshot() {
-  return {
-    seed: WORLD_SEED,
-    trees: WORLD_TREES.map(({ id, type, x, y, scale, rotation, collisionRadius }) => ({ id, type, x, y, scale, rotation, collisionRadius })),
-    waters: WORLD_WATERS.map(({ id, type, model, x, y, scale, rotation, collisionRadius }) => ({ id, type, model, x, y, scale, rotation, collisionRadius })),
-  };
-}
-function isBlockedByTree(position, clearance = 0) {
-  return WORLD_TREES.some(tree =>
-    Math.hypot(position.x - tree.x, position.y - tree.y) < tree.collisionRadius + clearance
-  );
-}
-function isValidFoodPosition(position) {
-  return Math.abs(position.x) <= WORLD_HALF_SIZE - 40 &&
-    Math.abs(position.y) <= WORLD_HALF_SIZE - 40 &&
-    !isBlockedByTree(position, TREE_FOOD_CLEARANCE);
-}
-function isValidPlayerPosition(position) {
-  return Math.abs(position.x) <= WORLD_HALF_SIZE &&
-    Math.abs(position.y) <= WORLD_HALF_SIZE &&
-    !isBlockedByTree(position, TREE_PLAYER_CLEARANCE);
-}
-function findOpenPlayerSpawn() {
-  for (let attempt = 0; attempt < 1000; attempt += 1) {
-    const point = {
-      x: randomBetween(-WORLD_HALF_SIZE + 80, WORLD_HALF_SIZE - 80),
-      y: randomBetween(-WORLD_HALF_SIZE + 80, WORLD_HALF_SIZE - 80),
-    };
-    if (isValidPlayerPosition(point)) return point;
-  }
-  return { x: 0, y: 0 };
-}
-const {
-  createFoodPoint: createFoodPointCore,
-  collectFood: collectFoodCore,
-  refillFood: refillFoodCore,
-  createFoodSnapshot,
-} = require('./food');
-
-function createFoodPoint(id) {
-  return createFoodPointCore(id, {
-    isValidFoodPosition,
-    worldHalfSize: WORLD_HALF_SIZE,
-    maxAttempts: 5000,
-    createCandidate(pointId) {
-      return {
-        id: pointId,
-        x: randomBetween(-WORLD_HALF_SIZE + 60, WORLD_HALF_SIZE - 60),
-        y: randomBetween(-WORLD_HALF_SIZE + 60, WORLD_HALF_SIZE - 60),
-        size: 5 + (pointId % 3),
-        pulse: pointId * 0.7,
-        active: true,
-        respawnAt: 0,
-      };
-    },
-  });
-}
-const food = new Map(Array.from({ length: FOOD_COUNT }, (_, id) => [id, createFoodPoint(id)]));
-
-function finiteNumber(value, fallback = 0, min = -MAX_COORDINATE, max = MAX_COORDINATE) {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
-  return Math.max(min, Math.min(max, value));
-}
-
-function broadcastPlayers() {
-  io.emit('echo:players', Array.from(players.values(), (player) => ({ ...player })));
-}
-
-function broadcastFood() {
-  io.emit('echo:food', createFoodSnapshot(food));
-}
-
-function collectFood(player) {
-  return collectFoodCore(player, food, {
-    radius: FOOD_COLLECT_RADIUS,
-    respawnMinMs: FOOD_RESPAWN_MIN_MS,
-    respawnMaxMs: FOOD_RESPAWN_MAX_MS,
-  });
-}
-
-function refillFood() {
-  const changed = refillFoodCore(food, { createFoodPoint });
-  if (changed) broadcastFood();
-}
-
-setInterval(refillFood, 1000);
-
-function emitFightState(fight) {
-  const base = { fightId: fight.id, duration: FIGHT_DURATION };
-  io.to(fight.a.id).emit('echo:fight', { ...base, playerA: fight.a.id, playerB: fight.b.id });
-  io.to(fight.b.id).emit('echo:fight', { ...base, playerA: fight.b.id, playerB: fight.a.id });
-}
-
-function finishFight(fight) {
-  if (!activeFights.has(fight.id)) return;
-  activeFights.delete(fight.id);
-
-  const a = players.get(fight.a.id);
-  const b = players.get(fight.b.id);
-  if (!a || !b) {
-    if (a) a.fightingWith = null;
-    if (b) b.fightingWith = null;
-    broadcastPlayers();
-    return;
-  }
-
-  const winner = fight.a.energy > fight.b.energy ? fight.a : fight.b;
-  const loser = winner === fight.a ? fight.b : fight.a;
-  const winnerState = players.get(winner.id);
-  const loserState = players.get(loser.id);
-  if (!winnerState || !loserState) return;
-  const winnerProfileId = dailyActivityProfileIds.get(winnerState.id);
-  if (winnerProfileId) addDailyActivity(winnerProfileId, 'pvp_wins', 1).catch((error) => console.error('[daily-activity] PvP write failed:', error.message));
-
-  const winnerEnergyBefore = winnerState.energy;
-  const loserEnergy = loserState.energy;
-  winnerState.energy = Math.min(MAX_ENERGY, winnerState.energy + loserEnergy);
-  loserState.energy = 0;
-  winnerState.fightingWith = null;
-  winnerState.fightId = null;
-  loserState.fightingWith = null;
-  loserState.fightId = null;
-
-  io.to(winnerState.id).emit('echo:combatResult', {
-    fightId: fight.id,
-    result: 'win',
-    energy: winnerState.energy,
-    gained: loserEnergy,
-    opponentId: loserState.id,
-    previousEnergy: winnerEnergyBefore,
-  });
-  io.to(loserState.id).emit('echo:combatResult', {
-    fightId: fight.id,
-    result: 'lose',
-    energy: 0,
-    opponentId: winnerState.id,
-  });
-
-  players.delete(loserState.id);
-  broadcastPlayers();
-}
-
-function startFight(a, b) {
-  if (!a || !b || a.id === b.id) return false;
-  if (a.fightingWith || b.fightingWith || a.defeated || b.defeated) return false;
-  if (a.energy === b.energy) return false;
-
-  const fight = {
-    id: `${a.id}:${b.id}:${Date.now()}`,
-    a: { id: a.id, energy: a.energy },
-    b: { id: b.id, energy: b.energy },
-  };
-
-  a.fightingWith = b.id;
-  b.fightingWith = a.id;
-  a.fightId = fight.id;
-  b.fightId = fight.id;
-  a.vx = 0;
-  a.vy = 0;
-  b.vx = 0;
-  b.vy = 0;
-  a.inWater = false;
-  a.lastWaterDamageAt = 0;
-  b.inWater = false;
-  b.lastWaterDamageAt = 0;
-  activeFights.set(fight.id, fight);
-  emitFightState(fight);
-  broadcastPlayers();
-  setTimeout(() => finishFight(fight), FIGHT_DURATION);
-  return true;
-}
-
-function checkForFights(source) {
-  if (!source || source.fightingWith || source.defeated) return;
-  for (const opponent of players.values()) {
-    if (opponent.id === source.id || opponent.fightingWith || opponent.defeated) continue;
-    if (opponent.energy === source.energy) continue;
-    const distance = Math.hypot(source.x - opponent.x, source.y - opponent.y);
-    if (distance > FIGHT_DISTANCE) continue;
-    if (startFight(source, opponent)) return;
-  }
-}
-
-io.on('connection', (socket) => {
-  let activityProfileId = normalizeActivityProfileId(socket.handshake.auth?.activityProfileId);
-  if (activityProfileId) claimActivityProfileSocket(socket, activityProfileId);
-  let lastPingAt = 0;
-  let lastPersistedAt = Date.now();
-  let dayKey = dailyDateKey();
-  let writeQueue = Promise.resolve();
-  const enqueueWrite = (operation) => {
-    writeQueue = writeQueue.then(operation).catch((error) => console.error('[daily-activity] write failed:', error.message));
-    return writeQueue;
-  };
-  const collectElapsedTime = (now = Date.now()) => {
-    if (!activityProfileId) { lastPersistedAt = now; return; }
-    const today = dailyDateKey(new Date(now));
-    if (today !== dayKey) {
-      lastPersistedAt = now;
-      dayKey = today;
-      const profileId = activityProfileId;
-      enqueueWrite(() => ensureDailyActivityRow(profileId, today));
-      return;
-    }
-    const elapsed = Math.floor((now - lastPersistedAt) / 1000);
-    lastPersistedAt = now;
-    if (elapsed > 0 && elapsed <= 60) {
-      const profileId = activityProfileId;
-      const intervalDate = dayKey;
-      enqueueWrite(() => addDailyPlaySeconds(profileId, elapsed, intervalDate));
-    }
-  };
-  const receiveActivityPing = (payload) => {
-    const now = Date.now();
-    const today = dailyDateKey(new Date(now));
-    const requestedProfileId = normalizeActivityProfileId(payload?.activityProfileId);
-
-    if (requestedProfileId && requestedProfileId !== activityProfileId) {
-      const previousProfileId = activityProfileId;
-      if (previousProfileId && activityProfileSockets.get(previousProfileId) === socket.id) activityProfileSockets.delete(previousProfileId);
-      activityProfileId = requestedProfileId;
-      claimActivityProfileSocket(socket, activityProfileId);
-      dailyActivityProfileIds.set(socket.id, activityProfileId);
-      dayKey = today;
-      lastPersistedAt = now;
-      lastPingAt = 0;
-      socket.data.activityPaused = payload?.active === false;
-      enqueueWrite(() => ensureDailyActivityRow(activityProfileId, today));
-    }
-
-    if (!activityProfileId) return;
-    if (today !== dayKey) {
-      dayKey = today;
-      lastPersistedAt = now;
-      enqueueWrite(() => ensureDailyActivityRow(activityProfileId, today));
-    } else if (payload?.active === false) {
-      if (lastPingAt && now - lastPingAt <= ACTIVE_PING_MAX_GAP_MS) collectElapsedTime(now);
-      else lastPersistedAt = now;
-    } else if (lastPingAt && now - lastPingAt > ACTIVE_PING_MAX_GAP_MS) {
-      lastPersistedAt = now;
-    } else if (!lastPingAt) {
-      lastPersistedAt = now;
-    } else {
-      collectElapsedTime(now);
-    }
-
-    socket.data.activityPaused = payload?.active === false;
-    lastPingAt = now;
-    socket.emit('echo:dailyActivity', { date: today, active: !socket.data.activityPaused });
-  };
-  const activityInterval = setInterval(() => {
-    const now = Date.now();
-    if (activityProfileId && !socket.data.activityPaused && lastPingAt && now - lastPingAt <= ACTIVE_PING_MAX_GAP_MS) {
-      collectElapsedTime(now);
-    } else if (lastPingAt && now - lastPingAt > ACTIVE_PING_MAX_GAP_MS) {
-      lastPingAt = 0;
-      lastPersistedAt = now;
-      dayKey = dailyDateKey(new Date(now));
-    } else {
-      lastPersistedAt = now;
-      dayKey = dailyDateKey(new Date(now));
-    }
-  }, 15000);
-
-  console.log(`[socket] connected: ${socket.id}`);
-
-  const requestedSkin = socket.handshake.auth?.skin;
-  const spawn = findOpenPlayerSpawn();
-  players.set(socket.id, {
-    id: socket.id,
-    x: spawn.x,
-    y: spawn.y,
-    vx: 0,
-    vy: 0,
-    energy: 0,
-    inWater: false,
-    lastWaterDamageAt: 0,
-    skin: ALLOWED_SKINS.has(requestedSkin) ? requestedSkin : 'character-female-a.glb',
-    fightingWith: null,
-    fightId: null,
-    defeated: false,
-  });
-  broadcastPlayers();
-  broadcastFood();
-  socket.emit('echo:world', createWorldSnapshot());
-
-  socket.on('echo:dailyPing', receiveActivityPing);
-
-  socket.on('echo:hello', (payload) => {
-    const helloProfileId = normalizeActivityProfileId(payload?.activityProfileId);
-    if (helloProfileId && !activityProfileId) receiveActivityPing({ activityProfileId: helloProfileId });
-    const requestedSkin = payload?.skin;
-    const current = players.get(socket.id);
-    if (current && ALLOWED_SKINS.has(requestedSkin)) current.skin = requestedSkin;
-
-    socket.emit('echo:world', createWorldSnapshot());
-    socket.emit('echo:players', Array.from(players.values(), (player) => ({ ...player })));
-    broadcastFood();
-    broadcastPlayers();
-  });
-
-  socket.on('echo:move', (payload) => {
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return;
-
-    const current = players.get(socket.id);
-    if (!current || current.defeated || current.fightingWith) return;
-
-    const desired = {
-      x: finiteNumber(payload.x, current.x, -WORLD_HALF_SIZE, WORLD_HALF_SIZE),
-      y: finiteNumber(payload.y, current.y, -WORLD_HALF_SIZE, WORLD_HALF_SIZE),
-    };
-    const oldPosition = { x: current.x, y: current.y };
-    if (!isValidPlayerPosition(desired)) {
-      const slideX = { x: desired.x, y: oldPosition.y };
-      const slideY = { x: oldPosition.x, y: desired.y };
-      if (isValidPlayerPosition(slideX)) {
-        current.x = slideX.x; current.y = slideX.y;
-      } else if (isValidPlayerPosition(slideY)) {
-        current.x = slideY.x; current.y = slideY.y;
-      } else {
-        current.x = oldPosition.x; current.y = oldPosition.y;
-      }
-      current.vx = 0; current.vy = 0;
-    } else {
-      current.x = desired.x; current.y = desired.y;
-      current.vx = finiteNumber(payload.vx, 0, -100_000, 100_000);
-      current.vy = finiteNumber(payload.vy, 0, -100_000, 100_000);
-    }
-
-    const now = Date.now();
-    const inWater = isInWater(current);
-    current.inWater = inWater;
-    if (!inWater) current.lastWaterDamageAt = 0;
-    else if (!current.lastWaterDamageAt) current.lastWaterDamageAt = now;
-
-    const collected = collectFood(current);
-    if (collected > 0) {
-      current.energy = Math.min(MAX_ENERGY, current.energy + collected);
-      const profileId = dailyActivityProfileIds.get(socket.id);
-      if (profileId) addDailyActivity(profileId, 'food_collected', collected).catch((error) => console.error('[daily-activity] food write failed:', error.message));
-    }
-
-    const requestedSkin = payload.skin;
-    if (ALLOWED_SKINS.has(requestedSkin)) current.skin = requestedSkin;
-
-    checkForFights(current);
-    broadcastPlayers();
-    if (collected > 0) broadcastFood();
-  });
-
-  socket.on('disconnect', (reason) => {
-    collectElapsedTime();
-    clearInterval(activityInterval);
-    dailyActivityProfileIds.delete(socket.id);
-    if (activityProfileId && activityProfileSockets.get(activityProfileId) === socket.id) activityProfileSockets.delete(activityProfileId);
-    const current = players.get(socket.id);
-    if (current?.fightingWith) {
-      const opponent = players.get(current.fightingWith);
-      if (opponent) {
-        opponent.fightingWith = null;
-        opponent.fightId = null;
-      }
-      if (current.fightId) activeFights.delete(current.fightId);
-    }
-    players.delete(socket.id);
-    console.log(`[socket] disconnected: ${socket.id} (${reason})`);
-    broadcastPlayers();
-  });
-});
-
-server.listen(port, '0.0.0.0', async () => {
-  console.log(`[echo-server] listening on port ${port}`);
-  try {
-    await checkDatabase();
-    await ensureDailyActivitySchema();
-    console.log('[echo-server] database connection OK');
-    console.log('[daily-activity] ready; timezone=' + DAILY_TIME_ZONE);
-  } catch (error) {
-    console.error('[echo-server] database connection failed:', error.message);
-  }
-});
-
-async function shutdown(signal) {
-  console.log(`[echo-server] received ${signal}; shutting down`);
-  io.close();
-  server.close(async () => {
-    await pool.end();
-    process.exit(0);
-  });
-  setTimeout(() => process.exit(1), 10000).unref();
-}
-
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));function createWorldWaters() {
+function createWorldWaters() {
   const waters = [];
   const waterRandom = createSeededRandom(WORLD_SEED + 918273);
   const randomWaterBetween = (min, max) => min + waterRandom() * (max - min);
@@ -837,6 +370,50 @@ function createWorldTrees(waters) {
   return trees;
 }
 const WORLD_TREES = createWorldTrees(WORLD_WATERS);
+
+// Seven shared water patches. Use a separate seeded RNG so water placement
+// does not change the existing tree/food layout. Large coefficients are spread
+// across the whole playable field instead of clustering around the center.
+const WATER_COUNT = 7;
+const WATER_DAMAGE_INTERVAL_MS = 300;
+const WATER_DAMAGE_AMOUNT = 1;
+const WATER_MODEL_BASE_SCALE = 50;
+const WATER_SCALE_MIN = 7;
+const WATER_SCALE_MAX = 12;
+const WATER_GEOMETRY = require('../shared/water-hazard-contours');
+function getWaterGeometry(water) { return { vertices: WATER_GEOMETRY[water.model] || WATER_GEOMETRY['patch-water-large.glb'] }; }
+function getWaterScale(water) { return WATER_MODEL_BASE_SCALE * water.scale; }
+function isPointInPolygon(x, y, vertices) {
+  let inside = false;
+  for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+    const [xi, yi] = vertices[i], [xj, yj] = vertices[j];
+    const crosses = (yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / ((yj - yi) || Number.EPSILON) + xi;
+    if (crosses) inside = !inside;
+    const cross = (x - xi) * (yj - yi) - (y - yi) * (xj - xi);
+    if (Math.abs(cross) < 1e-7 && x >= Math.min(xi, xj) - 1e-7 && x <= Math.max(xi, xj) + 1e-7 && y >= Math.min(yi, yj) - 1e-7 && y <= Math.max(yi, yj) + 1e-7) return true;
+  }
+  return inside;
+}
+function getWaterFootprint(water) {
+  const scale = getWaterScale(water), vertices = getWaterGeometry(water).vertices;
+  let halfWidth = 0, halfDepth = 0;
+  for (const [x, y] of vertices) { halfWidth = Math.max(halfWidth, Math.abs(x * scale)); halfDepth = Math.max(halfDepth, Math.abs(y * scale)); }
+  return { halfWidth, halfDepth };
+}
+function isPointOnWater(position, water) {
+  const vertices = getWaterGeometry(water).vertices;
+  const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
+  const dx = position.x - water.x, dy = position.y - water.y;
+  const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
+  const localY = -dx * Math.sin(angle) + dy * Math.cos(angle);
+  const scale = getWaterScale(water);
+  return isPointInPolygon(localX / scale, localY / scale, vertices);
+}
+
+
+
+
+
 
 function isInWater(position) {
   return WORLD_WATERS.some(water => isPointOnWater(position, water));
