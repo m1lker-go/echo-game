@@ -4,20 +4,20 @@ const ISO = { x: 0.8660254, y: 0.5 };
 const WATER_MODEL_BASE_SCALE = 50;
 const WAVE_STEP_DISTANCE = 30;
 const WAVE_MIN_SPEED = 18;
-const WAVE_DURATION = 620;
-const WAVE_DELAY = 82;
-const WAVE_START_RADIUS = 7;
-const WAVE_MAX_RADIUS = 40;
-const WAVE_LINE_WIDTH = 1.15;
-const WAVE_SAMPLE_COUNT = 56;
+const WAVE_DURATION = 700;
+const WAVE_DELAY = 88;
+const WAVE_START_RADIUS = 14;
+const WAVE_MAX_RADIUS = 58;
+const WAVE_LINE_WIDTH = 1.35;
+const WAVE_SAMPLE_COUNT = 64;
 const MAX_WAVES = 12;
 
 const game = document.querySelector('#game');
 const canvas = document.createElement('canvas');
 canvas.id = 'water-waves';
 canvas.setAttribute('aria-hidden', 'true');
-canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:2.5;';
-game?.insertBefore(canvas, document.querySelector('#models'));
+canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:3.5;';
+game?.appendChild(canvas);
 
 const ctx = canvas?.getContext('2d', { alpha: true });
 const waters = [];
@@ -88,7 +88,7 @@ function getWaterAt(x, y) {
 
 function spawnWave(x, y, now) {
   if (!getWaterAt(x, y)) return;
-  while (waves.length >= MAX_WAVES) waves.shift();
+  while (waves.length + 3 > MAX_WAVES) waves.shift();
   for (let ring = 0; ring < 3; ring += 1) {
     waves.push({ x, y, born: now + ring * WAVE_DELAY, ring });
   }
@@ -107,29 +107,16 @@ function onPlayerMovement(event) {
   const now = performance.now();
   if (speed < WAVE_MIN_SPEED || !getWaterAt(playerX, playerY)) {
     distanceAccumulator = WAVE_STEP_DISTANCE;
+    lastMovementAt = now;
     return;
   }
   const dtDistance = speed * Math.min(.05, Math.max(0, (now - lastMovementAt) / 1000));
   distanceAccumulator += dtDistance;
   if (distanceAccumulator >= WAVE_STEP_DISTANCE) {
-    distanceAccumulator = 0;
+    distanceAccumulator -= WAVE_STEP_DISTANCE;
     spawnWave(playerX, playerY, now);
   }
   lastMovementAt = now;
-}
-
-function bindSocket() {
-  if (!window.echoSocket || window.echoSocket === socketBound) return;
-  socketBound = window.echoSocket;
-  socketBound.on('echo:world', world => {
-    waters.length = 0;
-    if (!Array.isArray(world?.waters)) return;
-    for (const water of world.waters) {
-      if (!water || !Number.isFinite(water.x) || !Number.isFinite(water.y) || !Number.isFinite(water.scale)) continue;
-      if (water.model !== 'patch-water.glb' && water.model !== 'patch-water-large.glb') continue;
-      waters.push({ ...water });
-    }
-  });
 }
 
 function drawRing(wave, now) {
@@ -138,8 +125,7 @@ function drawRing(wave, now) {
   const progress = age / WAVE_DURATION;
   const eased = 1 - Math.pow(1 - progress, 2);
   const radius = WAVE_START_RADIUS + (WAVE_MAX_RADIUS - WAVE_START_RADIUS) * eased;
-  const fade = 1 - Math.pow(progress, 1.45);
-  const center = worldToScreen(wave.x, wave.y);
+  const fade = 1 - Math.pow(progress, 1.35);
   const water = getWaterAt(wave.x, wave.y);
   if (!water) return false;
   const vertices = WATER_GEOMETRY[water.model] || WATER_GEOMETRY['patch-water-large.glb'];
@@ -183,6 +169,20 @@ function frame(now) {
     if (!drawRing(waves[i], now)) waves.splice(i, 1);
   }
   requestAnimationFrame(frame);
+}
+
+function bindSocket() {
+  if (!window.echoSocket || window.echoSocket === socketBound) return;
+  socketBound = window.echoSocket;
+  socketBound.on('echo:world', world => {
+    waters.length = 0;
+    if (!Array.isArray(world?.waters)) return;
+    for (const water of world.waters) {
+      if (!water || !Number.isFinite(water.x) || !Number.isFinite(water.y) || !Number.isFinite(water.scale)) continue;
+      if (water.model !== 'patch-water.glb' && water.model !== 'patch-water-large.glb') continue;
+      waters.push({ ...water });
+    }
+  });
 }
 
 window.addEventListener('resize', resize, { passive: true });
