@@ -127,7 +127,10 @@ function onPlayerMovement(event) {
   playerY = detail.y;
   playerVX = Number.isFinite(detail.vx) ? detail.vx : 0;
   playerVY = Number.isFinite(detail.vy) ? detail.vy : 0;
-  // Match game.js camera state: the local hero stays at screen center.
+  // The game camera follows the local hero every frame.
+  // Keep the wave canvas on the same camera coordinates as game.js.
+  cameraX = playerX;
+  cameraY = playerY;
   const speed = Math.hypot(playerVX, playerVY);
   const now = performance.now();
   if (speed < WAVE_MIN_SPEED || !getWaterAt(playerX, playerY)) {
@@ -195,18 +198,22 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
+function syncWaters(world) {
+  waters.length = 0;
+  if (!Array.isArray(world?.waters)) return;
+  for (const water of world.waters) {
+    if (!water || !Number.isFinite(water.x) || !Number.isFinite(water.y) || !Number.isFinite(water.scale)) continue;
+    if (water.model !== 'patch-water.glb' && water.model !== 'patch-water-large.glb') continue;
+    waters.push({ ...water });
+  }
+}
+
 function bindSocket() {
   if (!window.echoSocket || window.echoSocket === socketBound) return;
   socketBound = window.echoSocket;
-  socketBound.on('echo:world', world => {
-    waters.length = 0;
-    if (!Array.isArray(world?.waters)) return;
-    for (const water of world.waters) {
-      if (!water || !Number.isFinite(water.x) || !Number.isFinite(water.y) || !Number.isFinite(water.scale)) continue;
-      if (water.model !== 'patch-water.glb' && water.model !== 'patch-water-large.glb') continue;
-      waters.push({ ...water });
-    }
-  });
+  socketBound.on('echo:world', syncWaters);
+  // game.js may receive the first world snapshot before this module binds.
+  if (Array.isArray(window.echoWorld?.waters)) syncWaters(window.echoWorld);
 }
 
 window.addEventListener('resize', resize, { passive: true });
