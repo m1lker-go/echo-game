@@ -160,7 +160,8 @@ function createSeededRandom(seed) {
 // does not change the existing tree/food layout. Large coefficients are spread
 // across the whole playable field instead of clustering around the center.
 const WATER_COUNT = 7;
-const WATER_DAMAGE_INTERVAL_MS = 300;
+const WATER_DAMAGE_INTERVAL_EDGE_MS = 600;
+const WATER_DAMAGE_INTERVAL_CENTER_MS = 300;
 const WATER_DAMAGE_AMOUNT = 1;
 const WATER_MODEL_BASE_SCALE = 50;
 const WATER_SCALE_MIN = 7;
@@ -185,14 +186,62 @@ function getWaterFootprint(water) {
   for (const [x, y] of vertices) { halfWidth = Math.max(halfWidth, Math.abs(x * scale)); halfDepth = Math.max(halfDepth, Math.abs(y * scale)); }
   return { halfWidth, halfDepth };
 }
-function isPointOnWater(position, water) {
-  const vertices = getWaterGeometry(water).vertices;
+function getWaterLocalPosition(position, water) {
   const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
   const dx = position.x - water.x, dy = position.y - water.y;
-  const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
-  const localY = -dx * Math.sin(angle) + dy * Math.cos(angle);
   const scale = getWaterScale(water);
-  return isPointInPolygon(localX / scale, localY / scale, vertices);
+  return {
+    x: (dx * Math.cos(angle) + dy * Math.sin(angle)) / scale,
+    y: (-dx * Math.sin(angle) + dy * Math.cos(angle)) / scale,
+  };
+}
+function distanceToWaterSegment(point, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1];
+  const lengthSquared = dx * dx + dy * dy;
+  if (lengthSquared === 0) return Math.hypot(point.x - a[0], point.y - a[1]);
+  const t = Math.max(0, Math.min(1, ((point.x - a[0]) * dx + (point.y - a[1]) * dy) / lengthSquared));
+  return Math.hypot(point.x - (a[0] + t * dx), point.y - (a[1] + t * dy));
+}
+function getWaterBoundaryDistanceLocal(point, vertices) {
+  let minDistance = Infinity;
+  for (let i = 0; i < vertices.length; i += 1) {
+    minDistance = Math.min(minDistance, distanceToWaterSegment(point, vertices[i], vertices[(i + 1) % vertices.length]));
+  }
+  return minDistance;
+}
+function getWaterDamageDepth(water) {
+  if (Number.isFinite(water.damageDepth) && water.damageDepth > 0) return water.damageDepth;
+  const vertices = getWaterGeometry(water).vertices;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const [x, y] of vertices) {
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y);
+    maxY = Math.max(maxY, y);
+  }
+  // Find the deepest part from the actual contour, not from model center.
+  const samplesPerAxis = 40;
+  let deepestDistance = 0;
+  for (let yi = 0; yi <= samplesPerAxis; yi += 1) {
+    const y = minY + (maxY - minY) * yi / samplesPerAxis;
+    for (let xi = 0; xi <= samplesPerAxis; xi += 1) {
+      const x = minX + (maxX - minX) * xi / samplesPerAxis;
+      if (!isPointInPolygon(x, y, vertices)) continue;
+      deepestDistance = Math.max(deepestDistance, getWaterBoundaryDistanceLocal({ x, y }, vertices));
+    }
+  }
+  water.damageDepth = deepestDistance || 1;
+  return water.damageDepth;
+}
+function getWaterDamageInterval(position, water) {
+  const local = getWaterLocalPosition(position, water);
+  const vertices = getWaterGeometry(water).vertices;
+  const depthRatio = Math.max(0, Math.min(1, getWaterBoundaryDistanceLocal(local, vertices) / getWaterDamageDepth(water)));
+  return Math.round(WATER_DAMAGE_INTERVAL_EDGE_MS + (WATER_DAMAGE_INTERVAL_CENTER_MS - WATER_DAMAGE_INTERVAL_EDGE_MS) * depthRatio);
+}
+function isPointOnWater(position, water) {
+  const local = getWaterLocalPosition(position, water);
+  return isPointInPolygon(local.x, local.y, getWaterGeometry(water).vertices);
 }
 function createWorldWaters() {
   const waters = [];
@@ -416,32 +465,30 @@ function createWorldTrees(waters) {
 }
 const WORLD_TREES = createWorldTrees(WORLD_WATERS);
 
-// Water damage is checked independently of movement packets. The player's
-// world X/Y position is the character's central axis: no body-radius or model
-// bounds are used here. If that axis is on the visible puddle footprint,
-// energy drains every 300ms while the player remains there.
+// Damage uses only the actual polygon contour: no body radius, model center,
+// or extra shoreline buffer is used.
 setInterval(() => {
   const now = Date.now();
   for (const player of players.values()) {
     if (!player || player.defeated || player.fightingWith) continue;
-    const inWater = isInWater(player);
-    if (!inWater) {
+    const water = WORLD_WATERS.find(candidate => isPointOnWater(player, candidate));
+    if (!water) {
       player.inWater = false;
       player.lastWaterDamageAt = 0;
       continue;
     }
+    const damageInterval = getWaterDamageInterval(player, water);
     if (!player.inWater) {
       player.inWater = true;
       player.lastWaterDamageAt = now;
       continue;
     }
-    if (now - player.lastWaterDamageAt < WATER_DAMAGE_INTERVAL_MS) continue;
-    const damageTicks = Math.floor((now - player.lastWaterDamageAt) / WATER_DAMAGE_INTERVAL_MS);
+    if (now - player.lastWaterDamageAt < damageInterval) continue;
+    const damageTicks = Math.floor((now - player.lastWaterDamageAt) / damageInterval);
     player.energy = Math.max(0, player.energy - damageTicks * WATER_DAMAGE_AMOUNT);
-    player.lastWaterDamageAt += damageTicks * WATER_DAMAGE_INTERVAL_MS;
+    player.lastWaterDamageAt += damageTicks * damageInterval;
   }
-}, WATER_DAMAGE_INTERVAL_MS);
-
+}, WATER_DAMAGE_INTERVAL_CENTER_MS);
 function createWorldSnapshot() {
   return {
     seed: WORLD_SEED,
