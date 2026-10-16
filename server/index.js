@@ -156,121 +156,6 @@ function createSeededRandom(seed) {
     return ((n ^ (n >>> 14)) >>> 0) / 4294967296;
   };
 }
-const worldRandom = createSeededRandom(WORLD_SEED);
-const randomBetween = (min, max) => min + worldRandom() * (max - min);
-function overlapsCircle(a, b, radiusA, radiusB, allowedOverlap = 0) {
-  return Math.hypot(a.x - b.x, a.y - b.y) < Math.max(0, radiusA + radiusB - allowedOverlap);
-}
-function createWorldTrees() {
-  const trees = [];
-  const clusterSizes = [2, 3, 5, 7];
-  const clusterCount = 12;
-  const maxAttemptsPerCluster = 160;
-  let nextId = 1;
-
-  const makeTree = (x, y, scale, placementRadius = 100 * scale) => ({
-    id: `tree_${String(nextId++).padStart(3, '0')}`,
-    type: 'tree',
-    x,
-    y,
-    scale,
-    collisionRadius: TREE_COLLISION_RADIUS * scale,
-    placementRadius,
-    rotation: randomBetween(0, Math.PI * 2),
-  });
-
-  const trunksOverlap = (candidate, other, clearance = 12) =>
-    Math.hypot(candidate.x - other.x, candidate.y - other.y) <
-    candidate.collisionRadius + other.collisionRadius + clearance;
-
-  const isInsidePlayableArea = (x, y, margin = 160) =>
-    Math.abs(x) <= WORLD_HALF_SIZE - margin &&
-    Math.abs(y) <= WORLD_HALF_SIZE - margin;
-
-  const isNearSpawn = (x, y) => Math.hypot(x, y) < 440;
-
-  const canPlace = (candidate, existing, gapFactor = 0.4) => {
-    if (!isInsidePlayableArea(candidate.x, candidate.y) || isNearSpawn(candidate.x, candidate.y)) return false;
-    return !existing.some(other => overlapsCircle(
-      candidate,
-      other,
-      candidate.placementRadius,
-      other.placementRadius,
-      Math.min(candidate.placementRadius, other.placementRadius) * gapFactor
-    ));
-  };
-
-  for (let clusterIndex = 0; clusterIndex < clusterCount && trees.length < 90; clusterIndex += 1) {
-    const clusterSize = clusterSizes[Math.floor(worldRandom() * clusterSizes.length)];
-    let clusterPlaced = false;
-
-    for (let attempt = 0; attempt < maxAttemptsPerCluster && !clusterPlaced; attempt += 1) {
-      const centerX = randomBetween(-WORLD_HALF_SIZE + 420, WORLD_HALF_SIZE - 420);
-      const centerY = randomBetween(-WORLD_HALF_SIZE + 420, WORLD_HALF_SIZE - 420);
-      if (isNearSpawn(centerX, centerY)) continue;
-
-      const cluster = [];
-      let failed = false;
-
-      for (let i = 0; i < clusterSize; i += 1) {
-        let candidate = null;
-        for (let memberAttempt = 0; memberAttempt < 100; memberAttempt += 1) {
-          const angle = randomBetween(0, Math.PI * 2);
-          const distance = randomBetween(35, 125);
-          const scale = randomBetween(TREE_SCALE_MIN, TREE_SCALE_MAX);
-          const placementRadius = 38 * scale;
-          const attemptTree = makeTree(
-            centerX + Math.cos(angle) * distance,
-            centerY + Math.sin(angle) * distance,
-            scale,
-            placementRadius
-          );
-
-          if (!isInsidePlayableArea(attemptTree.x, attemptTree.y) ||
-              isNearSpawn(attemptTree.x, attemptTree.y) ||
-              trees.some(other => overlapsCircle(
-                attemptTree,
-                other,
-                attemptTree.placementRadius,
-                other.placementRadius,
-                Math.min(attemptTree.placementRadius, other.placementRadius) * 0.4
-              )) ||
-              cluster.some(other => trunksOverlap(attemptTree, other))) {
-            continue;
-          }
-          candidate = attemptTree;
-          break;
-        }
-
-        if (!candidate) {
-          failed = true;
-          break;
-        }
-        cluster.push(candidate);
-      }
-
-      if (!failed && cluster.length === clusterSize) {
-        trees.push(...cluster);
-        clusterPlaced = true;
-      }
-    }
-  }
-
-  const targetCount = 90;
-  for (let attempt = 0; attempt < targetCount * 220 && trees.length < targetCount; attempt += 1) {
-    const scale = randomBetween(TREE_SCALE_MIN, TREE_SCALE_MAX);
-    const candidate = makeTree(
-      randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
-      randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
-      scale
-    );
-    if (canPlace(candidate, trees)) trees.push(candidate);
-  }
-
-  return trees;
-}
-const WORLD_TREES = createWorldTrees();
-
 // Seven shared water patches. Use a separate seeded RNG so water placement
 // does not change the existing tree/food layout. Large coefficients are spread
 // across the whole playable field instead of clustering around the center.
@@ -382,6 +267,154 @@ const WORLD_WATERS = createWorldWaters();
 function isInWater(position) {
   return WORLD_WATERS.some(water => isPointOnWater(position, water));
 }
+
+
+const worldRandom = createSeededRandom(WORLD_SEED);
+const randomBetween = (min, max) => min + worldRandom() * (max - min);
+function overlapsCircle(a, b, radiusA, radiusB, allowedOverlap = 0) {
+  return Math.hypot(a.x - b.x, a.y - b.y) < Math.max(0, radiusA + radiusB - allowedOverlap);
+}
+function createWorldTrees(waters) {
+  const trees = [];
+  const clusterSizes = [2, 3, 5, 7];
+  const clusterCount = 12;
+  const maxAttemptsPerCluster = 160;
+  let nextId = 1;
+
+  const makeTree = (x, y, scale, placementRadius = 100 * scale) => ({
+    id: `tree_${String(nextId++).padStart(3, '0')}`,
+    type: 'tree',
+    x,
+    y,
+    scale,
+    collisionRadius: TREE_COLLISION_RADIUS * scale,
+    placementRadius,
+    rotation: randomBetween(0, Math.PI * 2),
+  });
+
+  const trunksOverlap = (candidate, other, clearance = 12) =>
+    Math.hypot(candidate.x - other.x, candidate.y - other.y) <
+    candidate.collisionRadius + other.collisionRadius + clearance;
+
+  const isInsidePlayableArea = (x, y, margin = 160) =>
+    Math.abs(x) <= WORLD_HALF_SIZE - margin &&
+    Math.abs(y) <= WORLD_HALF_SIZE - margin;
+
+  const isNearSpawn = (x, y) => Math.hypot(x, y) < 440;
+
+  const distanceToSegment = (point, a, b) => {
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    const lengthSquared = dx * dx + dy * dy;
+    if (lengthSquared === 0) return Math.hypot(point.x - a[0], point.y - a[1]);
+    const t = Math.max(0, Math.min(1, ((point.x - a[0]) * dx + (point.y - a[1]) * dy) / lengthSquared));
+    return Math.hypot(point.x - (a[0] + t * dx), point.y - (a[1] + t * dy));
+  };
+
+  // Reject a tree only when its actual collision circle intersects a water
+  // polygon. Tangency is allowed; there is intentionally no extra margin.
+  const treeOverlapsWater = (tree) => waters.some(water => {
+    if (isPointOnWater(tree, water)) return true;
+    const vertices = getWaterGeometry(water).vertices;
+    const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
+    const dx = tree.x - water.x, dy = tree.y - water.y;
+    const localCenter = {
+      x: (dx * Math.cos(angle) + dy * Math.sin(angle)) / getWaterScale(water),
+      y: (-dx * Math.sin(angle) + dy * Math.cos(angle)) / getWaterScale(water),
+    };
+    const scale = getWaterScale(water);
+    const localRadius = tree.collisionRadius / scale;
+    let minDistance = Infinity;
+    for (let i = 0; i < vertices.length; i += 1) {
+      const distance = distanceToSegment(localCenter, vertices[i], vertices[(i + 1) % vertices.length]);
+      minDistance = Math.min(minDistance, distance);
+    }
+    return minDistance < localRadius;
+  });
+
+  const canPlace = (candidate, existing, gapFactor = 0.4) => {
+    if (!isInsidePlayableArea(candidate.x, candidate.y) ||
+        isNearSpawn(candidate.x, candidate.y) ||
+        treeOverlapsWater(candidate)) return false;
+    return !existing.some(other => overlapsCircle(
+      candidate,
+      other,
+      candidate.placementRadius,
+      other.placementRadius,
+      Math.min(candidate.placementRadius, other.placementRadius) * gapFactor
+    ));
+  };
+
+  for (let clusterIndex = 0; clusterIndex < clusterCount && trees.length < 90; clusterIndex += 1) {
+    const clusterSize = clusterSizes[Math.floor(worldRandom() * clusterSizes.length)];
+    let clusterPlaced = false;
+
+    for (let attempt = 0; attempt < maxAttemptsPerCluster && !clusterPlaced; attempt += 1) {
+      const centerX = randomBetween(-WORLD_HALF_SIZE + 420, WORLD_HALF_SIZE - 420);
+      const centerY = randomBetween(-WORLD_HALF_SIZE + 420, WORLD_HALF_SIZE - 420);
+      if (isNearSpawn(centerX, centerY)) continue;
+
+      const cluster = [];
+      let failed = false;
+
+      for (let i = 0; i < clusterSize; i += 1) {
+        let candidate = null;
+        for (let memberAttempt = 0; memberAttempt < 100; memberAttempt += 1) {
+          const angle = randomBetween(0, Math.PI * 2);
+          const distance = randomBetween(35, 125);
+          const scale = randomBetween(TREE_SCALE_MIN, TREE_SCALE_MAX);
+          const placementRadius = 38 * scale;
+          const attemptTree = makeTree(
+            centerX + Math.cos(angle) * distance,
+            centerY + Math.sin(angle) * distance,
+            scale,
+            placementRadius
+          );
+
+          if (!isInsidePlayableArea(attemptTree.x, attemptTree.y) ||
+              isNearSpawn(attemptTree.x, attemptTree.y) ||
+              treeOverlapsWater(attemptTree) ||
+              trees.some(other => overlapsCircle(
+                attemptTree,
+                other,
+                attemptTree.placementRadius,
+                other.placementRadius,
+                Math.min(attemptTree.placementRadius, other.placementRadius) * 0.4
+              )) ||
+              cluster.some(other => trunksOverlap(attemptTree, other))) {
+            continue;
+          }
+          candidate = attemptTree;
+          break;
+        }
+
+        if (!candidate) {
+          failed = true;
+          break;
+        }
+        cluster.push(candidate);
+      }
+
+      if (!failed && cluster.length === clusterSize) {
+        trees.push(...cluster);
+        clusterPlaced = true;
+      }
+    }
+  }
+
+  const targetCount = 90;
+  for (let attempt = 0; attempt < targetCount * 220 && trees.length < targetCount; attempt += 1) {
+    const scale = randomBetween(TREE_SCALE_MIN, TREE_SCALE_MAX);
+    const candidate = makeTree(
+      randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
+      randomBetween(-WORLD_HALF_SIZE + 160, WORLD_HALF_SIZE - 160),
+      scale
+    );
+    if (canPlace(candidate, trees)) trees.push(candidate);
+  }
+
+  return trees;
+}
+const WORLD_TREES = createWorldTrees(WORLD_WATERS);
 
 // Water damage is checked independently of movement packets. The player's
 // world X/Y position is the character's central axis: no body-radius or model
