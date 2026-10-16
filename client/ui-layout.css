@@ -373,3 +373,31 @@
   pointer-events: none;
   touch-action: none;
 }
+
+/* Settings: all button rows share the same outer edges and button height. */
+#game #menu-settings-screen {
+  --echo-settings-button-width: min(calc(var(--echo-menu-max-width) * var(--echo-ui-scale)), calc(100% - 20px));
+  --echo-settings-button-height: clamp(48px, calc(58px * var(--echo-ui-scale)), 96px);
+}
+#game #menu-settings-screen .settings-language-row,
+#game #menu-settings-screen .settings-cache-button,
+#game #menu-settings-screen #settings-back {
+  width: var(--echo-settings-button-width);
+  max-width: 100%;
+}
+#game #menu-settings-screen .settings-language-options {
+  width: 100%;
+  gap: 10px;
+}
+#game #menu-settings-screen .language-option {
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  height: var(--echo-settings-button-height);
+  min-height: 0;
+}
+#game #menu-settings-screen .settings-cache-button,
+#game #menu-settings-screen #settings-back {
+  height: var(--echo-settings-button-height);
+  flex: 0 0 auto;
+}
