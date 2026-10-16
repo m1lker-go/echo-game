@@ -28,8 +28,10 @@ GLTFLoader.prototype.load = function (url, onLoad, onProgress, onError) {
   }, onProgress, onError);
 };
 
-// Keep the existing render order for now. Water appearance is configured in
-// game.js when its material is created, rather than mutating materials every frame.
+// Water is rendered as a transparent surface behind the characters.
+// Keep its existing render order, but restore depth testing so the water cannot
+// draw over a character that is physically in front of it. The water itself
+// stays at z=-1, while characters are rendered at z=0.
 const originalRender = THREE.WebGLRenderer.prototype.render;
 THREE.WebGLRenderer.prototype.render = function (scene, camera) {
   if (scene?.isScene) {
@@ -37,7 +39,14 @@ THREE.WebGLRenderer.prototype.render = function (scene, camera) {
       if (object?.position?.z !== -1 || !object.children?.length) continue;
       object.renderOrder = -100;
       object.traverse((child) => {
-        if (child.isMesh) child.renderOrder = -100;
+        if (!child.isMesh || !child.material) return;
+        child.renderOrder = -100;
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        for (const material of materials) {
+          material.depthTest = true;
+          material.depthWrite = false;
+          material.needsUpdate = true;
+        }
       });
     }
   }
