@@ -174,7 +174,7 @@ function applyContourShader(material, modelName) {
       )
       .replace(
         '#include <begin_vertex>',
-        '#include <begin_vertex>\nvEchoWaterModelXZ = position.xy;'
+        '#include <begin_vertex>\nvEchoWaterModelXZ = position.xz;'
       );
 
     shader.fragmentShader = shader.fragmentShader
