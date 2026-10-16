@@ -11,7 +11,6 @@ const ISO_X = 0.8660254;
 const ISO_Y = 0.5;
 
 const food = new Map();
-const players = new Map();
 let activeIds = new Set();
 let lastTime = performance.now();
 let socket = null;
@@ -58,21 +57,13 @@ function syncFood(snapshot) {
   activeIds = nextIds;
 }
 
-function syncPlayers(snapshot) {
-  if (!Array.isArray(snapshot)) return;
-  players.clear();
-  for (const player of snapshot) {
-    if (!player || typeof player.id !== 'string' ||
-        !Number.isFinite(player.x) || !Number.isFinite(player.y)) continue;
-    players.set(player.id, {
-      x: player.x,
-      y: player.y,
-      energy: Number.isFinite(player.energy) ? Math.max(0, Math.round(player.energy)) : 0,
-    });
-  }
+function syncPlayers(players) {
+  if (!Array.isArray(players)) return;
   if (socket?.id) {
-    const local = players.get(socket.id);
-    if (local && energyText) energyText.textContent = String(local.energy);
+    const local = players.find((player) => player?.id === socket.id);
+    if (local && Number.isFinite(local.energy) && energyText) {
+      energyText.textContent = String(Math.max(0, Math.round(local.energy)));
+    }
   }
 }
 
@@ -106,7 +97,6 @@ function onSocketDisconnect() {
   isConnected = false;
   activeIds.clear();
   food.clear();
-  players.clear();
 }
 
 function findSocket() {
@@ -145,27 +135,6 @@ function readCamera() {
   const match = document.querySelector('#coords')?.textContent?.match(/(-?\d+)\s*[·.]\s*(-?\d+)/);
   cameraX = match ? Number(match[1]) : 0;
   cameraY = match ? Number(match[2]) : 0;
-}
-
-function drawEnergyLabels(ctx, width, height) {
-  if (!players.size) return;
-  ctx.save();
-  ctx.font = '500 11px Inter,system-ui,sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'alphabetic';
-  ctx.shadowColor = 'rgba(193,226,255,.8)';
-  ctx.shadowBlur = 7;
-
-  for (const [id, player] of players) {
-    const local = id === socket?.id;
-    const p = local
-      ? { x: width / 2, y: height / 2 }
-      : worldToScreen(player.x, player.y, cameraX, cameraY, width, height);
-    if (p.x < -40 || p.y < -90 || p.x > width + 40 || p.y > height + 40) continue;
-    ctx.fillStyle = local ? 'rgba(244,250,255,.9)' : 'rgba(216,230,246,.68)';
-    ctx.fillText(String(player.energy), p.x, p.y - (local ? 70 : 58));
-  }
-  ctx.restore();
 }
 
 function draw(time) {
@@ -228,7 +197,6 @@ function draw(time) {
         ctx.fill();
         visibleCount += 1;
       }
-      drawEnergyLabels(ctx, width, height);
       if (time - lastDebugLog > 5000) {
         lastDebugLog = time;
         console.debug('[echo:food] active:', activeIds.size, 'known:', food.size, 'visible:', visibleCount, 'connected:', isConnected);
