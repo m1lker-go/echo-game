@@ -47,6 +47,14 @@
   --echo-minimap-dx: 0px;
   --echo-minimap-dy: 0px;
 
+  /* Floating character labels, in virtual WORLD units (individually tunable). */
+  --echo-player-energy-font: 16px;
+  --echo-player-energy-offset: 54px;
+  --echo-enemy-energy-offset: 47px;
+  --echo-player-name-font: 9.5px;
+  --echo-player-name-offset: 49px;
+  --echo-enemy-name-offset: 47px;
+
   /* Energy readout */
   --echo-energy-top: 76px;
   --echo-energy-left: 22px;
@@ -344,3 +352,15 @@
 #game .language-option { font-size: calc(var(--echo-language-option-font) * var(--echo-ui-scale)); }
 #game .defeat-title { font-size: calc(var(--echo-defeat-title-font) * var(--echo-ui-scale)); }
 #game .defeat-subtitle { font-size: calc(var(--echo-defeat-subtitle-font) * var(--echo-ui-scale)); }
+
+/* Names and energy appear over 3D heroes/reflections but do not capture touch. */
+#game #player-labels {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 4.6;
+  pointer-events: none;
+  touch-action: none;
+}

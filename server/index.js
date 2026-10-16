@@ -5,6 +5,7 @@ const { Server } = require('socket.io');
 require('dotenv').config();
 
 const { pool, checkDatabase } = require('./db');
+const { normalizePlayerName } = require('./player-name');
 
 const app = express();
 const server = http.createServer(app);
@@ -766,6 +767,7 @@ io.on('connection', (socket) => {
   const spawn = findOpenPlayerSpawn();
   players.set(socket.id, {
     id: socket.id,
+    name: normalizePlayerName(socket.handshake.auth?.playerName, socket.id),
     x: spawn.x,
     y: spawn.y,
     vx: 0,
@@ -790,6 +792,7 @@ io.on('connection', (socket) => {
     const requestedSkin = payload?.skin;
     const current = players.get(socket.id);
     if (current && ALLOWED_SKINS.has(requestedSkin)) current.skin = requestedSkin;
+    if (current && typeof payload?.playerName === 'string') current.name = normalizePlayerName(payload.playerName, socket.id);
 
     socket.emit('echo:world', createWorldSnapshot());
     socket.emit('echo:players', Array.from(players.values(), (player) => ({ ...player })));

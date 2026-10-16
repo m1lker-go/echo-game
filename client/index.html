@@ -7,7 +7,7 @@
   <title>ECHO</title>
   <link rel="icon" type="image/png" href="./assets/icons/favicon.png" />
   <link rel="stylesheet" href="./style.css?v=echo-language-selector-3" />
-  <link rel="stylesheet" href="./ui-layout.css?v=echo-menu-height-1" />
+  <link rel="stylesheet" href="./ui-layout.css?v=echo-floating-names-1" />
   <link rel="stylesheet" href="./world-minimap.css?v=echo-minimap-1" />
 </head>
 <body>
@@ -15,6 +15,7 @@
     <canvas id="world" aria-label="Игровое поле" data-i18n-aria-label="menu:world_aria_label"></canvas>
     <canvas id="shared-food" aria-hidden="true"></canvas>
     <canvas id="models" aria-hidden="true"></canvas>
+    <canvas id="player-labels" aria-hidden="true"></canvas>
     <div class="vignette"></div>
     <header class="hud">
       <div class="brand" data-i18n="menu:logo">ЭХО<span class="brand-dot">.</span></div>
@@ -70,7 +71,7 @@
   <script type="module" src="./shared-food.js?v=echo-world-zoom-2"></script>
   <script type="module" src="./water-effect.js?v=echo-water-gradient-contour-fix-2"></script>
   <script type="module" src="./player-aura.js?v=echo-player-aura-1"></script>
-  <script type="module" src="./game.js?v=echo-isometric-minimap-1"></script>
+  <script type="module" src="./game.js?v=echo-floating-names-1"></script>
   <script type="module" src="./world-boundary.js?v=echo-world-zoom-2"></script>
 </body>
 </html>
