@@ -92,12 +92,11 @@ function addDebugWaterBoundary(root, modelName) {
     return;
   }
 
-  // Draw the server polygon as real mesh strips. This avoids browser/WebGL line-width differences.
-  // The strips use the exact same local XY plane as the contour and then the same X rotation as water.
+  // The server contour is in the same XY screen plane as the water holder.
+  // The water surface itself is rotated X=90° from its source XZ mesh, so the debug ring must NOT rotate with it.
   const ring = new THREE.Group();
   ring.name = 'echo-server-water-boundary-debug';
-  ring.rotation.x = Math.PI / 2;
-  ring.position.y = 0.08;
+  ring.position.z = 0.08;
   ring.renderOrder = 1000;
 
   const surface = root.children.find(child => child.isObject3D && child !== ring);
