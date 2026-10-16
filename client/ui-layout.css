@@ -2,6 +2,8 @@
  * ECHO UI LAYOUT — all dimensions below are specified for a 700px-high screen.
  * Client/game.js supplies --echo-ui-scale = actual game height / 700.
  * Change each value independently; the camera and world are NOT affected.
+ * At world zoom x2, only the joystick, stick and action buttons are doubled.
+ * HUD / menu / energy typography stay at their previous physical sizes.
  *
  * Separate positions:
  *  --echo-joystick-left / --echo-controls-right: distance to REAL screen edges
@@ -56,22 +58,22 @@
   --echo-controls-bottom: 34px;
   --echo-joystick-left: 24px;
   --echo-controls-right: 24px;
-  --echo-joystick-size: 112px;
-  --echo-stick-size: 42px;
+  --echo-joystick-size: 224px;
+  --echo-stick-size: 84px;
   --echo-joystick-dx: 0px;
   --echo-joystick-dy: 0px;
-  --echo-buttons-gap: 12px;
-  --echo-boost-size: 64px;
-  --echo-boost-icon-font: 28px;
-  --echo-boost-text-font: 7px;
+  --echo-buttons-gap: 24px;
+  --echo-boost-size: 128px;
+  --echo-boost-icon-font: 56px;
+  --echo-boost-text-font: 14px;
   --echo-boost-dx: 0px;
   --echo-boost-dy: 0px;
-  --echo-jump-size: 64px;
-  --echo-jump-icon-font: 28px;
-  --echo-jump-text-font: 7px;
+  --echo-jump-size: 128px;
+  --echo-jump-icon-font: 56px;
+  --echo-jump-text-font: 14px;
   --echo-jump-dx: 0px;
   --echo-jump-dy: 0px;
-  --echo-cooldown-font: 32px;
+  --echo-cooldown-font: 64px;
 
   /* Bottom text: each has its own position and size */
   --echo-footer-bottom: 22px;

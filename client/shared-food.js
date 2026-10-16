@@ -1,4 +1,4 @@
-import { getWorldViewport } from './viewport-scale.js';
+import { getWorldViewport } from './viewport-scale.js?v=echo-world-zoom-2';
 
 const foodCanvas = document.querySelector('#shared-food');
 const energyText = document.querySelector('#energy');

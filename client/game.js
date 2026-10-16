@@ -4,7 +4,7 @@ import { clone as cloneSkeleton } from 'https://cdn.jsdelivr.net/npm/three@0.180
 import { bindPlayerControls, updatePlayerMovement } from './player-controls.js';
 import { updateCharacterFacing } from './character-facing.js';
 import { createMobileFloorReflections } from './mobile-floor-reflections.js?v=echo-skeleton-reflection-1';
-import { getWorldViewport } from './viewport-scale.js';
+import { getWorldViewport } from './viewport-scale.js?v=echo-world-zoom-2';
 import { createServerWaterBoundaryDebug } from './server-water-boundary-debug.js?v=echo-water-world-projection-1';
 
 const activityProfileStorageKey = 'echo.activityProfileId';
@@ -55,8 +55,8 @@ function resize(){
   const pixelWidth=Math.max(1,rect.width),pixelHeight=Math.max(1,rect.height);
   const viewport=getWorldViewport(pixelWidth,pixelHeight);
   state.dpr=Math.min(devicePixelRatio||1,2);
-  // All world coordinates use the same virtual 700-unit vertical field of view.
-  // Only the horizontal world view grows/shrinks with the real screen aspect.
+  // Fixed zoomed-in vertical field of view (350 world units at 2x zoom).
+  // Aspect ratio controls ONLY the visible horizontal field of view.
   state.width=viewport.width;
   state.height=viewport.height;
   state.worldScale=viewport.scale;
@@ -74,9 +74,9 @@ function resize(){
   // Centered water-step overlay is part of the world, not the real-screen HUD.
   const gameElement=document.querySelector('#game');
   gameElement?.style.setProperty('--echo-world-scale',String(viewport.scale));
-  // HUD and menu have separate per-element CSS sizing/position tokens.
-  // Both use the same real screen-height ratio but never scale the world canvas twice.
-  gameElement?.style.setProperty('--echo-ui-scale',String(viewport.scale));
+  // HUD/menu use the original 700px height reference, independently of zoom.
+  // Joystick and action buttons are enlarged separately in ui-layout.css.
+  gameElement?.style.setProperty('--echo-ui-scale',String(viewport.uiScale));
 }addEventListener('resize',resize,{passive:true});resize();
 function setConnection(s,l){connectionDot.classList.toggle('online',s==='online');connectionDot.classList.toggle('offline',s==='offline');connectionLabel.textContent=window.$t?window.$t(l,l):l;}function getPlayerPosition(id){if(!id)return null;if(id===state.socket?.id)return{x:state.x,y:state.y};const p=state.others.get(id);return p?{x:p.displayX??p.targetX,y:p.displayY??p.targetY}:null;}
 function beginCombatVisual(a,b,fid){const now=performance.now(),local=a===state.socket?.id||b===state.socket?.id,oid=a===state.socket?.id?b:a===state.socket?.id?a:null;if(!local){const x=state.others.get(a),y=state.others.get(b);if(x){x.combatUntil=now+FIGHT_DURATION;x.combatFightId=fid;x.fightingWith=b;}if(y){y.combatUntil=now+FIGHT_DURATION;y.combatFightId=fid;y.fightingWith=a;}return;}state.combatUntil=now+FIGHT_DURATION;state.combatOpponentId=oid;state.combatFightId=fid;state.vx=0;state.vy=0;const o=state.others.get(oid);if(o)o.combatUntil=now+FIGHT_DURATION;}
