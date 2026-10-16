@@ -59,6 +59,24 @@ function worldToScreen(x, y) {
   };
 }
 
+function getWaterLocalOffset(worldX, worldY, water) {
+  const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
+  const dx = worldX - water.x;
+  const dy = worldY - water.y;
+  return {
+    x: dx * Math.cos(angle) + dy * Math.sin(angle),
+    y: -dx * Math.sin(angle) + dy * Math.cos(angle)
+  };
+}
+
+function waterLocalToWorld(localX, localY, water) {
+  const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
+  return {
+    x: water.x + localX * Math.cos(angle) - localY * Math.sin(angle),
+    y: water.y + localX * Math.sin(angle) + localY * Math.cos(angle)
+  };
+}
+
 function pointInPolygon(x, y, vertices) {
   let inside = false;
   for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
@@ -73,15 +91,10 @@ function pointInPolygon(x, y, vertices) {
 }
 
 function getWaterGeometryPoint(x, y, water) {
-  const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
-  const dx = x - water.x;
-  const dy = y - water.y;
   const scale = WATER_MODEL_BASE_SCALE * water.scale;
-  if (!isFinite(scale) || scale <= 0) return null;
-  return {
-    x: (dx * Math.cos(angle) + dy * Math.sin(angle)) / scale,
-    y: (-dx * Math.sin(angle) + dy * Math.cos(angle)) / scale
-  };
+  if (!Number.isFinite(scale) || scale <= 0) return null;
+  const local = getWaterLocalOffset(x, y, water);
+  return { x: local.x / scale, y: local.y / scale };
 }
 
 function isPointOnWater(x, y, water) {
@@ -144,15 +157,16 @@ function drawRing(wave, now) {
   // Small flattened ellipses, clipped against the current water contour.
   const horizontalRadius = radius * 1.05;
   const verticalRadius = radius * 0.42;
-  const angle = (Number.isFinite(water.rotation) ? water.rotation : 0) + Math.PI / 2;
   ctx.beginPath();
   let drawing = false;
   for (let i = 0; i <= WAVE_SAMPLE_COUNT; i += 1) {
     const a = (i / WAVE_SAMPLE_COUNT) * Math.PI * 2;
     const localX = Math.cos(a) * horizontalRadius;
     const localY = Math.sin(a) * verticalRadius;
-    const worldX = wave.x + localX * Math.cos(angle) - localY * Math.sin(angle);
-    const worldY = wave.y + localX * Math.sin(angle) + localY * Math.cos(angle);
+    const offset = getWaterLocalOffset(wave.x, wave.y, water);
+    const world = waterLocalToWorld(offset.x + localX, offset.y + localY, water);
+    const worldX = world.x;
+    const worldY = world.y;
     const inside = isPointOnWater(worldX, worldY, water);
     const p = worldToScreen(worldX, worldY);
     if (inside) {
