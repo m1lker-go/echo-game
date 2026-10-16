@@ -2,6 +2,7 @@ const game = document.querySelector('#game');
 
 // Temporary diagnostic: use the real animated water texture directly under the player.
 // The player is always kept at the center of the camera, so no world projection is needed yet.
+const WATER_GIF_WIDTH = 40;
 const effect = document.createElement('img');
 effect.id = 'water-step-effect';
 effect.src = './assets/textures/water02.gif';
@@ -12,7 +13,7 @@ effect.style.cssText = [
   'position:absolute',
   'left:50%',
   'top:50%',
-  'width:auto',
+  `width:${WATER_GIF_WIDTH}px`,
   'height:auto',
   'max-width:none',
   'max-height:none',
