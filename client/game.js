@@ -43,9 +43,9 @@ function isPointInPolygon(x,y,vertices){let inside=false;for(let i=0,j=vertices.
 const TREE_MODEL_URL='./assets/models/objects/tree.glb',TREE_BASE_SCALE=50,TREE_SCALE_MIN=1.5,TREE_SCALE_MAX=2.5;
 // Mystical winter-forest palette: blue needles, snowy tips, and deep-blue trunks.
 const TREE_NEEDLE_COLOR=new THREE.Color(0x66b6d4);
-const TREE_TRUNK_COLOR=new THREE.Color(0x14232f);
-const TREE_SNOW_COLOR=new THREE.Color(0xe7f4ff);
-const TREE_SNOW_START=.60,TREE_SNOW_FULL=.93;
+const TREE_TRUNK_COLOR=new THREE.Color(0x203a4c); // Slightly lighter, still blue-graphite
+const TREE_SNOW_COLOR=new THREE.Color(0xf5fbff); // Silver-white snowy tips
+const TREE_SNOW_START=.68,TREE_SNOW_FULL=.96; // Concentrate the brightest frost near the top
 const TREE_FOLIAGE_OPACITY=.30,TREE_SNOW_OPACITY=.42;
 function createTreeMaterial(sourceMaterial,geometry){
   const material=sourceMaterial?.clone?.()||new THREE.MeshStandardMaterial({color:0xffffff});
@@ -67,6 +67,8 @@ function createTreeMaterial(sourceMaterial,geometry){
 float echoNeedles=smoothstep(0.002,0.030,diffuseColor.g-diffuseColor.r);
 float echoSnow=clamp(smoothstep(${TREE_SNOW_START.toFixed(2)},${TREE_SNOW_FULL.toFixed(2)},vEchoTreeHeight)+0.10*smoothstep(0.38,0.74,vEchoTreeHeight),0.0,1.0);
 vec3 echoWinterNeedles=mix(vec3(${TREE_NEEDLE_COLOR.r.toFixed(6)},${TREE_NEEDLE_COLOR.g.toFixed(6)},${TREE_NEEDLE_COLOR.b.toFixed(6)}),vec3(${TREE_SNOW_COLOR.r.toFixed(6)},${TREE_SNOW_COLOR.g.toFixed(6)},${TREE_SNOW_COLOR.b.toFixed(6)}),echoSnow);
+float echoLowerBranchShade=mix(0.82,1.0,smoothstep(0.08,0.84,vEchoTreeHeight));
+echoWinterNeedles*=mix(echoLowerBranchShade,1.0,echoSnow);
 diffuseColor.rgb=mix(diffuseColor.rgb,echoWinterNeedles,echoNeedles*0.94);
 // Recolor non-green bark while leaving the needle/snow blend untouched.
 diffuseColor.rgb=mix(vec3(${TREE_TRUNK_COLOR.r.toFixed(6)},${TREE_TRUNK_COLOR.g.toFixed(6)},${TREE_TRUNK_COLOR.b.toFixed(6)}),diffuseColor.rgb,echoNeedles);
