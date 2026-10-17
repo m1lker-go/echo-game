@@ -6,6 +6,11 @@ const AURA_STRENGTH = 5;
 const AURA_RADIUS_SCALE = 1.5;
 const AURA_RGB = '20, 35, 47'; // #14232F — dark blue-gray throughout the aura
 
+// Soft local highlight above the wide dark aura, still behind the hero.
+const INNER_GLOW_RADIUS = 0.24; // fraction of the shorter viewport side
+const INNER_GLOW_STRENGTH = 0.48; // center opacity (0–1)
+const INNER_GLOW_RGB = '168, 206, 224'; // #A8CEE0, cool muted blue
+
 if (game && worldCanvas) {
   const canvas = document.createElement('canvas');
   canvas.id = 'player-aura';
@@ -59,6 +64,17 @@ if (game && worldCanvas) {
     glow.addColorStop(1, `rgba(${AURA_RGB}, 0)`);
 
     ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, state.width, state.height);
+
+    // A smaller, brighter pool of light immediately around the local hero.
+    // Keep it on the same canvas so it never covers the 3D character.
+    const innerRadius = Math.min(state.width, state.height) * INNER_GLOW_RADIUS * pulse;
+    const innerGlow = ctx.createRadialGradient(x, y, 0, x, y, innerRadius);
+    innerGlow.addColorStop(0, `rgba(${INNER_GLOW_RGB}, ${INNER_GLOW_STRENGTH})`);
+    innerGlow.addColorStop(.3, `rgba(${INNER_GLOW_RGB}, ${INNER_GLOW_STRENGTH * .65})`);
+    innerGlow.addColorStop(.65, `rgba(${INNER_GLOW_RGB}, ${INNER_GLOW_STRENGTH * .25})`);
+    innerGlow.addColorStop(1, `rgba(${INNER_GLOW_RGB}, 0)`);
+    ctx.fillStyle = innerGlow;
     ctx.fillRect(0, 0, state.width, state.height);
 
     requestAnimationFrame(drawAura);
