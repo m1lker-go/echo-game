@@ -1,5 +1,6 @@
 // ECHO game sound effects. Shares the persistent Effects volume setting.
 const files = Object.freeze({
+  click: './assets/sounds/click.mp3',
   dash: './assets/sounds/dash.mp3',
   jump: './assets/sounds/jump.mp3',
   water: './assets/sounds/water.mp3',
