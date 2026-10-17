@@ -3,6 +3,8 @@ const worldCanvas = document.querySelector('#world');
 
 // Multiplier for the local hero's floor glow; alpha values are capped at 1.
 const AURA_STRENGTH = 5;
+const AURA_RADIUS_SCALE = 1.5;
+const AURA_RGB = '20, 35, 47'; // #14232F — dark blue-gray throughout the aura
 
 if (game && worldCanvas) {
   const canvas = document.createElement('canvas');
@@ -46,15 +48,15 @@ if (game && worldCanvas) {
     const x = state.width / 2;
     const y = state.height / 2;
     const pulse = 1 + Math.sin(time * 0.0014) * 0.025;
-    const radius = Math.min(state.width, state.height) * 0.62 * pulse;
+    const radius = Math.min(state.width, state.height) * 0.62 * AURA_RADIUS_SCALE * pulse;
 
     const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
     const alpha = base => Math.min(1, base * AURA_STRENGTH);
-    glow.addColorStop(0, `rgba(190, 225, 239, ${alpha(.22)})`);
-    glow.addColorStop(.16, `rgba(150, 190, 207, ${alpha(.16)})`);
-    glow.addColorStop(.42, `rgba(115, 153, 171, ${alpha(.09)})`);
-    glow.addColorStop(.72, `rgba(67, 100, 118, ${alpha(.03)})`);
-    glow.addColorStop(1, 'rgba(20, 35, 47, 0)');
+    glow.addColorStop(0, `rgba(${AURA_RGB}, ${alpha(.22)})`);
+    glow.addColorStop(.16, `rgba(${AURA_RGB}, ${alpha(.16)})`);
+    glow.addColorStop(.42, `rgba(${AURA_RGB}, ${alpha(.09)})`);
+    glow.addColorStop(.72, `rgba(${AURA_RGB}, ${alpha(.03)})`);
+    glow.addColorStop(1, `rgba(${AURA_RGB}, 0)`);
 
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, state.width, state.height);
