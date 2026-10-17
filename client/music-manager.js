@@ -7,7 +7,31 @@ const STORAGE_KEY = 'echo.music.playback';
 const audio = new Audio();
 audio.preload = 'auto';
 audio.loop = false;
-audio.volume = 0.6;
+const MUSIC_VOLUME_KEY = 'echo.music.volume';
+const SFX_VOLUME_KEY = 'echo.sfx.volume';
+function readVolume(key, fallback) {
+  try {
+    const value = Number(localStorage.getItem(key));
+    return localStorage.getItem(key) !== null && Number.isFinite(value)
+      ? Math.max(0, Math.min(1, value)) : fallback;
+  } catch (_) { return fallback; }
+}
+let musicVolume = readVolume(MUSIC_VOLUME_KEY, 0.6);
+let sfxVolume = readVolume(SFX_VOLUME_KEY, 0.7);
+audio.volume = musicVolume;
+window.ECHOAudio = Object.freeze({
+  getMusicVolume: () => musicVolume,
+  getSfxVolume: () => sfxVolume,
+  setMusicVolume(value) {
+    musicVolume = Math.max(0, Math.min(1, Number(value) || 0));
+    audio.volume = musicVolume;
+    try { localStorage.setItem(MUSIC_VOLUME_KEY, String(musicVolume)); } catch (_) {}
+  },
+  setSfxVolume(value) {
+    sfxVolume = Math.max(0, Math.min(1, Number(value) || 0));
+    try { localStorage.setItem(SFX_VOLUME_KEY, String(sfxVolume)); } catch (_) {}
+  },
+});
 audio.playsInline = true;
 
 let trackIndex = 0;
