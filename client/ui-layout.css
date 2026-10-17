@@ -450,8 +450,8 @@
 #game .echo-volume-row {
   min-width: 0;
   padding: clamp(10px, calc(13px * var(--echo-ui-scale)), 17px) clamp(14px, calc(19px * var(--echo-ui-scale)), 24px);
-  background: rgba(10, 29, 42, .48);
-  border: 1px solid rgba(151, 213, 243, .38);
+  background: #000;
+  border: 1px solid #fff;
   border-radius: 13px;
 }
 #game .echo-volume-heading {
@@ -459,13 +459,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  color: #d8efff;
+  color: #fff;
   font-size: clamp(12px, calc(15px * var(--echo-ui-scale)), 19px);
   letter-spacing: .065em;
   margin-bottom: 12px;
 }
 #game .echo-volume-heading output {
-  color: #91dafa;
+  color: #fff;
   font-variant-numeric: tabular-nums;
 }
 #game .echo-volume-row input[type="range"] {
