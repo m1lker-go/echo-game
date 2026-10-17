@@ -30,6 +30,7 @@ window.ECHOAudio = Object.freeze({
   setSfxVolume(value) {
     sfxVolume = Math.max(0, Math.min(1, Number(value) || 0));
     try { localStorage.setItem(SFX_VOLUME_KEY, String(sfxVolume)); } catch (_) {}
+    window.dispatchEvent(new CustomEvent('echo:sfx-volume-changed', { detail: { volume: sfxVolume } }));
   },
 });
 audio.playsInline = true;
