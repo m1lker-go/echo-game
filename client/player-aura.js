@@ -8,7 +8,7 @@ const AURA_RGB = '20, 35, 47'; // #14232F — dark blue-gray throughout the aura
 
 // Soft local highlight above the wide dark aura, still behind the hero.
 const INNER_GLOW_RADIUS = 0.36; // 1.5x the former 0.24 viewport radius
-const INNER_GLOW_STRENGTH = 0.25; // softer center opacity (was 0.48)
+const INNER_GLOW_STRENGTH = 0.55; // brighter near the hero; quickly fades into the outer aura
 const INNER_GLOW_RGB = '168, 206, 224'; // #A8CEE0, cool muted blue
 
 if (game && worldCanvas) {
@@ -66,16 +66,17 @@ if (game && worldCanvas) {
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, state.width, state.height);
 
-    // A smaller, brighter pool of light immediately around the local hero.
+    // Brighten only the center, then blend the glow toward the wide dark aura.
     // Keep it on the same canvas so it never covers the 3D character.
     const innerRadius = Math.min(state.width, state.height) * INNER_GLOW_RADIUS * pulse;
     const innerGlow = ctx.createRadialGradient(x, y, 0, x, y, innerRadius);
     innerGlow.addColorStop(0, `rgba(${INNER_GLOW_RGB}, ${INNER_GLOW_STRENGTH})`);
-    innerGlow.addColorStop(.18, `rgba(${INNER_GLOW_RGB}, ${INNER_GLOW_STRENGTH * .92})`);
-    innerGlow.addColorStop(.4, `rgba(${INNER_GLOW_RGB}, ${INNER_GLOW_STRENGTH * .66})`);
-    innerGlow.addColorStop(.63, `rgba(${INNER_GLOW_RGB}, ${INNER_GLOW_STRENGTH * .34})`);
-    innerGlow.addColorStop(.82, `rgba(${INNER_GLOW_RGB}, ${INNER_GLOW_STRENGTH * .1})`);
-    innerGlow.addColorStop(1, `rgba(${INNER_GLOW_RGB}, 0)`);
+    innerGlow.addColorStop(.09, `rgba(148, 190, 210, ${INNER_GLOW_STRENGTH * .8})`);
+    innerGlow.addColorStop(.2, `rgba(112, 156, 178, ${INNER_GLOW_STRENGTH * .49})`);
+    innerGlow.addColorStop(.38, `rgba(66, 103, 122, ${INNER_GLOW_STRENGTH * .22})`);
+    innerGlow.addColorStop(.6, `rgba(32, 56, 72, ${INNER_GLOW_STRENGTH * .065})`);
+    innerGlow.addColorStop(.82, `rgba(${AURA_RGB}, ${INNER_GLOW_STRENGTH * .015})`);
+    innerGlow.addColorStop(1, `rgba(${AURA_RGB}, 0)`);
     ctx.fillStyle = innerGlow;
     ctx.fillRect(0, 0, state.width, state.height);
 
