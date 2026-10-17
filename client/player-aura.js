@@ -1,6 +1,9 @@
 const game = document.querySelector('#game');
 const worldCanvas = document.querySelector('#world');
 
+// Multiplier for the local hero's floor glow; alpha values are capped at 1.
+const AURA_STRENGTH = 5;
+
 if (game && worldCanvas) {
   const canvas = document.createElement('canvas');
   canvas.id = 'player-aura';
@@ -11,7 +14,8 @@ if (game && worldCanvas) {
     width: '100%',
     height: '100%',
     pointerEvents: 'none',
-    zIndex: '1.5',
+    // Above the ground (#world: 1), below food (2) and 3D heroes (3).
+    zIndex: '2',
   });
 
   game.insertBefore(canvas, document.querySelector('#shared-food') || null);
@@ -45,10 +49,11 @@ if (game && worldCanvas) {
     const radius = Math.min(state.width, state.height) * 0.62 * pulse;
 
     const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
-    glow.addColorStop(0, 'rgba(190, 225, 239, .22)');
-    glow.addColorStop(.16, 'rgba(150, 190, 207, .16)');
-    glow.addColorStop(.42, 'rgba(115, 153, 171, .09)');
-    glow.addColorStop(.72, 'rgba(67, 100, 118, .03)');
+    const alpha = base => Math.min(1, base * AURA_STRENGTH);
+    glow.addColorStop(0, `rgba(190, 225, 239, ${alpha(.22)})`);
+    glow.addColorStop(.16, `rgba(150, 190, 207, ${alpha(.16)})`);
+    glow.addColorStop(.42, `rgba(115, 153, 171, ${alpha(.09)})`);
+    glow.addColorStop(.72, `rgba(67, 100, 118, ${alpha(.03)})`);
     glow.addColorStop(1, 'rgba(20, 35, 47, 0)');
 
     ctx.fillStyle = glow;
