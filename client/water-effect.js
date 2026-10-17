@@ -39,7 +39,15 @@ function ensureOpacityAnimation(){if(!effect.animate)return null;return effect.a
 let opacityAnimation=null;
 function stopPulse(){clearTimeout(pulseTimer);pulseTimer=null;pulseRunning=false;opacityAnimation?.cancel();opacityAnimation=null;effect.style.transition='none';effect.style.width=`${WATER_GIF_MIN_WIDTH}px`;effect.style.opacity='0';}
 function pulse(){if(!isMoving||!isOnWater||pulseRunning)return;pulseRunning=true;opacityAnimation?.cancel();opacityAnimation=ensureOpacityAnimation();effect.style.transition=`width ${WATER_GIF_PULSE_MS}ms ease-in-out`;effect.style.width=`${WATER_GIF_MAX_WIDTH}px`;pulseTimer=setTimeout(()=>{pulseTimer=null;opacityAnimation?.cancel();opacityAnimation=null;effect.style.transition='none';effect.style.width=`${WATER_GIF_MIN_WIDTH}px`;effect.style.opacity='0';pulseRunning=false;if(isMoving&&isOnWater){void effect.offsetWidth;pulse();}},WATER_GIF_PULSE_MS);}
-function updateEffectState(){if(isMoving&&isOnWater)pulse();else stopPulse();}
+let wasWaterRunning = false;
+function updateEffectState(){
+  const running = isMoving && isOnWater;
+  if (running) pulse(); else stopPulse();
+  if (running !== wasWaterRunning) {
+    wasWaterRunning = running;
+    window.dispatchEvent(new CustomEvent('echo:water-running', { detail: { running } }));
+  }
+}
 window.addEventListener('echo:water-state',e=>{isOnWater=Boolean(e.detail?.inWater??e.detail?.isInWater??e.detail?.water);updateEffectState();});
 window.addEventListener('echo:player-movement',e=>{const vx=Number(e.detail?.vx)||0,vy=Number(e.detail?.vy)||0,movingNow=Math.hypot(vx,vy)>WATER_GIF_MOVEMENT_THRESHOLD;if(movingNow===isMoving)return;isMoving=movingNow;updateEffectState();});
 
