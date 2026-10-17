@@ -41,8 +41,9 @@ function getWaterGeometry(water) { return { vertices: WATER_GEOMETRY[water.model
 function getWaterScale(water) { return WATER_MODEL_BASE_SCALE * water.scale; }
 function isPointInPolygon(x,y,vertices){let inside=false;for(let i=0,j=vertices.length-1;i<vertices.length;j=i++){const[xi,yi]=vertices[i],[xj,yj]=vertices[j];const crosses=(yi>y)!==(yj>y)&&x<((xj-xi)*(y-yi))/((yj-yi)||Number.EPSILON)+xi;if(crosses)inside=!inside;const cross=(x-xi)*(yj-yi)-(y-yi)*(xj-xi);if(Math.abs(cross)<1e-7&&x>=Math.min(xi,xj)-1e-7&&x<=Math.max(xi,xj)+1e-7&&y>=Math.min(yj,yi)-1e-7&&y<=Math.max(yj,yi)+1e-7)return true;}return inside;}
 const TREE_MODEL_URL='./assets/models/objects/tree.glb',TREE_BASE_SCALE=50,TREE_SCALE_MIN=1.5,TREE_SCALE_MAX=2.5;
-// Mystical winter-forest palette. Only the green needles are recolored; brown trunks keep their material.
+// Mystical winter-forest palette: blue needles, snowy tips, and deep-blue trunks.
 const TREE_NEEDLE_COLOR=new THREE.Color(0x66b6d4);
+const TREE_TRUNK_COLOR=new THREE.Color(0x14232f);
 const TREE_SNOW_COLOR=new THREE.Color(0xe7f4ff);
 const TREE_SNOW_START=.60,TREE_SNOW_FULL=.93;
 const TREE_FOLIAGE_OPACITY=.30,TREE_SNOW_OPACITY=.42;
@@ -67,6 +68,8 @@ float echoNeedles=smoothstep(0.002,0.030,diffuseColor.g-diffuseColor.r);
 float echoSnow=clamp(smoothstep(${TREE_SNOW_START.toFixed(2)},${TREE_SNOW_FULL.toFixed(2)},vEchoTreeHeight)+0.10*smoothstep(0.38,0.74,vEchoTreeHeight),0.0,1.0);
 vec3 echoWinterNeedles=mix(vec3(${TREE_NEEDLE_COLOR.r.toFixed(6)},${TREE_NEEDLE_COLOR.g.toFixed(6)},${TREE_NEEDLE_COLOR.b.toFixed(6)}),vec3(${TREE_SNOW_COLOR.r.toFixed(6)},${TREE_SNOW_COLOR.g.toFixed(6)},${TREE_SNOW_COLOR.b.toFixed(6)}),echoSnow);
 diffuseColor.rgb=mix(diffuseColor.rgb,echoWinterNeedles,echoNeedles*0.94);
+// Recolor non-green bark while leaving the needle/snow blend untouched.
+diffuseColor.rgb=mix(vec3(${TREE_TRUNK_COLOR.r.toFixed(6)},${TREE_TRUNK_COLOR.g.toFixed(6)},${TREE_TRUNK_COLOR.b.toFixed(6)}),diffuseColor.rgb,echoNeedles);
 diffuseColor.a=mix(diffuseColor.a,${TREE_SNOW_OPACITY.toFixed(2)},echoNeedles*echoSnow);`);
   };
   material.needsUpdate=true;
