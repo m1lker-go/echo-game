@@ -46,7 +46,9 @@
     "character_screen_aria_label": "Выбор персонажа",
     "placeholder_screen_aria_label": "Раздел меню",
     "settings_screen_aria_label": "Настройки игры",
-    "language_options_aria_label": "Выбор языка"
+    "language_options_aria_label": "Выбор языка",
+    "music_volume": "Музыка",
+    "sfx_volume": "Звуки"
   },
   "game": {
     "map_short": "КАРТА",
