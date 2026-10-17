@@ -1,18 +1,20 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizePlayerName } = require('../player-name');
+const { normalizePlayerName, guestName } = require('../player-name');
 
-test('names are trimmed, sanitized and limited to 24 codepoints', () => {
-  assert.equal(normalizePlayerName('   Игрок 12345  '), 'Игрок 12345');
-  assert.equal(normalizePlayerName('  Alice   Bob  '), 'Alice Bob');
-  assert.equal(normalizePlayerName('Bad<svg>Name'), 'BadsvgName');
-  assert.equal(normalizePlayerName('x'.repeat(80)).length, 24);
-  assert.equal(normalizePlayerName('А😀Б'), 'А😀Б');
+test('guest names use one of the allowed names and a five-digit suffix', () => {
+  const name = normalizePlayerName(null, 'profile-abc');
+  assert.match(name, /^(Tom|Bob|John|Terry|Carry|Berry|Max|Jack|Leo|Alex|Sam|Nick|Mike|Finn|Rick|Ben|Mia|Luna|Kate|Anna|Eva|Ruby|Lily|Nora|Oscar|Oliver|Harry|Molly|Grace|Daisy|Tony|Robin)_\\d{5}$/);
+  assert.equal(name, guestName('profile-abc'));
 });
 
-test('unnamed guests get a stable public nickname', () => {
-  const name = normalizePlayerName(null, 'socket-abc');
-  assert.match(name, /^Игрок \d{5}$/);
-  assert.equal(name, normalizePlayerName('', 'socket-abc'));
-  assert.notEqual(name, normalizePlayerName('', 'socket-xyz'));
+test('same guest profile keeps its name between sessions', () => {
+  assert.equal(normalizePlayerName(null, 'profile-abc'), normalizePlayerName(null, 'profile-abc'));
+  assert.notEqual(normalizePlayerName(null, 'profile-abc'), normalizePlayerName(null, 'profile-xyz'));
+});
+
+test('guest cannot override their server-generated name', () => {
+  const id = 'profile-abc';
+  assert.equal(normalizePlayerName('Admin', id), normalizePlayerName(null, id));
+  assert.equal(normalizePlayerName(' Bad<svg>Name ', id), normalizePlayerName(null, id));
 });
