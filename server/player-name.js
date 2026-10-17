@@ -1,18 +1,12 @@
-// Public player display name for ECHO. Never broadcast account/profile IDs.
-const MAX_PLAYER_NAME_LENGTH = 24;
-
-function normalizePlayerName(value, socketId = '') {
-  const cleaned = typeof value === 'string'
-    ? value.normalize('NFKC')
-        .replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069<>]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim()
-    : '';
-  if (cleaned) return Array.from(cleaned).slice(0, MAX_PLAYER_NAME_LENGTH).join('');
-
+// Stable guest display names; profile IDs are never broadcast to other players.
+const GUEST_NAMES = ['Tom','Bob','John','Terry','Carry','Berry','Max','Jack','Leo','Alex','Sam','Nick','Mike','Finn','Rick','Ben','Mia','Luna','Kate','Anna','Eva','Ruby','Lily','Nora','Oscar','Oliver','Harry','Molly','Grace','Daisy','Tony','Robin'];
+function guestName(profileId) {
   let hash = 0;
-  for (const char of String(socketId)) hash = (Math.imul(hash, 31) + char.charCodeAt(0)) >>> 0;
-  return 'Игрок ' + String(hash % 100000).padStart(5, '0');
+  for (const char of String(profileId || '')) hash = (Math.imul(hash, 31) + char.charCodeAt(0)) >>> 0;
+  return GUEST_NAMES[hash % GUEST_NAMES.length] + '_' + String((Math.floor(hash / GUEST_NAMES.length) % 90000) + 10000);
 }
-
-module.exports = { normalizePlayerName, MAX_PLAYER_NAME_LENGTH };
+// Until registered accounts are implemented, player-supplied display names are untrusted.
+function normalizePlayerName(_value, profileId = '') {
+  return guestName(profileId);
+}
+module.exports = { normalizePlayerName, guestName };
