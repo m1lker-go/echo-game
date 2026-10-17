@@ -7,8 +7,8 @@ const AURA_RADIUS_SCALE = 1.5;
 const AURA_RGB = '20, 35, 47'; // #14232F — dark blue-gray throughout the aura
 
 // Soft local highlight above the wide dark aura, still behind the hero.
-const INNER_GLOW_RADIUS = 0.24; // fraction of the shorter viewport side
-const INNER_GLOW_STRENGTH = 0.48; // center opacity (0–1)
+const INNER_GLOW_RADIUS = 0.36; // 1.5x the former 0.24 viewport radius
+const INNER_GLOW_STRENGTH = 0.25; // softer center opacity (was 0.48)
 const INNER_GLOW_RGB = '168, 206, 224'; // #A8CEE0, cool muted blue
 
 if (game && worldCanvas) {
@@ -71,8 +71,10 @@ if (game && worldCanvas) {
     const innerRadius = Math.min(state.width, state.height) * INNER_GLOW_RADIUS * pulse;
     const innerGlow = ctx.createRadialGradient(x, y, 0, x, y, innerRadius);
     innerGlow.addColorStop(0, `rgba(${INNER_GLOW_RGB}, ${INNER_GLOW_STRENGTH})`);
-    innerGlow.addColorStop(.3, `rgba(${INNER_GLOW_RGB}, ${INNER_GLOW_STRENGTH * .65})`);
-    innerGlow.addColorStop(.65, `rgba(${INNER_GLOW_RGB}, ${INNER_GLOW_STRENGTH * .25})`);
+    innerGlow.addColorStop(.18, `rgba(${INNER_GLOW_RGB}, ${INNER_GLOW_STRENGTH * .92})`);
+    innerGlow.addColorStop(.4, `rgba(${INNER_GLOW_RGB}, ${INNER_GLOW_STRENGTH * .66})`);
+    innerGlow.addColorStop(.63, `rgba(${INNER_GLOW_RGB}, ${INNER_GLOW_STRENGTH * .34})`);
+    innerGlow.addColorStop(.82, `rgba(${INNER_GLOW_RGB}, ${INNER_GLOW_STRENGTH * .1})`);
     innerGlow.addColorStop(1, `rgba(${INNER_GLOW_RGB}, 0)`);
     ctx.fillStyle = innerGlow;
     ctx.fillRect(0, 0, state.width, state.height);
