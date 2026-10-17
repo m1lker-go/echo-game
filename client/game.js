@@ -17,14 +17,13 @@ if (!activityProfileId || !/^[a-zA-Z0-9_-]{16,80}$/.test(activityProfileId)) {
   localStorage.setItem(activityProfileStorageKey, activityProfileId);
 }
 
-const playerNameStorageKey = 'echo.playerName';
-let playerName = localStorage.getItem(playerNameStorageKey)?.trim();
-if (!playerName) {
-  let hash = 0;
-  for (const char of activityProfileId) hash = (Math.imul(hash, 31) + char.charCodeAt(0)) >>> 0;
-  playerName = 'Игрок ' + String(hash % 100000).padStart(5, '0');
-  localStorage.setItem(playerNameStorageKey, playerName);
-}
+// Keep guest names stable through reloads and client updates.
+const guestNames = ['Tom','Bob','John','Terry','Carry','Berry','Max','Jack','Leo','Alex','Sam','Nick','Mike','Finn','Rick','Ben','Mia','Luna','Kate','Anna','Eva','Ruby','Lily','Nora','Oscar','Oliver','Harry','Molly','Grace','Daisy','Tony','Robin'];
+let guestHash = 0;
+for (const char of activityProfileId) guestHash = (Math.imul(guestHash, 31) + char.charCodeAt(0)) >>> 0;
+const playerName = guestNames[guestHash % guestNames.length] + '_' +
+  String((Math.floor(guestHash / guestNames.length) % 90000) + 10000);
+localStorage.setItem('echo.playerName', playerName);
 const canvas=document.querySelector('#world'),modelCanvas=document.querySelector('#models'),ctx=canvas.getContext('2d',{alpha:true}),energyText=document.querySelector('#energy'),coordsText=document.querySelector('#coords'),connectionDot=document.querySelector('#connection-dot'),connectionLabel=document.querySelector('#connection-label'),gameExitButton=document.querySelector('#game-exit'),joystick=document.querySelector('#joystick'),stick=document.querySelector('#stick'),boostButton=document.querySelector('#boost'),jumpButton=document.querySelector('#jump'),defeatScreen=document.querySelector('#defeat-screen'),defeatReplay=document.querySelector('#defeat-replay'),defeatMenu=document.querySelector('#defeat-menu');
 const state={x:0,y:0,vx:0,vy:0,energy:0,cameraX:0,cameraY:0,inputX:0,inputY:0,width:1,height:1,dpr:1,keys:new Set(),lastTime:0,boostUntil:0,boostCooldownUntil:0,jumpUntil:0,jumpStart:0,jumpFromX:0,jumpFromY:0,jumpToX:0,jumpToY:0,combatUntil:0,combatOpponentId:null,combatFightId:null,defeated:false,socket:null,others:new Map(),lastSent:0,lastSnapshotAt:0};
 const WORLD={spacing:84},ISO={x:.8660254,y:.5},JUMP_DISTANCE=420,JUMP_DURATION=200,FIGHT_DURATION=1000;
