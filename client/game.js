@@ -21,7 +21,7 @@ if (!activityProfileId || !/^[a-zA-Z0-9_-]{16,80}$/.test(activityProfileId)) {
 const guestNames = ['Tom','Bob','John','Terry','Carry','Berry','Max','Jack','Leo','Alex','Sam','Nick','Mike','Finn','Rick','Ben','Mia','Luna','Kate','Anna','Eva','Ruby','Lily','Nora','Oscar','Oliver','Harry','Molly','Grace','Daisy','Tony','Robin'];
 let guestHash = 0;
 for (const char of activityProfileId) guestHash = (Math.imul(guestHash, 31) + char.charCodeAt(0)) >>> 0;
-const playerName = guestNames[guestHash % guestNames.length] + '_' +
+let playerName = guestNames[guestHash % guestNames.length] + '_' +
   String((Math.floor(guestHash / guestNames.length) % 90000) + 10000);
 localStorage.setItem('echo.playerName', playerName);
 const canvas=document.querySelector('#world'),modelCanvas=document.querySelector('#models'),ctx=canvas.getContext('2d',{alpha:true}),energyText=document.querySelector('#energy'),coordsText=document.querySelector('#coords'),connectionDot=document.querySelector('#connection-dot'),connectionLabel=document.querySelector('#connection-label'),gameExitButton=document.querySelector('#game-exit'),joystick=document.querySelector('#joystick'),stick=document.querySelector('#stick'),boostButton=document.querySelector('#boost'),jumpButton=document.querySelector('#jump'),defeatScreen=document.querySelector('#defeat-screen'),defeatReplay=document.querySelector('#defeat-replay'),defeatMenu=document.querySelector('#defeat-menu');
