@@ -388,6 +388,28 @@
   touch-action: none;
 }
 
+/* Stretch Settings vertically like the main menu, with identical safe-area edge padding.
+   Auto margins distribute *extra* room between sections while keeping notes attached
+   to their controls. Small screens can scroll rather than clipping the Back button. */
+#game #menu-settings-screen {
+  justify-content: flex-start;
+  padding-top: max(16px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+#game #menu-settings-screen .settings-language-row,
+#game #menu-settings-screen .settings-cache-button,
+#game #menu-settings-screen #settings-back {
+  margin-top: auto;
+}
+#game #menu-settings-screen > h1,
+#game #menu-settings-screen > .settings-note,
+#game #menu-settings-screen > .settings-status,
+#game #menu-settings-screen > .settings-language-row {
+  flex-shrink: 0;
+}
+
 /* Settings: all button rows share the same outer edges and button height. */
 #game #menu-settings-screen {
   --echo-settings-button-width: min(calc(var(--echo-menu-max-width) * var(--echo-ui-scale)), calc(100% - 20px));
