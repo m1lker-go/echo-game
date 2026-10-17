@@ -4,7 +4,7 @@ const { normalizePlayerName, guestName } = require('../player-name');
 
 test('guest names use one of the allowed names and a five-digit suffix', () => {
   const name = normalizePlayerName(null, 'profile-abc');
-  assert.match(name, /^(Tom|Bob|John|Terry|Carry|Berry|Max|Jack|Leo|Alex|Sam|Nick|Mike|Finn|Rick|Ben|Mia|Luna|Kate|Anna|Eva|Ruby|Lily|Nora|Oscar|Oliver|Harry|Molly|Grace|Daisy|Tony|Robin)_\\d{5}$/);
+  assert.match(name, /^(Tom|Bob|John|Terry|Carry|Berry|Max|Jack|Leo|Alex|Sam|Nick|Mike|Finn|Rick|Ben|Mia|Luna|Kate|Anna|Eva|Ruby|Lily|Nora|Oscar|Oliver|Harry|Molly|Grace|Daisy|Tony|Robin)_\d{5}$/);
   assert.equal(name, guestName('profile-abc'));
 });
 
