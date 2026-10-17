@@ -41,8 +41,38 @@ function getWaterGeometry(water) { return { vertices: WATER_GEOMETRY[water.model
 function getWaterScale(water) { return WATER_MODEL_BASE_SCALE * water.scale; }
 function isPointInPolygon(x,y,vertices){let inside=false;for(let i=0,j=vertices.length-1;i<vertices.length;j=i++){const[xi,yi]=vertices[i],[xj,yj]=vertices[j];const crosses=(yi>y)!==(yj>y)&&x<((xj-xi)*(y-yi))/((yj-yi)||Number.EPSILON)+xi;if(crosses)inside=!inside;const cross=(x-xi)*(yj-yi)-(y-yi)*(xj-xi);if(Math.abs(cross)<1e-7&&x>=Math.min(xi,xj)-1e-7&&x<=Math.max(xi,xj)+1e-7&&y>=Math.min(yj,yi)-1e-7&&y<=Math.max(yj,yi)+1e-7)return true;}return inside;}
 const TREE_MODEL_URL='./assets/models/objects/tree.glb',TREE_BASE_SCALE=50,TREE_SCALE_MIN=1.5,TREE_SCALE_MAX=2.5;
-function createTreeMaterial(sourceMaterial){const material=sourceMaterial?.clone?.()||new THREE.MeshStandardMaterial({color:0xffffff});material.transparent=true;material.opacity=.30;material.depthWrite=false;material.depthTest=false;material.side=THREE.DoubleSide;material.needsUpdate=true;return material;}
-function prepareTreeMaterials(root){root.traverse(child=>{if(!child.isMesh)return;child.material=Array.isArray(child.material)?child.material.map(material=>createTreeMaterial(material)):createTreeMaterial(child.material);child.castShadow=false;child.receiveShadow=false;});}
+// Mystical winter-forest palette. Only the green needles are recolored; brown trunks keep their material.
+const TREE_NEEDLE_COLOR=new THREE.Color(0x66b6d4);
+const TREE_SNOW_COLOR=new THREE.Color(0xe7f4ff);
+const TREE_SNOW_START=.60,TREE_SNOW_FULL=.93;
+const TREE_FOLIAGE_OPACITY=.30,TREE_SNOW_OPACITY=.42;
+function createTreeMaterial(sourceMaterial,geometry){
+  const material=sourceMaterial?.clone?.()||new THREE.MeshStandardMaterial({color:0xffffff});
+  material.transparent=true;material.opacity=TREE_FOLIAGE_OPACITY;
+  material.depthWrite=false;material.depthTest=false;material.side=THREE.DoubleSide;
+  // Local geometry height allows each needle layer to receive a natural frosted tip.
+  if(geometry&&!geometry.boundingBox)geometry.computeBoundingBox();
+  const bottom=geometry?.boundingBox?.min.y??0;
+  const height=Math.max(.00001,(geometry?.boundingBox?.max.y??1)-bottom);
+  material.onBeforeCompile=shader=>{
+    shader.uniforms.echoTreeBottom={value:bottom};
+    shader.uniforms.echoTreeHeightInv={value:1/height};
+    shader.vertexShader=shader.vertexShader
+      .replace('#include <common>','#include <common>\nvarying float vEchoTreeHeight;\nuniform float echoTreeBottom;\nuniform float echoTreeHeightInv;')
+      .replace('#include <begin_vertex>','#include <begin_vertex>\nvEchoTreeHeight=clamp((position.y-echoTreeBottom)*echoTreeHeightInv,0.0,1.0);');
+    shader.fragmentShader=shader.fragmentShader
+      .replace('#include <common>','#include <common>\nvarying float vEchoTreeHeight;')
+      .replace('#include <color_fragment>',`#include <color_fragment>
+float echoNeedles=smoothstep(0.002,0.030,diffuseColor.g-diffuseColor.r);
+float echoSnow=clamp(smoothstep(${TREE_SNOW_START.toFixed(2)},${TREE_SNOW_FULL.toFixed(2)},vEchoTreeHeight)+0.10*smoothstep(0.38,0.74,vEchoTreeHeight),0.0,1.0);
+vec3 echoWinterNeedles=mix(vec3(${TREE_NEEDLE_COLOR.r.toFixed(6)},${TREE_NEEDLE_COLOR.g.toFixed(6)},${TREE_NEEDLE_COLOR.b.toFixed(6)}),vec3(${TREE_SNOW_COLOR.r.toFixed(6)},${TREE_SNOW_COLOR.g.toFixed(6)},${TREE_SNOW_COLOR.b.toFixed(6)}),echoSnow);
+diffuseColor.rgb=mix(diffuseColor.rgb,echoWinterNeedles,echoNeedles*0.94);
+diffuseColor.a=mix(diffuseColor.a,${TREE_SNOW_OPACITY.toFixed(2)},echoNeedles*echoSnow);`);
+  };
+  material.needsUpdate=true;
+  return material;
+}
+function prepareTreeMaterials(root){root.traverse(child=>{if(!child.isMesh)return;child.material=Array.isArray(child.material)?child.material.map(material=>createTreeMaterial(material,child.geometry)):createTreeMaterial(child.material,child.geometry);child.castShadow=false;child.receiveShadow=false;});}
 function addTreeModel(tree){if(!worldObjects.treeSource||tree.root)return;const root=cloneSkeleton(worldObjects.treeSource);prepareTreeMaterials(root);const scaleFactor=Math.max(TREE_SCALE_MIN,Math.min(TREE_SCALE_MAX,tree.scale));root.scale.setScalar(TREE_BASE_SCALE*scaleFactor);root.rotation.y=Number.isFinite(tree.rotation)?tree.rotation:0;root.renderOrder=0;tree.root=root;modelScene.add(root);}
 function renderWorldTrees(snapshot){if(!Array.isArray(snapshot))return;for(const tree of worldObjects.trees)if(tree.root)modelScene.remove(tree.root);worldObjects.trees=snapshot.filter(tree=>tree&&typeof tree.id==='string'&&Number.isFinite(tree.x)&&Number.isFinite(tree.y)&&Number.isFinite(tree.scale)&&tree.scale>=TREE_SCALE_MIN&&tree.scale<=TREE_SCALE_MAX).map(tree=>({...tree,root:null}));for(const tree of worldObjects.trees)addTreeModel(tree);}
 function loadWorldTreeModel(){if(worldObjects.treeLoading||worldObjects.treeSource)return;worldObjects.treeLoading=true;loader.load(TREE_MODEL_URL,gltf=>{worldObjects.treeSource=gltf.scene;worldObjects.treeLoading=false;for(const tree of worldObjects.trees)addTreeModel(tree);console.log('[echo] tree model loaded');},undefined,error=>{worldObjects.treeLoading=false;console.error('[echo] failed to load tree GLB',error);});}
