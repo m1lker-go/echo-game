@@ -6,12 +6,10 @@ function openResult(item){
   const area=document.createElement('div');area.className='echo-result-content';
   const place=document.createElement('div');place.className='echo-result-place';
   place.textContent=(english?'You placed #':'Вы заняли ')+item.place+(english?'':' место');
-  const label=document.createElement('div');label.className='echo-result-label';
-  label.textContent=english?'Reward':'Награда';
-  const reward=document.createElement('div');reward.className='echo-result-reward';
-  const icon=document.createElement('img');icon.src='./assets/icons/coin.webp';icon.alt='Echo Coins';icon.width=43;icon.height=43;
-  const value=document.createElement('strong');value.textContent='+'+Number(item.coins||0);
-  reward.append(icon,value);area.append(place,label,reward);
+  // Until server-verified accounts are available, all current game sessions are guests.
+  const guestNotice=document.createElement('div');guestNotice.className='echo-result-label';
+  guestNotice.textContent=english?'Coins are available after registration':'Монеты доступны после регистрации';
+  area.append(place,guestNotice);
   window.ECHOModal?.open({
     title:english?'GAME OVER!':'ИГРА ЗАВЕРШЕНА!',
     contentElement:area,
