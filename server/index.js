@@ -7,6 +7,7 @@ require('dotenv').config();
 const { pool, checkDatabase } = require('./db');
 const { normalizePlayerName } = require('./player-name');
 const { roundWindow, createRoomManager } = require('./room-manager');
+const roundRewards = require('./round-rewards');
 
 const app = express();
 const server = http.createServer(app);
@@ -609,6 +610,13 @@ setInterval(refillFood, 1000);
 // Re-seat connected players into fresh rooms at the synchronized boundary.
 // Scores/rewards are not enabled yet, so this only resets ephemeral play state.
 const roundScores = new Map();
+let rewardWriteQueue = Promise.resolve();
+let rewardsReady = false;
+function queueRewardWork(work) {
+  rewardWriteQueue=rewardWriteQueue.then(work).catch(error=>console.error('[echo-coins] database operation failed:',error.message));
+  return rewardWriteQueue;
+}
+
 const SCORE_BY_PLACE = place => place === 1 ? 50 : place === 2 ? 45 : place === 3 ? 42 : place === 4 ? 40 : place === 5 ? 38 : place <= 10 ? 35 : place <= 15 ? 30 : place <= 20 ? 25 : place <= 30 ? 20 : place <= 40 ? 15 : 10;
 function scoreRoomTick() {
   const roundId = roundWindow().id;
@@ -619,14 +627,18 @@ function scoreRoomTick() {
     const scores = roundScores.get(key);
     const active = [...players.values()].filter(p => p.roomId === roomId && p.roundId === roundId && !p.defeated);
     active.sort((a,b) => b.energy-a.energy || a.id.localeCompare(b.id));
+    const earned=[];
     for (const [index, player] of active.entries()) {
       const identity = io.sockets.sockets.get(player.id)?.data.roomIdentity || player.id;
       const previous = scores.get(identity) || { identity, name: player.name, score: 0, reachedAt: 0 };
-      previous.score += SCORE_BY_PLACE(index + 1);
+      const points=SCORE_BY_PLACE(index + 1);
+      earned.push({identity,name:player.name,points,reachedAt:Date.now()});
+      previous.score += points;
       previous.reachedAt = Date.now();
       previous.name = player.name;
       scores.set(identity, previous);
     }
+    if (rewardsReady && earned.length) queueRewardWork(()=>roundRewards.writeTick(pool,roundId,roomId,earned));
     const ranked = [...scores.values()].sort((a,b) => b.score-a.score || a.reachedAt-b.reachedAt || a.identity.localeCompare(b.identity));
     const energyRanked = active.map(p=>({ name:p.name, energy:p.energy, identity:io.sockets.sockets.get(p.id)?.data.roomIdentity || p.id }));
     for (const player of active) {
@@ -646,7 +658,17 @@ function advanceRoomRound() {
   const nextRound = roundWindow();
   if (nextRound.id === liveRoundId) return;
   liveRoundId = nextRound.id;
-  roundScores.clear(); // Persistent results and rewards will be added in a separate migration.
+  // Flush queued points before finalizing the previous round. Rewards are committed exactly once.
+  if (rewardsReady) queueRewardWork(async()=>{
+    await roundRewards.finalizeOverdue(pool,Date.now());
+    for (const socket of io.sockets.sockets.values()) {
+      const id=socket.data.roomIdentity;
+      if(!id)continue;
+      const results=await roundRewards.getRecentResults(pool,id);
+      if(results.length)socket.emit('echo:roundResults',results);
+    }
+  });
+  roundScores.clear();
   activeFights.clear();
   roomFood.clear();
   for (const player of players.values()) {
@@ -872,6 +894,10 @@ io.on('connection', (socket) => {
   advanceRoomRound();
   console.log(`[socket] connected: ${socket.id}`);
   socket.emit('echo:roundClock', currentRoundClock());
+  if(rewardsReady && activityProfileId) queueRewardWork(async()=>{
+    const results=await roundRewards.getRecentResults(pool,activityProfileId);
+    if(socket.connected && results.length)socket.emit('echo:roundResults',results);
+  });
 
   const identity = activityProfileId || socket.id;
   socket.data.roomIdentity = identity;
@@ -1001,6 +1027,9 @@ server.listen(port, '0.0.0.0', async () => {
   try {
     await checkDatabase();
     await ensureDailyActivitySchema();
+    await roundRewards.initialize(pool);
+    rewardsReady = true;
+    queueRewardWork(()=>roundRewards.finalizeOverdue(pool,Date.now()));
     console.log('[echo-server] database connection OK');
     console.log('[daily-activity] ready; timezone=' + DAILY_TIME_ZONE);
   } catch (error) {
