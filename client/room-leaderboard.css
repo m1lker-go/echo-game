@@ -3,7 +3,8 @@
   z-index:5;
   top:calc(max(calc(var(--echo-energy-top,76px) * var(--echo-ui-scale,1)),env(safe-area-inset-top,0px)) + 82px * var(--echo-ui-scale,1));
   left:max(calc(var(--echo-hud-left,22px) * var(--echo-ui-scale,1)),env(safe-area-inset-left,0px));
-  width:clamp(125px,18vw,185px);
+  width:clamp(145px,20vw,205px);
+  box-sizing:border-box;
   padding:7px 8px;
   border:1px solid rgba(201,228,250,.12);
   border-radius:9px;
@@ -29,6 +30,11 @@
 #game .echo-leaderboard-me:not(:empty) {margin-top:5px;padding-top:4px;border-top:1px solid rgba(230,245,255,.2);color:#b1f5db;font-weight:700;}
 #game:has(#main-menu:not(.is-hidden)) .echo-room-leaderboard {visibility:hidden;}
 @media(max-width:600px){
- #game .echo-room-leaderboard {width:130px;font-size:10px;padding:5px 6px;top:calc(max(calc(var(--echo-energy-top,76px) * var(--echo-ui-scale,1)),env(safe-area-inset-top,0px)) + 82px * var(--echo-ui-scale,1));}
+ #game .echo-room-leaderboard {width:clamp(145px,20vw,205px);font-size:10px;padding:5px 6px;top:calc(max(calc(var(--echo-energy-top,76px) * var(--echo-ui-scale,1)),env(safe-area-inset-top,0px)) + 82px * var(--echo-ui-scale,1));}
  #game .echo-leaderboard-tabs button {font-size:9px;}
 }
+
+/* The player energy remains above the avatar; avoid duplicate left-side readout. */
+#game .stats {display:none;}
+/* Logo and leaderboard share the same left edge and width. */
+#game .hud > .brand {width:clamp(145px,20vw,205px);}
