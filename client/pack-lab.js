@@ -1,5 +1,8 @@
 import * as THREE from 'three';
-const canvas=document.querySelector('#lab'),bar=document.querySelector('#bar'),hint=document.querySelector('#hint');
+const shopModal=document.querySelector('#echo-pack-3d');
+const canvas=document.querySelector('#echo-pack-3d-canvas')||document.querySelector('#lab');
+const bar=document.querySelector('#echo-pack-3d-bar')||document.querySelector('#bar');
+const hint=document.querySelector('#echo-pack-3d-hint')||document.querySelector('#hint');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.3;
@@ -81,7 +84,7 @@ window.addEventListener('resize',rectResize);rectResize();
 let prior=performance.now();
 function frame(now){const dt=Math.min(.05,(now-prior)/1000);prior=now;
  if(!dragging && !rotated)group.rotation.y+=(0-group.rotation.y)*Math.min(1,dt*4);
- renderer.render(scene,camera);requestAnimationFrame(frame)}
+ if(!shopModal||!shopModal.hidden)renderer.render(scene,camera);requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
 function pointerToPack(e){const rect=canvas.getBoundingClientRect(),nX=(e.clientX-rect.left)/rect.width*2-1,nY=1-(e.clientY-rect.top)/rect.height*2;
  const ray=new THREE.Raycaster();ray.setFromCamera(new THREE.Vector2(nX,nY),camera);
@@ -100,5 +103,16 @@ function updatePointer(e){if(!dragging)return;const q=pointerToPack(e);
 canvas.addEventListener('pointermove',updatePointer);
 canvas.addEventListener('pointerup',()=>dragging=false);
 canvas.addEventListener('pointercancel',()=>dragging=false);
-document.querySelector('#reset').addEventListener('click',()=>{progress=0;lift=0;group.rotation.y=0;rotated=false;redraw()});
-document.querySelector('#rotate').addEventListener('click',()=>{rotated=!rotated;group.rotation.y=rotated?.48:0});
+(document.querySelector('#echo-pack-3d-reset')||document.querySelector('#reset')).addEventListener('click',()=>{progress=0;lift=0;group.rotation.y=0;rotated=false;redraw()});
+(document.querySelector('#echo-pack-3d-rotate')||document.querySelector('#rotate')).addEventListener('click',()=>{rotated=!rotated;group.rotation.y=rotated?.48:0});
+
+if(shopModal){
+ const close=()=>{shopModal.hidden=true;dragging=false};
+ shopModal.querySelector('#echo-pack-3d-close').addEventListener('click',close);
+ document.querySelectorAll('[data-echo-preview-pack]').forEach(button=>button.addEventListener('click',()=>{
+   shopModal.hidden=false;progress=0;lift=0;dragging=false;group.rotation.y=0;rotated=false;
+   const premium=button.dataset.echoPreviewPack==='premium';frontMat.color.setHex(premium?0x51447a:0x254e78);
+   redraw();rectResize();
+ }));
+ window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!shopModal.hidden)close()});
+}
