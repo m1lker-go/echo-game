@@ -58,3 +58,33 @@
 #echo-pack-demo.is-opened .echo-demo-strip{transform:translate(100px,-135px) rotate(46deg) scale(.5);opacity:0;}
 #echo-pack-demo.is-opened .echo-demo-cards{transform:translateY(-18px);opacity:1;transition-delay:.32s;}
 #echo-pack-demo.is-opened .echo-demo-cut{display:none;}
+
+/* Pointer-driven left-to-right tear: cut foil is actually removed, never painted twice. */
+#echo-pack-demo .echo-demo-stage{--tear-pct:0%;}
+#echo-pack-demo .echo-demo-foil,
+#echo-pack-demo.is-opened .echo-demo-foil{clip-path:inset(12% 0 0 0);opacity:1;transform:none;-webkit-mask-image:none;mask-image:none;transition:none;}
+#echo-pack-demo .echo-demo-mouth{opacity:1;transform:scaleY(.35);z-index:1;}
+#echo-pack-demo .echo-demo-strip{
+ inset:0 0 auto 0;height:12%;
+ background-position:center top;background-size:100% 833%;
+ -webkit-mask-image:linear-gradient(to right,transparent 0%,transparent var(--tear-pct),#000 var(--tear-pct),#000 100%);
+ mask-image:linear-gradient(to right,transparent 0%,transparent var(--tear-pct),#000 var(--tear-pct),#000 100%);
+ transform:none!important;opacity:1!important;transition:none!important;
+}
+#echo-pack-demo .echo-demo-flap{
+ top:4%;left:calc(var(--tear) * 85%);width:23%;height:18%;
+ opacity:0;z-index:7;pointer-events:none;
+ border:1px solid #d8f3ff;border-radius:10% 85% 35% 55% / 14% 85% 45% 70%;
+ clip-path:polygon(4% 0,100% 16%,75% 100%,0 65%);
+ transform-origin:left bottom;
+ transform:translate(calc(var(--tear) * -25%),calc(var(--tear) * -42%)) rotate(calc(var(--tear) * 55deg)) rotateY(calc(var(--tear) * -125deg))!important;
+ transition:none!important;box-shadow:inset -9px -9px 13px #040c20aa,0 9px 12px #0008;
+}
+#echo-pack-demo.is-tearing .echo-demo-flap{opacity:1;}
+#echo-pack-demo.is-opened .echo-demo-flap{opacity:0;transform:translate(40px,-85px) rotate(75deg) scale(.4)!important;transition:transform .45s,opacity .35s!important;}
+#echo-pack-demo .echo-demo-cut{top:12%;left:var(--tear-pct);width:0;height:0;box-shadow:none;}
+#echo-pack-demo .echo-demo-cut:after{content:'';position:absolute;left:-5px;top:-3px;width:11px;height:11px;border-radius:50%;background:#d9f5ff;box-shadow:0 0 12px #a9dfff;opacity:0;}
+#echo-pack-demo.is-tearing .echo-demo-cut:after{opacity:1;}
+#echo-pack-demo.is-opened .echo-demo-strip{opacity:0!important;-webkit-mask-image:none;mask-image:none;display:none;}
+#echo-pack-demo.is-opened .echo-demo-mouth{transform:scaleY(1);}
+#echo-pack-demo.is-opened .echo-demo-cards{transition-delay:.25s;}
