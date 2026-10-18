@@ -88,3 +88,28 @@
 #echo-pack-demo.is-opened .echo-demo-strip{opacity:0!important;-webkit-mask-image:none;mask-image:none;display:none;}
 #echo-pack-demo.is-opened .echo-demo-mouth{transform:scaleY(1);}
 #echo-pack-demo.is-opened .echo-demo-cards{transition-delay:.25s;}
+
+/* v5: two genuinely separate foil pieces. No duplicate top below the torn portion. */
+#echo-pack-demo .echo-demo-foil,#echo-pack-demo.is-opened .echo-demo-foil{
+ clip-path:inset(12% 0 0 0);mask-image:none;-webkit-mask-image:none;
+ transform:none;opacity:1;transition:none;
+}
+#echo-pack-demo .echo-demo-mouth{opacity:0!important;transform:scaleY(.1);z-index:1;}
+#echo-pack-demo.is-opened .echo-demo-mouth{opacity:1!important;transform:scaleY(1);}
+#echo-pack-demo .echo-demo-strip{
+ top:0;left:0;width:100%;height:12%;z-index:6;
+ -webkit-mask-image:none!important;mask-image:none!important;
+ clip-path:inset(0 0 0 var(--tear-pct));
+ background-position:center top;background-size:100% 833%;
+ transform:none!important;opacity:1!important;transition:none!important;
+}
+#echo-pack-demo.is-opened .echo-demo-strip{display:none!important;}
+#echo-pack-demo .echo-demo-peel{
+ position:absolute;top:calc(-115 / 380 * 100%);left:0;width:100%;
+ height:calc(175 / 380 * 100%);overflow:visible;z-index:7;
+ pointer-events:none;filter:drop-shadow(0 6px 5px #0008);
+}
+#echo-pack-demo[data-type="premium"] .echo-demo-peel{filter:hue-rotate(63deg) saturate(1.2) drop-shadow(0 6px 5px #0008);}
+#echo-pack-demo .echo-demo-cut{display:none!important;}
+#echo-pack-demo .echo-demo-hit{z-index:8;touch-action:none;}
+#echo-pack-demo .echo-demo-cards{z-index:3;}
