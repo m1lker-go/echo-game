@@ -110,3 +110,8 @@
 #game .echo-map-dot { display: inline-block; flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; }
 #game .echo-map-dot-local { background: #6be6ff; box-shadow: 0 0 9px rgba(88, 219, 255, 0.8); }
 #game .echo-map-dot-remote { background: #ff4f5e; box-shadow: 0 0 9px rgba(255, 65, 91, 0.8); }
+
+/* Keep touch movement and abilities playable while the full map is open. */
+#game:has(#echo-minimap-overlay:not([hidden])) .mobile-controls {
+  z-index: 13;
+}
