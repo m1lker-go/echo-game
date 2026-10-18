@@ -22,13 +22,13 @@ function openResult(item){
 function receiveResults(results){
   if(!Array.isArray(results)||!results.length)return;
   const ordered=[...results].sort((a,b)=>Number(a.round_id)-Number(b.round_id));
-  let latest=localStorage.getItem(STORAGE_KEY)||'';
+  let latest=Number(localStorage.getItem(STORAGE_KEY)||0);
   for(const item of ordered){
-    const key=String(item.round_id)+':'+String(item.room_id);
-    if(!/^\d+:\d+$/.test(key)||key===latest)continue;
+    const key=Number(item.round_id);
+    if(!Number.isSafeInteger(key)||key<=latest)continue;
     if(!isPlaying())continue;
     latest=key;
-    localStorage.setItem(STORAGE_KEY,key);
+    localStorage.setItem(STORAGE_KEY,String(key));
     openResult(item);
   }
 }
