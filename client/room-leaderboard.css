@@ -27,7 +27,7 @@
 #game .echo-leaderboard-line {padding:2px 0;}
 #game .echo-leaderboard-name {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 #game .echo-leaderboard-me:not(:empty) {margin-top:5px;padding-top:4px;border-top:1px solid rgba(230,245,255,.2);color:#b1f5db;font-weight:700;}
-#game:has(#main-menu:not([hidden])) .echo-room-leaderboard {visibility:hidden;}
+#game:has(#main-menu:not(.is-hidden)) .echo-room-leaderboard {visibility:hidden;}
 @media(max-width:600px){
  #game .echo-room-leaderboard {width:130px;font-size:10px;padding:5px 6px;top:calc(max(calc(var(--echo-hud-top,22px) * var(--echo-ui-scale,1)),env(safe-area-inset-top,0px)) + 45px * var(--echo-ui-scale,1));}
  #game .echo-leaderboard-tabs button {font-size:9px;}
