@@ -6,7 +6,7 @@ require('dotenv').config();
 
 const { pool, checkDatabase } = require('./db');
 const { normalizePlayerName } = require('./player-name');
-const { roundWindow } = require('./room-manager');
+const { roundWindow, createRoomManager } = require('./room-manager');
 
 const app = express();
 const server = http.createServer(app);
@@ -122,6 +122,15 @@ async function addDailyPlaySeconds(profileId, seconds, dateKey) {
 }
 
 const players = new Map();
+const roomManager = createRoomManager();
+const roomFood = new Map();
+function roomKey(player) { return `echo:${player.roundId}:${player.roomId}`; }
+function ensureRoomFood(roundId, roomId) {
+  const key = `echo:${roundId}:${roomId}`;
+  if (!roomFood.has(key)) roomFood.set(key, new Map(Array.from({ length: FOOD_COUNT }, (_, id) => [id, createFoodPoint(id)])));
+  return roomFood.get(key);
+}
+
 const activeFights = new Map();
 const MAX_COORDINATE = 1_000_000;
 const WORLD_CELL_SIZE = 84;
@@ -563,35 +572,83 @@ function createFoodPoint(id) {
     },
   });
 }
-const food = new Map(Array.from({ length: FOOD_COUNT }, (_, id) => [id, createFoodPoint(id)]));
+// Food is allocated lazily per room rather than shared across all players.
 
 function finiteNumber(value, fallback = 0, min = -MAX_COORDINATE, max = MAX_COORDINATE) {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
   return Math.max(min, Math.min(max, value));
 }
 
-function broadcastPlayers() {
-  io.emit('echo:players', Array.from(players.values(), (player) => ({ ...player })));
+function roomPlayers(player) {
+  return Array.from(players.values(), candidate => candidate).filter(candidate => candidate.roomId === player.roomId && candidate.roundId === player.roundId);
 }
-
-function broadcastFood() {
-  io.emit('echo:food', createFoodSnapshot(food));
+function broadcastPlayers(player) {
+  if (!player) return;
+  io.to(roomKey(player)).emit('echo:players', roomPlayers(player).map(p => ({ ...p })));
 }
-
+function broadcastFood(player) {
+  if (!player) return;
+  const food = ensureRoomFood(player.roundId, player.roomId);
+  io.to(roomKey(player)).emit('echo:food', createFoodSnapshot(food));
+}
 function collectFood(player) {
-  return collectFoodCore(player, food, {
+  return collectFoodCore(player, ensureRoomFood(player.roundId, player.roomId), {
     radius: FOOD_COLLECT_RADIUS,
     respawnMinMs: FOOD_RESPAWN_MIN_MS,
     respawnMaxMs: FOOD_RESPAWN_MAX_MS,
   });
 }
-
 function refillFood() {
-  const changed = refillFoodCore(food, { createFoodPoint });
-  if (changed) broadcastFood();
+  for (const [key, food] of roomFood) {
+    const changed = refillFoodCore(food, { createFoodPoint });
+    if (changed) io.to(key).emit('echo:food', createFoodSnapshot(food));
+  }
 }
-
 setInterval(refillFood, 1000);
+
+// Re-seat connected players into fresh rooms at the synchronized boundary.
+// Scores/rewards are not enabled yet, so this only resets ephemeral play state.
+let liveRoundId = roundWindow().id;
+function advanceRoomRound() {
+  const nextRound = roundWindow();
+  if (nextRound.id === liveRoundId) return;
+  liveRoundId = nextRound.id;
+  activeFights.clear();
+  roomFood.clear();
+  for (const player of players.values()) {
+    const socket = io.sockets.sockets.get(player.id);
+    if (!socket) { players.delete(player.id); continue; }
+    const oldKey = roomKey(player);
+    socket.leave(oldKey);
+    const identity = socket.data.roomIdentity || player.id;
+    const assignment = roomManager.join(identity);
+    if (assignment.status !== 'joined') {
+      socket.emit('echo:roomFull', { roomId: assignment.roomId });
+      socket.disconnect(true);
+      continue;
+    }
+    player.roundId = assignment.round.id;
+    player.roomId = assignment.roomId;
+    player.energy = 0;
+    player.fightingWith = null;
+    player.fightId = null;
+    player.defeated = false;
+    player.inWater = false;
+    player.lastWaterDamageAt = 0;
+    const spawn = findOpenPlayerSpawn();
+    player.x = spawn.x;
+    player.y = spawn.y;
+    player.vx = 0;
+    player.vy = 0;
+    socket.join(roomKey(player));
+    socket.emit('echo:room', { roomId: player.roomId, round: assignment.round, occupancy: assignment.occupancy });
+    socket.emit('echo:combatResult', { result: 'round-reset', energy: 0 });
+  }
+  for (const player of players.values()) {
+    broadcastPlayers(player);
+    broadcastFood(player);
+  }
+}
 
 function emitFightState(fight) {
   const base = { fightId: fight.id, duration: FIGHT_DURATION };
@@ -608,7 +665,7 @@ function finishFight(fight) {
   if (!a || !b) {
     if (a) a.fightingWith = null;
     if (b) b.fightingWith = null;
-    broadcastPlayers();
+    broadcastPlayers(a || b);
     return;
   }
 
@@ -646,7 +703,7 @@ function finishFight(fight) {
   });
 
   players.delete(loserState.id);
-  broadcastPlayers();
+  broadcastPlayers(winnerState);
 }
 
 function startFight(a, b) {
@@ -674,7 +731,7 @@ function startFight(a, b) {
   b.lastWaterDamageAt = 0;
   activeFights.set(fight.id, fight);
   emitFightState(fight);
-  broadcastPlayers();
+  broadcastPlayers(a);
   setTimeout(() => finishFight(fight), FIGHT_DURATION);
   return true;
 }
@@ -682,7 +739,7 @@ function startFight(a, b) {
 function checkForFights(source) {
   if (!source || source.fightingWith || source.defeated) return;
   for (const opponent of players.values()) {
-    if (opponent.id === source.id || opponent.fightingWith || opponent.defeated) continue;
+    if (opponent.id === source.id || opponent.roomId !== source.roomId || opponent.roundId !== source.roundId || opponent.fightingWith || opponent.defeated) continue;
     if (opponent.energy === source.energy) continue;
     const distance = Math.hypot(source.x - opponent.x, source.y - opponent.y);
     if (distance > FIGHT_DISTANCE) continue;
@@ -690,8 +747,9 @@ function checkForFights(source) {
   }
 }
 
-// Send clock snapshots separately from the high-frequency gameplay state.
+// Round transitions happen before broadcasting the fresh server clock.
 setInterval(() => {
+  advanceRoomRound();
   io.emit('echo:roundClock', currentRoundClock());
 }, 5000).unref();
 
@@ -776,13 +834,27 @@ io.on('connection', (socket) => {
     }
   }, 15000);
 
+  advanceRoomRound();
   console.log(`[socket] connected: ${socket.id}`);
   socket.emit('echo:roundClock', currentRoundClock());
 
+  const identity = activityProfileId || socket.id;
+  socket.data.roomIdentity = identity;
+  const assignment = roomManager.join(identity);
+  if (assignment.status !== 'joined') {
+    socket.emit('echo:roomFull', { roomId: assignment.roomId });
+    socket.disconnect(true);
+    clearInterval(activityInterval);
+    return;
+  }
+  socket.join(`echo:${assignment.round.id}:${assignment.roomId}`);
+  socket.emit('echo:room', { roomId: assignment.roomId, round: assignment.round, occupancy: assignment.occupancy });
   const requestedSkin = socket.handshake.auth?.skin;
   const spawn = findOpenPlayerSpawn();
   players.set(socket.id, {
     id: socket.id,
+    roomId: assignment.roomId,
+    roundId: assignment.round.id,
     name: normalizePlayerName(null, activityProfileId || socket.id),
     x: spawn.x,
     y: spawn.y,
@@ -796,8 +868,8 @@ io.on('connection', (socket) => {
     fightId: null,
     defeated: false,
   });
-  broadcastPlayers();
-  broadcastFood();
+  broadcastPlayers(players.get(socket.id));
+  broadcastFood(players.get(socket.id));
   socket.emit('echo:world', createWorldSnapshot());
 
   socket.on('echo:dailyPing', receiveActivityPing);
@@ -811,12 +883,15 @@ io.on('connection', (socket) => {
     if (current) current.name = normalizePlayerName(null, activityProfileId || socket.id);
 
     socket.emit('echo:world', createWorldSnapshot());
-    socket.emit('echo:players', Array.from(players.values(), (player) => ({ ...player })));
-    broadcastFood();
-    broadcastPlayers();
+    if (current) {
+      socket.emit('echo:players', roomPlayers(current).map(player => ({ ...player })));
+      broadcastFood(current);
+      broadcastPlayers(current);
+    }
   });
 
   socket.on('echo:move', (payload) => {
+    advanceRoomRound();
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return;
 
     const current = players.get(socket.id);
@@ -861,8 +936,8 @@ io.on('connection', (socket) => {
     if (ALLOWED_SKINS.has(requestedSkin)) current.skin = requestedSkin;
 
     checkForFights(current);
-    broadcastPlayers();
-    if (collected > 0) broadcastFood();
+    broadcastPlayers(current);
+    if (collected > 0) broadcastFood(current);
   });
 
   socket.on('disconnect', (reason) => {
@@ -880,8 +955,9 @@ io.on('connection', (socket) => {
       if (current.fightId) activeFights.delete(current.fightId);
     }
     players.delete(socket.id);
+    roomManager.markAbsent(identity);
     console.log(`[socket] disconnected: ${socket.id} (${reason})`);
-    broadcastPlayers();
+    broadcastPlayers(current);
   });
 });
 
