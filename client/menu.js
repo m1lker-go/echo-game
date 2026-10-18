@@ -29,6 +29,7 @@ const characterScreen = document.querySelector('#menu-character');
 const placeholderScreen = document.querySelector('#menu-placeholder');
 const placeholderTitle = document.querySelector('#placeholder-title');
 const settingsScreen = document.querySelector('#menu-settings-screen');
+const shopScreen = document.querySelector('#menu-shop-screen');
 const characterGrid = document.querySelector('#character-grid');
 const startButton = document.querySelector('#menu-start');
 const characterButton = document.querySelector('#menu-character-button');
@@ -45,6 +46,7 @@ function showScreen(screen) {
   mainScreen.hidden = screen !== 'main';
   characterScreen.hidden = screen !== 'character';
   placeholderScreen.hidden = screen !== 'placeholder';
+  if (shopScreen) shopScreen.hidden = screen !== 'shop';
   if (settingsScreen) settingsScreen.hidden = screen !== 'settings';
 }
 
@@ -73,7 +75,8 @@ function openSettings() {
 startButton.addEventListener('click', startGame);
 characterButton.addEventListener('click', () => showScreen('character'));
 settingsButton.addEventListener('click', openSettings);
-shopButton.addEventListener('click', () => openPlaceholder(window.$t?.('menu:shop_title', 'МАГАЗИН') || 'МАГАЗИН'));
+shopButton.addEventListener('click', () => showScreen('shop'));
+document.querySelector('#shop-back')?.addEventListener('click', openMenu);
 questsButton.addEventListener('click', () => openPlaceholder(window.$t?.('menu:quests_title', 'ЗАДАНИЯ') || 'ЗАДАНИЯ'));
 characterBack.addEventListener('click', openMenu);
 placeholderBack.addEventListener('click', openMenu);
