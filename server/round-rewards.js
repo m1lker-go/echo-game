@@ -1,4 +1,6 @@
 'use strict';
+// No verified server-side accounts exist yet. Never mint currency for client-provided guest IDs.
+const VERIFIED_ACCOUNT_REWARDS_ENABLED = false;
 const REWARDS = [[1,25],[2,21],[3,18],[10,16],[20,12],[30,10],[40,8],[50,5]];
 function rewardForPlace(place) {
   for (const [limit, coins] of REWARDS) if (place<=limit) return coins;
@@ -46,7 +48,7 @@ async function finalizeRoom(pool,roundId,roomId) {
     const claim=await client.query('INSERT INTO echo_round_finalized(round_id,room_id) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING round_id',[roundId,roomId]);
     if (!claim.rowCount) {await client.query('COMMIT');return [];}
     const result=await client.query('SELECT profile_id,player_name,score,reached_at FROM echo_round_scores WHERE round_id=$1 AND room_id=$2',[roundId,roomId]);
-    const ranks=rankParticipants(result.rows);
+    const ranks=rankParticipants(result.rows).map(item=>({ ...item, coins: VERIFIED_ACCOUNT_REWARDS_ENABLED ? item.coins : 0 }));
     for(const item of ranks) {
       await client.query('INSERT INTO echo_coin_ledger(round_id,room_id,profile_id,place,score,coins) VALUES($1,$2,$3,$4,$5,$6)',
         [roundId,roomId,item.profile_id,item.place,item.score,item.coins]);
