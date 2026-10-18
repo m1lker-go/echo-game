@@ -165,6 +165,7 @@
     previousFocus = document.activeElement;
     titleNode.textContent = String(config.title ?? '');
     textNode.textContent = String(config.text ?? '');
+    if (config.contentElement instanceof HTMLElement) textNode.replaceChildren(config.contentElement);
     actionsNode.replaceChildren();
 
     for (const item of config.buttons || []) {
