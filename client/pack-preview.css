@@ -23,3 +23,22 @@
 #echo-pack-demo .echo-demo-tip{text-align:center;max-width:320px;font-size:14px;color:#c1d6e9;}
 #echo-pack-demo .echo-demo-again{background:#dbeaf6;border:0;color:#0e2239;border-radius:10px;padding:10px 20px;cursor:pointer;}
 @media(max-width:520px){#main-menu .echo-shop-pack-art{height:135px;}#echo-pack-demo .echo-demo-stage{width:min(68vw,240px);height:min(57vh,380px);}}
+
+/* A real opening: remove the torn seal from the wrapper and curl its remaining lip back. */
+#echo-pack-demo .echo-demo-foil{z-index:1;transition:mask-position .45s, -webkit-mask-position .45s, transform .55s, opacity .55s; }
+#echo-pack-demo .echo-demo-flap{position:absolute;top:11%;left:4%;width:92%;height:17%;z-index:3;pointer-events:none;opacity:0;
+ background:linear-gradient(180deg,#a9cde9 0%,#436c97 23%,#0a1d38 49%,#24456f 72%,#afdaf6 100%);
+ border-top:3px solid #d7ecff;border-radius:48% 52% 13% 18% / 30% 33% 25% 25%;
+ box-shadow:0 8px 12px #0007,inset 0 -8px 14px #0007;
+ transform-origin:50% 0%;transform:perspective(420px) rotateX(0deg) scaleY(.6);
+ transition:transform .9s cubic-bezier(.22,.8,.2,1),opacity .18s;
+}
+#echo-pack-demo[data-type="premium"] .echo-demo-flap{filter:hue-rotate(63deg) saturate(1.25);}
+#echo-pack-demo .echo-demo-strip{will-change:transform,opacity;}
+#echo-pack-demo.is-opened .echo-demo-foil{
+ -webkit-mask-image:linear-gradient(to bottom,transparent 0%,transparent 11.5%,black 12.2%,black 100%);
+ mask-image:linear-gradient(to bottom,transparent 0%,transparent 11.5%,black 12.2%,black 100%);
+ transform:translateY(16px) scale(.97);opacity:.55;
+}
+#echo-pack-demo.is-opened .echo-demo-flap{opacity:1;transform:perspective(420px) rotateX(-165deg) scaleY(.85);}
+#echo-pack-demo.is-opened .echo-demo-strip{transform:translate(78px,-155px) rotate(42deg) scale(.65);opacity:0;pointer-events:none;}
