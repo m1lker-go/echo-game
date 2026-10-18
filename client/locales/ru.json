@@ -48,7 +48,11 @@
     "settings_screen_aria_label": "Настройки игры",
     "language_options_aria_label": "Выбор языка",
     "music_volume": "Музыка",
-    "sfx_volume": "Звуки"
+    "sfx_volume": "Звуки",
+    "shop": "Магазин",
+    "quests": "Задания",
+    "shop_title": "МАГАЗИН",
+    "quests_title": "ЗАДАНИЯ"
   },
   "game": {
     "map_short": "КАРТА",
