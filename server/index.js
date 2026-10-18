@@ -6,6 +6,7 @@ require('dotenv').config();
 
 const { pool, checkDatabase } = require('./db');
 const { normalizePlayerName } = require('./player-name');
+const { roundWindow } = require('./room-manager');
 
 const app = express();
 const server = http.createServer(app);
@@ -21,6 +22,15 @@ const io = new Server(server, {
     origin: allowedOrigin === '*' ? true : allowedOrigin.split(',').map(v => v.trim()),
     methods: ['GET', 'POST'],
   },
+});
+
+// The clock is intentionally informational until room gameplay is integrated.
+function currentRoundClock(now = Date.now()) {
+  return { ...roundWindow(now), serverNow: now };
+}
+
+app.get('/api/round-clock', (_req, res) => {
+  res.json(currentRoundClock());
 });
 
 app.get('/health', async (_req, res) => {
@@ -680,6 +690,11 @@ function checkForFights(source) {
   }
 }
 
+// Send clock snapshots separately from the high-frequency gameplay state.
+setInterval(() => {
+  io.emit('echo:roundClock', currentRoundClock());
+}, 5000).unref();
+
 io.on('connection', (socket) => {
   let activityProfileId = normalizeActivityProfileId(socket.handshake.auth?.activityProfileId);
   if (activityProfileId) claimActivityProfileSocket(socket, activityProfileId);
@@ -762,6 +777,7 @@ io.on('connection', (socket) => {
   }, 15000);
 
   console.log(`[socket] connected: ${socket.id}`);
+  socket.emit('echo:roundClock', currentRoundClock());
 
   const requestedSkin = socket.handshake.auth?.skin;
   const spawn = findOpenPlayerSpawn();
