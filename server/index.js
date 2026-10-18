@@ -608,11 +608,45 @@ setInterval(refillFood, 1000);
 
 // Re-seat connected players into fresh rooms at the synchronized boundary.
 // Scores/rewards are not enabled yet, so this only resets ephemeral play state.
+const roundScores = new Map();
+const SCORE_BY_PLACE = place => place === 1 ? 50 : place === 2 ? 45 : place === 3 ? 42 : place === 4 ? 40 : place === 5 ? 38 : place <= 10 ? 35 : place <= 15 ? 30 : place <= 20 ? 25 : place <= 30 ? 20 : place <= 40 ? 15 : 10;
+function scoreRoomTick() {
+  const roundId = roundWindow().id;
+  const roomIds = new Set([...players.values()].filter(p => p.roundId === roundId).map(p => p.roomId));
+  for (const roomId of roomIds) {
+    const key = `${roundId}:${roomId}`;
+    if (!roundScores.has(key)) roundScores.set(key, new Map());
+    const scores = roundScores.get(key);
+    const active = [...players.values()].filter(p => p.roomId === roomId && p.roundId === roundId && !p.defeated);
+    active.sort((a,b) => b.energy-a.energy || a.id.localeCompare(b.id));
+    for (const [index, player] of active.entries()) {
+      const identity = io.sockets.sockets.get(player.id)?.data.roomIdentity || player.id;
+      const previous = scores.get(identity) || { identity, name: player.name, score: 0, reachedAt: 0 };
+      previous.score += SCORE_BY_PLACE(index + 1);
+      previous.reachedAt = Date.now();
+      previous.name = player.name;
+      scores.set(identity, previous);
+    }
+    const ranked = [...scores.values()].sort((a,b) => b.score-a.score || a.reachedAt-b.reachedAt || a.identity.localeCompare(b.identity));
+    const energyRanked = active.map(p=>({ name:p.name, energy:p.energy, identity:io.sockets.sockets.get(p.id)?.data.roomIdentity || p.id }));
+    for (const player of active) {
+      const socket = io.sockets.sockets.get(player.id);
+      if (!socket) continue;
+      const identity = socket.data.roomIdentity;
+      const emitData = (mode, list, field) => ({
+        top: list.slice(0,5).map((p,i)=>({ place:i+1,name:p.name,value:p[field] })),
+        me: (()=> { const i=list.findIndex(p=>p.identity===identity); return i<0 ? null : {place:i+1,name:list[i].name,value:list[i][field]}; })()
+      });
+      socket.emit('echo:leaderboard', { roomId, roundId, playersOnline:active.length, rating:emitData('rating',ranked,'score'), energy:emitData('energy',energyRanked,'energy') });
+    }
+  }
+}
 let liveRoundId = roundWindow().id;
 function advanceRoomRound() {
   const nextRound = roundWindow();
   if (nextRound.id === liveRoundId) return;
   liveRoundId = nextRound.id;
+  roundScores.clear(); // Persistent results and rewards will be added in a separate migration.
   activeFights.clear();
   roomFood.clear();
   for (const player of players.values()) {
@@ -750,6 +784,7 @@ function checkForFights(source) {
 // Round transitions happen before broadcasting the fresh server clock.
 setInterval(() => {
   advanceRoomRound();
+  scoreRoomTick();
   io.emit('echo:roundClock', currentRoundClock());
 }, 5000).unref();
 
