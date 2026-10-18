@@ -6,6 +6,8 @@ let progress=0,dragging=false,opened=false;
 const lang=(ru,en)=>document.documentElement.lang?.startsWith('en')?en:ru;
 function render(){
  root.style.setProperty('--tear',String(progress));
+ root.style.setProperty('--tear-pct',`${(progress*100).toFixed(2)}%`);
+ root.classList.toggle('is-tearing',progress>0&&!opened);
  foil.classList.toggle('is-opened',opened);
  tip.textContent=opened?lang('Пак открыт! Карточки пока демонстрационные.','Pack opened! Demo cards only.'):lang('Проведи по верхнему шву слева направо','Swipe the top seam from left to right');
  cards.setAttribute('aria-hidden',String(!opened));
@@ -14,17 +16,18 @@ function reset(type){
  progress=0;dragging=false;opened=false;
  root.dataset.type=type;
  root.hidden=false;
- root.classList.remove('is-opened');
+ root.classList.remove('is-opened','is-tearing');
  render();
 }
 document.querySelectorAll('[data-echo-preview-pack]').forEach(button=>button.addEventListener('click',()=>reset(button.dataset.echoPreviewPack)));
 root.querySelector('.echo-demo-close').addEventListener('click',()=>{root.hidden=true;dragging=false;});
 root.querySelector('.echo-demo-again').addEventListener('click',()=>reset(root.dataset.type));
-hit.addEventListener('pointerdown',e=>{if(opened)return;dragging=true;hit.setPointerCapture(e.pointerId);move(e);});
+hit.addEventListener('pointerdown',e=>{if(opened)return;const rect=hit.getBoundingClientRect();if(progress===0&&(e.clientX-rect.left)>rect.width*.26)return;dragging=true;hit.setPointerCapture(e.pointerId);move(e);});
 function move(e){
  if(!dragging||opened)return;
  const rect=hit.getBoundingClientRect();
- progress=Math.max(progress,Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width)));
+ const left=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
+ progress=Math.max(progress,left);
  if(progress>=.95){progress=1;opened=true;root.classList.add('is-opened');dragging=false;}
  render();
 }
