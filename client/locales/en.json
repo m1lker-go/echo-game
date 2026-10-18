@@ -48,7 +48,11 @@
     "settings_screen_aria_label": "Game settings",
     "language_options_aria_label": "Language selection",
     "music_volume": "Music",
-    "sfx_volume": "Sound effects"
+    "sfx_volume": "Sound effects",
+    "shop": "Shop",
+    "quests": "Quests",
+    "shop_title": "SHOP",
+    "quests_title": "QUESTS"
   },
   "game": {
     "map_short": "MAP",
