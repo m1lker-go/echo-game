@@ -33,7 +33,8 @@ const characterGrid = document.querySelector('#character-grid');
 const startButton = document.querySelector('#menu-start');
 const characterButton = document.querySelector('#menu-character-button');
 const settingsButton = document.querySelector('#menu-settings');
-const ratingButton = document.querySelector('#menu-rating');
+const shopButton = document.querySelector('#menu-shop');
+const questsButton = document.querySelector('#menu-quests');
 const characterBack = document.querySelector('#character-back');
 const placeholderBack = document.querySelector('#placeholder-back');
 const settingsBack = document.querySelector('#settings-back');
@@ -72,7 +73,8 @@ function openSettings() {
 startButton.addEventListener('click', startGame);
 characterButton.addEventListener('click', () => showScreen('character'));
 settingsButton.addEventListener('click', openSettings);
-ratingButton.addEventListener('click', () => openPlaceholder('РЕЙТИНГ'));
+shopButton.addEventListener('click', () => openPlaceholder(window.$t?.('menu:shop_title', 'МАГАЗИН') || 'МАГАЗИН'));
+questsButton.addEventListener('click', () => openPlaceholder(window.$t?.('menu:quests_title', 'ЗАДАНИЯ') || 'ЗАДАНИЯ'));
 characterBack.addEventListener('click', openMenu);
 placeholderBack.addEventListener('click', openMenu);
 settingsBack?.addEventListener('click', openMenu);
@@ -310,9 +312,8 @@ function refreshLocalizedUI() {
   const placeholderTitle = document.querySelector('#placeholder-title');
   if (placeholderTitle) {
     const currentTitle = placeholderTitle.textContent;
-    if (currentTitle === 'РЕЙТИНГ' || currentTitle === 'LEADERBOARD') {
-      placeholderTitle.textContent = window.$t('menu:rating_title', currentTitle);
-    }
+    if (currentTitle === 'МАГАЗИН' || currentTitle === 'SHOP') placeholderTitle.textContent = window.$t('menu:shop_title', currentTitle);
+    if (currentTitle === 'ЗАДАНИЯ' || currentTitle === 'QUESTS') placeholderTitle.textContent = window.$t('menu:quests_title', currentTitle);
   }
   const placeholderDescription = document.querySelector('#placeholder-description');
   if (placeholderDescription) {
