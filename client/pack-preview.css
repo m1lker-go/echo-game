@@ -113,3 +113,8 @@
 #echo-pack-demo .echo-demo-cut{display:none!important;}
 #echo-pack-demo .echo-demo-hit{z-index:8;touch-action:none;}
 #echo-pack-demo .echo-demo-cards{z-index:3;}
+
+/* Bent foil ribbon: silver reverse face and a slim highlight, never a solid triangle. */
+#echo-pack-demo .echo-demo-peel-back{fill:url(#echo-peel-back);stroke:#d4edfc;stroke-width:.85;stroke-linejoin:round;}
+#echo-pack-demo .echo-demo-peel-front{fill:none;stroke:#eefaff;stroke-opacity:.75;stroke-width:1.8;stroke-linecap:round;}
+#echo-pack-demo .echo-demo-peel{overflow:visible;}
