@@ -52,7 +52,13 @@
     "shop": "Shop",
     "quests": "Quests",
     "shop_title": "SHOP",
-    "quests_title": "QUESTS"
+    "quests_title": "QUESTS",
+    "shop_hint": "Choose an Echo card pack",
+    "shop_coin_pack": "Coin pack",
+    "shop_premium_pack": "Real-money pack",
+    "shop_coin_price": "Price coming soon",
+    "shop_real_price": "Price coming soon",
+    "shop_soon": "Coming soon"
   },
   "game": {
     "map_short": "MAP",
