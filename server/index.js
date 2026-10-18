@@ -606,6 +606,50 @@ function refillFood() {
 }
 setInterval(refillFood, 1000);
 
+// Re-seat connected players into fresh rooms at the synchronized boundary.
+// Scores/rewards are not enabled yet, so this only resets ephemeral play state.
+let liveRoundId = roundWindow().id;
+function advanceRoomRound() {
+  const nextRound = roundWindow();
+  if (nextRound.id === liveRoundId) return;
+  liveRoundId = nextRound.id;
+  activeFights.clear();
+  roomFood.clear();
+  for (const player of players.values()) {
+    const socket = io.sockets.sockets.get(player.id);
+    if (!socket) { players.delete(player.id); continue; }
+    const oldKey = roomKey(player);
+    socket.leave(oldKey);
+    const identity = socket.data.roomIdentity || player.id;
+    const assignment = roomManager.join(identity);
+    if (assignment.status !== 'joined') {
+      socket.emit('echo:roomFull', { roomId: assignment.roomId });
+      socket.disconnect(true);
+      continue;
+    }
+    player.roundId = assignment.round.id;
+    player.roomId = assignment.roomId;
+    player.energy = 0;
+    player.fightingWith = null;
+    player.fightId = null;
+    player.defeated = false;
+    player.inWater = false;
+    player.lastWaterDamageAt = 0;
+    const spawn = findOpenPlayerSpawn();
+    player.x = spawn.x;
+    player.y = spawn.y;
+    player.vx = 0;
+    player.vy = 0;
+    socket.join(roomKey(player));
+    socket.emit('echo:room', { roomId: player.roomId, round: assignment.round, occupancy: assignment.occupancy });
+    socket.emit('echo:combatResult', { result: 'round-reset', energy: 0 });
+  }
+  for (const player of players.values()) {
+    broadcastPlayers(player);
+    broadcastFood(player);
+  }
+}
+
 function emitFightState(fight) {
   const base = { fightId: fight.id, duration: FIGHT_DURATION };
   io.to(fight.a.id).emit('echo:fight', { ...base, playerA: fight.a.id, playerB: fight.b.id });
@@ -703,8 +747,9 @@ function checkForFights(source) {
   }
 }
 
-// Send clock snapshots separately from the high-frequency gameplay state.
+// Round transitions happen before broadcasting the fresh server clock.
 setInterval(() => {
+  advanceRoomRound();
   io.emit('echo:roundClock', currentRoundClock());
 }, 5000).unref();
 
@@ -789,10 +834,12 @@ io.on('connection', (socket) => {
     }
   }, 15000);
 
+  advanceRoomRound();
   console.log(`[socket] connected: ${socket.id}`);
   socket.emit('echo:roundClock', currentRoundClock());
 
   const identity = activityProfileId || socket.id;
+  socket.data.roomIdentity = identity;
   const assignment = roomManager.join(identity);
   if (assignment.status !== 'joined') {
     socket.emit('echo:roomFull', { roomId: assignment.roomId });
@@ -844,6 +891,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('echo:move', (payload) => {
+    advanceRoomRound();
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return;
 
     const current = players.get(socket.id);
