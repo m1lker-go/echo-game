@@ -52,7 +52,13 @@
     "shop": "Магазин",
     "quests": "Задания",
     "shop_title": "МАГАЗИН",
-    "quests_title": "ЗАДАНИЯ"
+    "quests_title": "ЗАДАНИЯ",
+    "shop_hint": "Выбери набор карточек Echo",
+    "shop_coin_pack": "Пак за монеты",
+    "shop_premium_pack": "Пак за реальные деньги",
+    "shop_coin_price": "Цена скоро появится",
+    "shop_real_price": "Цена скоро появится",
+    "shop_soon": "Скоро"
   },
   "game": {
     "map_short": "КАРТА",
