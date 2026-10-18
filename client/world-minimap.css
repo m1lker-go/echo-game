@@ -26,9 +26,10 @@
   height: 100%;
   pointer-events: none;
 }
+#game .echo-minimap-button:focus,
 #game .echo-minimap-button:focus-visible {
-  outline: 2px solid #86eaff;
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: none;
 }
 #game .echo-minimap-caption {
   display: none;
