@@ -1,0 +1,6 @@
+.echo-result-content{display:flex;flex-direction:column;align-items:center;gap:15px;text-align:center;padding:10px 0;}
+.echo-result-place{font-size:clamp(21px,4vw,30px);font-weight:700;color:#eaf4ff;}
+.echo-result-label{font-size:12px;letter-spacing:.17em;text-transform:uppercase;color:#a6bacd;}
+.echo-result-reward{display:flex;align-items:center;justify-content:center;gap:12px;color:#f1faff;}
+.echo-result-reward img{width:43px;height:43px;object-fit:contain;}
+.echo-result-reward strong{font-size:clamp(28px,5vw,42px);font-weight:800;}
