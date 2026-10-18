@@ -39,22 +39,20 @@ test('absence keeps a slot for 60 seconds and preserves room association afterwa
   assert.equal(rooms.join('old').roomId, 1);
 });
 
-test('the 61st simultaneous returning player is rejected without losing their association', () => {
+test('a 61st returnee cannot enter a full room', () => {
   let time = 900001;
   const rooms = createRoomManager({ now: () => time });
-  for (let i = 0; i < 11; i++) { rooms.join('old' + i); rooms.leaveImmediately('old' + i); }
-  for (let i = 0; i < 60; i++) {
-    const id = i < 11 ? 'old' + i : 'new' + i;
-    const res = rooms.join(id);
-    assert.equal(res.status, 'joined');
+  for (let i = 0; i < 61; i++) {
+    rooms.join('old' + i);
+    rooms.leaveImmediately('old' + i);
   }
-  // Room 1 contains 60 returning/active players.
-  assert.equal(rooms.join('old0').status, 'joined'); // already occupies its slot
-  // Create another prior member whose slot has been vacated.
-  // At full capacity, any returnee with no slot must wait.
+  for (let i = 0; i < 60; i++) {
+    assert.equal(rooms.join('old' + i).status, 'joined');
+  }
+  assert.equal(rooms.snapshot().rooms[0].occupied, 60);
+  assert.equal(rooms.join('old60').status, 'room-full');
   rooms.leaveImmediately('old0');
-  rooms.join('other');
-  assert.equal(rooms.join('old0').status, 'room-full');
+  assert.equal(rooms.join('old60').status, 'joined');
 });
 
 test('new synchronized round clears slots and assigns a fresh room', () => {
