@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="./style.css?v=echo-language-selector-3" />
   <link rel="stylesheet" href="./ui-layout.css?v=echo-volume-controls-1" />
   <link rel="stylesheet" href="./world-minimap.css?v=echo-minimap-1" />
+  <link rel="stylesheet" href="./room-leaderboard.css?v=1" />
   <link rel="preload" href="./assets/fonts/SchuelerSuperXP-Regular_0.otf" as="font" type="font/otf" crossorigin />
   <link rel="stylesheet" href="./echo-font.css?v=echo-global-font-1" />
 </head>
@@ -26,6 +27,12 @@
         <button id="game-exit" class="game-exit" type="button" data-i18n="game:exit">Покинуть игру</button>
       </div>
     </header>
+    <aside id="echo-room-leaderboard" class="echo-room-leaderboard" aria-label="Рейтинг комнаты">
+      <div class="echo-leaderboard-head"><span id="echo-board-room">Комната —</span><time id="echo-board-clock">--:--</time></div>
+      <div class="echo-leaderboard-tabs"><button type="button" data-board-tab="rating" aria-pressed="true">Рейтинг</button><button type="button" data-board-tab="energy" aria-pressed="false">Энергия</button></div>
+      <div id="echo-board-list" class="echo-leaderboard-list"></div>
+      <div id="echo-board-me" class="echo-leaderboard-me"></div>
+    </aside>
     <button id="echo-minimap-open" class="echo-minimap-button" type="button" aria-controls="echo-minimap-overlay" aria-expanded="false" aria-label="Открыть карту мира" data-i18n-aria-label="game:map_open">
       <canvas id="echo-minimap-mini" aria-hidden="true"></canvas>
       <span class="echo-minimap-caption" data-i18n="game:map_short">КАРТА</span>
@@ -77,6 +84,7 @@
   <script type="module" src="./water-effect.js?v=echo-water-splash-above-aura-1"></script>
   <script type="module" src="./player-aura.js?v=echo-blended-hero-center-1"></script>
   <script type="module" src="./game.js?v=echo-mystic-forest-soft-frost-1"></script>
+  <script type="module" src="./room-leaderboard.js?v=1"></script>
   <script type="module" src="./world-boundary.js?v=echo-world-zoom-2"></script>
 </body>
 </html>
