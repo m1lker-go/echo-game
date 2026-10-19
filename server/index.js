@@ -833,7 +833,8 @@ function finishFight(fight) {
   if (!winnerState || !loserState) return;
   const winnerProfileId = dailyActivityProfileIds.get(winnerState.id);
   if (winnerProfileId) addDailyActivity(winnerProfileId, 'pvp_wins', 1).catch((error) => console.error('[daily-activity] PvP write failed:', error.message));
-  if (winnerState.socketAccountId) addDailyActivity(winnerState.socketAccountId, 'pvp_wins', 1).catch(error => console.error('[daily-quests] PvP write failed:', error.message));
+  const winnerAccountId = io.sockets.sockets.get(winnerState.id)?.data.verifiedAccountId;
+  if (winnerAccountId) addDailyActivity(winnerAccountId, 'pvp_wins', 1).catch(error => console.error('[daily-quests] PvP write failed:', error.message));
 
   const winnerEnergyBefore = winnerState.energy;
   const loserEnergy = loserState.energy;
@@ -1049,7 +1050,6 @@ io.on('connection', (socket) => {
     inWater: false,
     lastWaterDamageAt: 0,
     skin: ALLOWED_SKINS.has(requestedSkin) ? requestedSkin : 'character-female-a.glb',
-    socketAccountId: socket.data.verifiedAccountId,
     fightingWith: null,
     fightId: null,
     defeated: false,
