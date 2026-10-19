@@ -1,21 +1,40 @@
 const socket=window.echoSocket;
 const STORAGE_KEY='echo.lastRoundResult';
+const t=(key,fallback)=>window.$t?.('game:'+key,fallback)||fallback;
 function isPlaying(){return document.querySelector('#main-menu')?.classList.contains('is-hidden');}
 function openResult(item){
-  const english=document.documentElement.lang?.startsWith('en');
-  const area=document.createElement('div');area.className='echo-result-content';
-  const place=document.createElement('div');place.className='echo-result-place';
-  place.textContent=(english?'You placed #':'Вы заняли ')+item.place+(english?'':' место');
-  // Until server-verified accounts are available, all current game sessions are guests.
-  const guestNotice=document.createElement('div');guestNotice.className='echo-result-label';
-  guestNotice.textContent=english?'Coins are available after registration':'Монеты доступны после регистрации';
-  area.append(place,guestNotice);
+  const area=document.createElement('div');
+  area.className='echo-result-content';
+  const place=document.createElement('div');
+  place.className='echo-result-place';
+  place.textContent=t('round_place','Вы заняли {place} место').replace('{place}',String(item.place));
+  area.append(place);
+  if(item.authenticated===true){
+    const caption=document.createElement('div');
+    caption.className='echo-result-label';
+    caption.textContent=t('round_reward','Награда:');
+    const reward=document.createElement('div');
+    reward.className='echo-result-reward';
+    const amount=document.createElement('strong');
+    amount.textContent=String(Math.max(0,Number(item.coins)||0));
+    const coin=document.createElement('img');
+    coin.src='./assets/icons/coin.webp';
+    coin.alt='ECHO Coin';
+    reward.append(amount,coin);
+    area.append(caption,reward);
+  }else{
+    const notice=document.createElement('p');
+    notice.className='echo-result-guest';
+    notice.textContent=t('round_guest_login','Для получения монет необходимо пройти авторизацию пользователя в настройках игры.');
+    area.append(notice);
+  }
   window.ECHOModal?.open({
-    title:english?'GAME OVER!':'ИГРА ЗАВЕРШЕНА!',
+    title:t('round_finished','ИГРА ЗАВЕРШЕНА!'),
     contentElement:area,
-    buttons:[{label:english?'CONTINUE':'ПРОДОЛЖИТЬ',variant:'primary',value:true}],
+    buttons:[{label:t('round_continue','ПРОДОЛЖИТЬ'),variant:'primary',value:true}],
     closeOnBackdrop:false
   });
+  document.querySelector('.echo-modal')?.classList.add('echo-round-result-modal');
 }
 function receiveResults(results){
   if(!Array.isArray(results)||!results.length)return;
