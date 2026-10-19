@@ -94,7 +94,9 @@
     "auth_modal_title": "SIGN IN",
     "nickname_forbidden": "Name contains prohibited words",
     "sound_section": "SOUND",
-    "other_section": "OTHER"
+    "other_section": "OTHER",
+    "rotate_title": "ROTATE YOUR DEVICE",
+    "rotate_description": "Turn your device to portrait mode to play ECHO."
   },
   "game": {
     "map_short": "MAP",
