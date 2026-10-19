@@ -21,8 +21,30 @@
   <link rel="stylesheet" href="./echo-font.css?v=echo-global-font-1" />
   <link rel="stylesheet" href="./menu-width.css?v=1" />
   <link rel="stylesheet" href="./settings-refresh.css?v=6" />
+  <link rel="stylesheet" href="./orientation.css?v=1" />
 </head>
 <body>
+  <div id="echo-rotate-overlay" role="status" aria-live="polite">
+    <div class="echo-rotate-content">
+      <div class="echo-rotate-logo" aria-hidden="true">ECHO<span>.</span></div>
+      <div class="echo-rotate-device" aria-hidden="true">
+        <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="60" cy="60" r="54" stroke="#6e7784" stroke-width="1.5" stroke-dasharray="3 7" opacity=".55"/>
+          <path d="M88 37a37 37 0 0 0-55 0" stroke="#a9b0bb" stroke-width="2" stroke-linecap="round"/>
+          <path d="m33 29-1 8 8 0" stroke="#a9b0bb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <g class="echo-rotate-phone">
+            <rect x="43" y="25" width="34" height="70" rx="7" fill="#07090d" stroke="#fff" stroke-width="3"/>
+            <rect x="48" y="35" width="24" height="48" rx="2" fill="#14191f" stroke="#737e8b"/>
+            <path d="M56 30h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="60" cy="89" r="2" fill="#fff"/>
+          </g>
+        </svg>
+      </div>
+      <h2 class="echo-rotate-title" data-i18n="menu:rotate_title">ПОВЕРНИТЕ УСТРОЙСТВО</h2>
+      <div class="echo-rotate-decoration" aria-hidden="true"></div>
+      <p class="echo-rotate-description" data-i18n="menu:rotate_description">Для игры в ECHO переверните экран в вертикальное положение.</p>
+    </div>
+  </div>
   <main id="game" aria-label="ECHO game" data-i18n-aria-label="menu:game_aria_label">
     <canvas id="world" aria-label="Игровое поле" data-i18n-aria-label="menu:world_aria_label"></canvas>
     <canvas id="shared-food" aria-hidden="true"></canvas>
