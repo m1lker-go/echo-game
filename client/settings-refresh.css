@@ -141,3 +141,39 @@
   #game #menu-settings-screen .echo-account-meta{gap:0}
   #game #menu-settings-screen .echo-auth-logout{font-size:clamp(12px,3vw,18px);padding:5px}
 }
+
+
+/* Settings section labels: muted and left-aligned, without account card frame. */
+#game #menu-settings-screen .echo-auth-panel{
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  text-align:left;
+}
+#game #menu-settings-screen .echo-auth-panel h2,
+#game #menu-settings-screen .settings-language-label{
+  display:block;
+  width:100%;
+  margin:0 0 12px;
+  color:#8f97a3;
+  font-size:clamp(13px,calc(16px * var(--echo-ui-scale)),22px);
+  font-weight:500;
+  letter-spacing:.12em;
+  line-height:1.3;
+  text-align:left;
+  text-transform:uppercase;
+}
+#game #menu-settings-screen .echo-auth-panel #echo-auth-user:not([hidden]){
+  margin-top:0;
+}
+#game #menu-settings-screen .echo-auth-panel #echo-auth-status:empty{
+  display:none;
+}
+#game #menu-settings-screen .settings-language-row{
+  align-items:stretch;
+  gap:0;
+}
+#game #menu-settings-screen .echo-auth-panel .echo-auth-note{
+  text-align:left;
+}
