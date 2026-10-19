@@ -3,7 +3,7 @@ const guest=document.querySelector('#echo-auth-guest');
 const panel=document.querySelector('#echo-auth-user');
 const status=document.querySelector('#echo-auth-status');
 const widget=document.querySelector('#echo-vkid-widget');
-const input=document.querySelector('#echo-nickname-input');
+
 const key='echo.authToken';
 let token=localStorage.getItem(key);
 let current=null;
@@ -39,8 +39,6 @@ function showGuest(message){
 function showUser(data){
  current=data;guest.hidden=true;panel.hidden=false;
  document.querySelector('#echo-account-name').textContent=data.nickname;
- document.querySelector('#echo-account-coins').textContent=t('coins','Монеты')+': '+(data.coins||0);
- input.value=data.nickname;
  status.textContent=t('account_connected','Аккаунт подключён');
 }
 async function refresh(){
@@ -74,16 +72,46 @@ async function start(){
  }catch(error){console.error('[VKID]',error);started=false;status.textContent=t('auth_unavailable','Сервер авторизации ECHO недоступен');}
 }
 document.querySelector('#menu-settings')?.addEventListener('click',()=>token?refresh():start());
-document.querySelector('#echo-nickname-form')?.addEventListener('submit',async event=>{
- event.preventDefault();
- const nickname=input.value.trim();
- if(!/^[a-zA-Zа-яА-ЯёЁ0-9_-]{3,20}$/u.test(nickname)){status.textContent=t('nickname_invalid','От 3 до 20 символов');return;}
- try{
-  const data=await request('nickname',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nickname})});
-  showUser({...current,nickname:data.nickname});
- }catch(error){status.textContent=error.status===409?t('nickname_taken','Имя занято'):t('auth_failed','Ошибка авторизации');}
+document.querySelector('#echo-edit-name')?.addEventListener('click',()=>{
+ if(!current)return;
+ const field=document.createElement('input');
+ field.className='echo-nickname-modal-input';
+ field.type='text';field.maxLength=20;field.value=current.nickname;field.autocomplete='off';
+ field.setAttribute('aria-label',t('nickname','Имя игрока'));
+ const form=document.createElement('form');
+ form.className='echo-nickname-modal-form';
+ form.append(field);
+ const help=document.createElement('p');help.className='echo-nickname-help';
+ help.textContent=t('nickname_invalid','Имя: 3–20 букв, цифр, _ или -');
+ form.append(help);
+ const open=window.ECHOModal?.open({
+  title:t('nickname','Имя игрока'),contentElement:form,
+  buttons:[{label:t('no','Отмена'),value:false},{label:t('save_nickname','Сохранить'),value:true,variant:'primary',onClick:()=>form.requestSubmit()}]
+ });
+ if(!open)return;
+ // Submit manually because ECHOModal closes its overlay after button callback.
+ form.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const value=field.value.trim();
+  if(!/^[a-zA-Zа-яА-ЯёЁ0-9_-]{3,20}$/u.test(value)){window.ECHOToast?.show(t('nickname_invalid','Имя: 3–20 букв, цифр, _ или -'));return;}
+  if(value===current?.nickname){open.close();return;}
+  const confirmed=await window.ECHOModal.confirm({
+   title:t('nickname_confirm_title','ИЗМЕНЕНИЕ ИМЕНИ'),
+   text:t('nickname_confirm_text','Сохранить новое имя игрока?'),
+   confirmText:t('yes','Да'),cancelText:t('no','Нет')
+  });
+  if(!confirmed)return;
+  try{
+   const data=await request('nickname',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nickname:value})});
+   showUser({...current,nickname:data.nickname});
+   window.ECHOToast?.show(t('nickname_saved','Имя успешно изменено'));
+  }catch(error){window.ECHOToast?.show(error.status===409?t('nickname_taken','Имя занято'):t('auth_failed','Ошибка авторизации'));}
+ });
+ requestAnimationFrame(()=>field.focus());
 });
 document.querySelector('#echo-logout')?.addEventListener('click',async()=>{
+ const approved=await window.ECHOModal.confirm({title:t('logout_confirm_title','ВЫХОД ИЗ АККАУНТА'),text:t('logout_confirm_text','Выйти из аккаунта ECHO?'),confirmText:t('yes','Да'),cancelText:t('no','Нет')});
+ if(!approved)return;
  try{await request('logout',{method:'POST'});}catch{}
  token=null;localStorage.removeItem(key);showGuest();start();
 });
