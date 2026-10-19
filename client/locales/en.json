@@ -107,7 +107,8 @@
     "quests_pack_premium_desc": "Buy one premium pack",
     "quests_take": "Claim",
     "quests_soon": "Coming soon",
-    "quests_reward": "Received:"
+    "quests_reward": "Received:",
+    "quests_remaining": "Remaining:"
   },
   "game": {
     "map_short": "MAP",
