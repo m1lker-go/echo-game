@@ -30,7 +30,10 @@ async function request(path,options={}){
  const headers={...options.headers};
  if(token)headers.Authorization='Bearer '+token;
  const response=await fetch(await url(path),{...options,headers,cache:'no-store'});
- if(!response.ok)throw Object.assign(new Error('Request failed'),{status:response.status});
+ if(!response.ok){
+  const payload=await response.json().catch(()=>({}));
+  throw Object.assign(new Error('Request failed'),{status:response.status,code:payload.code});
+ }
  return response.json();
 }
 function showGuest(message){
@@ -134,7 +137,7 @@ document.querySelector('#echo-edit-name')?.addEventListener('click',()=>{
       const data=await request('nickname',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nickname:value})});
       showUser({...current,nickname:data.nickname});
       window.ECHOToast?.show(t('nickname_saved','Имя успешно изменено'));
-     }catch(error){window.ECHOToast?.show(error.status===409?t('nickname_taken','Имя занято'):t('auth_failed','Ошибка авторизации'));}
+     }catch(error){window.ECHOToast?.show(error.code==='forbidden'?t('nickname_forbidden','Имя содержит запрещённые слова'):error.status===409?t('nickname_taken','Имя занято'):error.status===400?t('nickname_invalid','Имя: 3–20 букв, цифр, _ или -'):t('auth_failed','Ошибка авторизации'));}
     },0);
    }}
   ]
