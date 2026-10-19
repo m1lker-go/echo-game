@@ -82,7 +82,13 @@
     "auth_failed": "Ошибка авторизации",
     "auth_not_configured": "Ожидается настройка сервера",
     "nickname_invalid": "Имя: 3–20 букв, цифр, _ или -",
-    "nickname_taken": "Это имя занято"
+    "nickname_taken": "Это имя занято",
+    "nickname_confirm_title": "ИЗМЕНЕНИЕ ИМЕНИ",
+    "nickname_confirm_text": "Сохранить новое имя игрока?",
+    "nickname_saved": "Имя успешно изменено",
+    "logout_confirm_title": "ВЫХОД ИЗ АККАУНТА",
+    "logout_confirm_text": "Выйти из аккаунта ECHO?",
+    "edit_nickname": "Изменить имя"
   },
   "game": {
     "map_short": "КАРТА",
