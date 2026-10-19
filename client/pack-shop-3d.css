@@ -15,3 +15,38 @@
 #echo-pack-3d #echo-pack-3d-reset[hidden]{display:none}
 @media(max-width:650px){#echo-pack-3d .echo-pack-toast{right:8px;top:29%;max-width:38vw}#echo-pack-3d .echo-pack-view{max-height:calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}}
 @media(prefers-reduced-motion:reduce){#echo-pack-3d .echo-pack-sparks{animation:none}}
+
+/* Reuse the REAL menu-food canvas beneath the pack modal. */
+#main-menu:has(#echo-pack-3d:not([hidden])) > .menu-screen{visibility:hidden!important;}
+#main-menu:has(#echo-pack-3d:not([hidden])) > .menu-food{visibility:visible!important;}
+#main-menu #echo-pack-3d{background:transparent!important;}
+#echo-pack-3d .echo-pack-sparks{display:none!important;}
+#echo-pack-3d #echo-pack-tear-handle{
+ width:clamp(17px,3.5vw,23px)!important;height:clamp(17px,3.5vw,23px)!important;
+ background:#66b6d4!important;border:2px solid #dbf6ff!important;
+ box-shadow:0 0 12px rgba(102,182,212,.55)!important;
+}
+#echo-pack-3d #echo-pack-tear-handle span{width:3px;height:3px;}
+#echo-pack-3d #echo-pack-tear-handle:active{box-shadow:0 0 16px rgba(102,182,212,.8)!important;}
+#echo-pack-3d .echo-pack-toast{
+ top:43%;right:auto;left:auto;max-width:min(220px,34vw);
+ border:0!important;background:transparent!important;
+ border-radius:0!important;box-shadow:none!important;
+ padding:8px!important;font-weight:700;
+ font-size:clamp(12px,2.1vw,19px)!important;
+ text-shadow:0 2px 5px #000,0 0 12px #fff8;
+}
+#echo-pack-3d .echo-pack-toast.is-left{
+ left:max(4px,calc(50% - min((100dvh - 40px)*2/3,100vw - 24px)/2 - 210px));
+ right:auto;transform:rotate(-7deg) translateY(0);
+}
+#echo-pack-3d .echo-pack-toast.is-right{
+ right:max(4px,calc(50% - min((100dvh - 40px)*2/3,100vw - 24px)/2 - 210px));
+ left:auto;transform:rotate(7deg) translateY(0);
+}
+#echo-pack-3d .echo-pack-toast:not(.is-visible){opacity:0!important;}
+@media(max-width:650px){
+ #echo-pack-3d .echo-pack-toast{max-width:24vw!important;top:38%}
+ #echo-pack-3d .echo-pack-toast.is-left{left:1px!important;right:auto!important;transform:rotate(-7deg)}
+ #echo-pack-3d .echo-pack-toast.is-right{right:1px!important;left:auto!important;transform:rotate(7deg)}
+}
