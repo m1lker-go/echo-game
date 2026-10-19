@@ -122,6 +122,9 @@
     "coords_zero": "0 · 0",
     "boost_aria_label": "Ускорение",
     "jump_aria_label": "Прыжок",
-    "defeat_aria_label": "Поражение"
+    "defeat_aria_label": "Поражение",
+    "fullscreen_enter": "На весь экран",
+    "fullscreen_exit": "Выйти из полноэкранного режима",
+    "fullscreen_unavailable": "Полноэкранный режим недоступен в этом браузере"
   }
 }
