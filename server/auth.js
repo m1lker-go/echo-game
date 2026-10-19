@@ -6,7 +6,6 @@ const { pool } = require('./db');
 const { validateNickname } = require('./nickname-policy');
 const APP_ID = String(process.env.VK_ID_APP_ID || '');
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
-const nameValid = name => typeof name === 'string' && /^[a-zA-Zа-яА-ЯёЁ0-9_-]{3,20}$/u.test(name);
 const getSession = req => (req.headers.authorization || '').match(/^Bearer ([a-f0-9]{64})$/)?.[1];
 async function sessionUser(req) {
   const token = getSession(req);
