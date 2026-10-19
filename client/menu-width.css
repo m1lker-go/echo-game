@@ -1,0 +1,52 @@
+/* All ECHO menu content uses a single width equal to the viewport height.
+   On narrow portrait screens, keep 20px safe gutters instead of overflowing. */
+#game #main-menu {
+  --echo-menu-content-width: min(100dvh, calc(100vw - 40px));
+}
+#game #main-menu .menu-buttons,
+#game #main-menu .menu-back,
+#game #main-menu .character-grid,
+#game #main-menu .settings-actions,
+#game #menu-settings-screen .settings-language-row,
+#game #menu-settings-screen .settings-cache-button,
+#game #menu-settings-screen .echo-volume-settings,
+#game #menu-settings-screen .echo-auth-panel,
+#game #menu-settings-screen #settings-back {
+  box-sizing: border-box;
+  width: var(--echo-menu-content-width);
+  max-width: 100%;
+}
+#game #menu-settings-screen {
+  --echo-settings-button-width: var(--echo-menu-content-width);
+}
+#game #menu-settings-screen .settings-note {
+  max-width: var(--echo-menu-content-width);
+}
+#game #main-menu .echo-quests-screen,
+#game #main-menu .echo-shop-screen {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  box-sizing: border-box;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+#game #main-menu .echo-quests-screen .menu-page-head,
+#game #main-menu .echo-shop-screen .menu-page-head,
+#game #main-menu .echo-quests-list,
+#game #main-menu .echo-shop-packs,
+#game #main-menu .echo-quests-reset,
+#game #main-menu .echo-quests-status {
+  box-sizing: border-box;
+  width: var(--echo-menu-content-width);
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+#game #main-menu .echo-quests-screen .menu-back,
+#game #main-menu .echo-shop-screen .menu-back {
+  width: var(--echo-menu-content-width);
+}
+#game #main-menu .echo-shop-packs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
