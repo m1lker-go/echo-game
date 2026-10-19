@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="./pack-preview.css?v=echo-ribbon-v6" />
   <link rel="stylesheet" href="./pack-shop-3d.css?v=1" />
   <link rel="stylesheet" href="./shop.css?v=1" />
+  <link rel="stylesheet" href="./daily-quests.css?v=1" />
   <link rel="preload" href="./assets/fonts/SchuelerSuperXP-Regular_0.otf" as="font" type="font/otf" crossorigin />
   <link rel="stylesheet" href="./echo-font.css?v=echo-global-font-1" />
 </head>
@@ -68,6 +69,7 @@
       <canvas id="menu-food" class="menu-food" aria-hidden="true"></canvas>
       <div id="menu-main" class="menu-screen menu-main-screen" aria-label="Главный экран меню" data-i18n-aria-label="menu:main_screen_aria_label"><div class="menu-logo" data-i18n="menu:logo">ЭХО.</div><div class="menu-buttons"><button id="menu-start" class="menu-button" type="button" data-i18n="menu:start">Начать игру</button><button id="menu-character-button" class="menu-button" type="button" data-i18n="menu:character">Персонаж</button><button id="menu-settings" class="menu-button" type="button" data-i18n="menu:settings">Настройки</button><button id="menu-shop" class="menu-button" type="button" data-i18n="menu:shop">Магазин</button><button id="menu-quests" class="menu-button" type="button" data-i18n="menu:quests">Задания</button></div></div>
       <div id="menu-character" class="menu-screen character-screen" hidden aria-label="Выбор персонажа" data-i18n-aria-label="menu:character_screen_aria_label"><div class="menu-page-head"><h1 data-i18n="menu:choose_character_title">ПЕРСОНАЖ</h1><p data-i18n="menu:choose_character_hint">Выбери того, кто появится в игре</p></div><div id="character-grid" class="character-grid"></div><button id="character-back" class="menu-back" type="button" data-i18n="menu:back">Назад</button></div>
+      <div id="menu-quests-screen" class="menu-screen echo-quests-screen" hidden><div class="menu-page-head"><h1 data-i18n="menu:quests_title">ЗАДАНИЯ</h1><p data-i18n="menu:quests_hint">Выполняй задания каждый день</p></div><p id="quests-reset" class="echo-quests-reset"></p><div id="quests-list" class="echo-quests-list" aria-live="polite"></div><p id="quests-status" class="echo-quests-status" role="status"></p><button id="quests-back" class="menu-back" type="button" data-i18n="menu:back">Назад</button></div>
       <div id="menu-shop-screen" class="menu-screen echo-shop-screen" hidden aria-label="Магазин">
   <div class="menu-page-head"><h1 data-i18n="menu:shop_title">МАГАЗИН</h1><p data-i18n="menu:shop_hint">Выбери набор карточек Echo</p></div>
   <div class="echo-shop-packs">
@@ -86,7 +88,8 @@
   <script type="module" src="./modal.js?v=echo-round-result-1"></script>
   <script type="module" src="./model-preloader.js"></script>
   <script type="module" src="./asset-loader-patch.js?v=echo-water-gradient-1"></script>
-  <script type="module" src="./menu.js?v=echo-shop-packs-1"></script>
+  <script type="module" src="./menu.js?v=echo-daily-quests-1"></script>
+  <script type="module" src="./daily-quests.js?v=1"></script>
   <script type="module" src="./pack-lab.js?v=echo-shop-integrated-1"></script>
   <script type="module" src="./music-manager.js?v=echo-volume-controls-1"></script>
   <script type="module" src="./audio-settings.js?v=echo-volume-controls-1"></script>
