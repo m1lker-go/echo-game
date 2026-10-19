@@ -78,34 +78,38 @@ document.querySelector('#echo-edit-name')?.addEventListener('click',()=>{
  field.className='echo-nickname-modal-input';
  field.type='text';field.maxLength=20;field.value=current.nickname;field.autocomplete='off';
  field.setAttribute('aria-label',t('nickname','Имя игрока'));
- const form=document.createElement('form');
- form.className='echo-nickname-modal-form';
- form.append(field);
- const help=document.createElement('p');help.className='echo-nickname-help';
+ const content=document.createElement('div');
+ content.className='echo-nickname-modal-form';
+ const help=document.createElement('p');
+ help.className='echo-nickname-help';
  help.textContent=t('nickname_invalid','Имя: 3–20 букв, цифр, _ или -');
- form.append(help);
- const open=window.ECHOModal?.open({
-  title:t('nickname','Имя игрока'),contentElement:form,
-  buttons:[{label:t('no','Отмена'),value:false},{label:t('save_nickname','Сохранить'),value:true,variant:'primary',onClick:()=>form.requestSubmit()}]
- });
- if(!open)return;
- // Submit manually because ECHOModal closes its overlay after button callback.
- form.addEventListener('submit',async event=>{
-  event.preventDefault();
-  const value=field.value.trim();
-  if(!/^[a-zA-Zа-яА-ЯёЁ0-9_-]{3,20}$/u.test(value)){window.ECHOToast?.show(t('nickname_invalid','Имя: 3–20 букв, цифр, _ или -'));return;}
-  if(value===current?.nickname){open.close();return;}
-  const confirmed=await window.ECHOModal.confirm({
-   title:t('nickname_confirm_title','ИЗМЕНЕНИЕ ИМЕНИ'),
-   text:t('nickname_confirm_text','Сохранить новое имя игрока?'),
-   confirmText:t('yes','Да'),cancelText:t('no','Нет')
-  });
-  if(!confirmed)return;
-  try{
-   const data=await request('nickname',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nickname:value})});
-   showUser({...current,nickname:data.nickname});
-   window.ECHOToast?.show(t('nickname_saved','Имя успешно изменено'));
-  }catch(error){window.ECHOToast?.show(error.status===409?t('nickname_taken','Имя занято'):t('auth_failed','Ошибка авторизации'));}
+ content.append(field,help);
+ window.ECHOModal?.open({
+  title:t('nickname','Имя игрока'),contentElement:content,
+  buttons:[
+   {label:t('no','Отмена'),value:false},
+   {label:t('save_nickname','Сохранить'),value:true,variant:'primary',onClick:()=>{
+    const value=field.value.trim();
+    if(!/^[a-zA-Zа-яА-ЯёЁ0-9_-]{3,20}$/u.test(value)){
+     window.ECHOToast?.show(t('nickname_invalid','Имя: 3–20 букв, цифр, _ или -'));return;
+    }
+    if(value===current?.nickname)return;
+    // The shared modal closes after onClick; open confirmation on the next task.
+    setTimeout(async()=>{
+     const confirmed=await window.ECHOModal.confirm({
+      title:t('nickname_confirm_title','ИЗМЕНЕНИЕ ИМЕНИ'),
+      text:t('nickname_confirm_text','Сохранить новое имя игрока?'),
+      confirmText:t('yes','Да'),cancelText:t('no','Нет')
+     });
+     if(!confirmed)return;
+     try{
+      const data=await request('nickname',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nickname:value})});
+      showUser({...current,nickname:data.nickname});
+      window.ECHOToast?.show(t('nickname_saved','Имя успешно изменено'));
+     }catch(error){window.ECHOToast?.show(error.status===409?t('nickname_taken','Имя занято'):t('auth_failed','Ошибка авторизации'));}
+    },0);
+   }}
+  ]
  });
  requestAnimationFrame(()=>field.focus());
 });
