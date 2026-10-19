@@ -68,7 +68,7 @@
     "quests_incomplete": "In progress",
     "quests_loading": "Loading quests…",
     "quests_error": "Could not load quests. Try again.",
-    "quests_guest": "Guest rewards do not grant coins yet.",
+    "quests_guest": "Quests are available to signed-in players only.",
     "quests_reset": "Resets daily at 00:00 Moscow time",
     "quests_progress_minutes": "minutes",
     "account_title": "ACCOUNT",
@@ -97,7 +97,17 @@
     "other_section": "OTHER",
     "rotate_title": "ROTATE YOUR DEVICE",
     "rotate_description": "Turn your device to landscape mode to play ECHO.",
-    "shop_balance": "Balance:"
+    "shop_balance": "Balance:",
+    "quests_play_desc": "Spend in rounds",
+    "quests_food_desc": "Collect energy",
+    "quests_pvp_desc": "Win PvP battles:",
+    "quests_pack_coin": "Regular pack",
+    "quests_pack_coin_desc": "Buy one regular pack",
+    "quests_pack_premium": "Premium pack",
+    "quests_pack_premium_desc": "Buy one premium pack",
+    "quests_take": "Claim",
+    "quests_soon": "Coming soon",
+    "quests_reward": "ECHO Coin earned: "
   },
   "game": {
     "map_short": "MAP",
@@ -135,4 +145,4 @@
     "round_guest_login": "To receive coins, you need to sign in to your account in the game settings.",
     "round_continue": "CONTINUE"
   }
-}
+}\n
