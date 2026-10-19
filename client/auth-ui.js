@@ -8,11 +8,27 @@ const key='echo.authToken';
 let token=localStorage.getItem(key);
 let current=null;
 let started=false;
-const url=path=>new URL('/api/auth/'+path,window.ECHO_SERVER_URL||location.origin);
+// ECHO is hosted under /echo on a shared domain with Cat Fight.
+// Never assume the domain-root /api belongs to ECHO.
+const bases=['/echo/api/auth/','/api/auth/'];
+let activeBase=null;
+async function selectApiBase(){
+ if(activeBase)return activeBase;
+ for(const base of bases){
+  try{
+   const res=await fetch(new URL(base+'config',location.origin),{cache:'no-store'});
+   if(!res.ok)continue;
+   const config=await res.json();
+   if(Number(config?.appId)===54832804){activeBase=base;return base;}
+  }catch(error){console.warn('[echo auth] endpoint unavailable',base,error);}
+ }
+ throw new Error('ECHO authentication API is not reachable');
+}
+const url=async path=>new URL((await selectApiBase())+path,location.origin);
 async function request(path,options={}){
  const headers={...options.headers};
  if(token)headers.Authorization='Bearer '+token;
- const response=await fetch(url(path),{...options,headers,cache:'no-store'});
+ const response=await fetch(await url(path),{...options,headers,cache:'no-store'});
  if(!response.ok)throw Object.assign(new Error('Request failed'),{status:response.status});
  return response.json();
 }
@@ -40,7 +56,7 @@ async function start(){
   if(!config.enabled){status.textContent=t('auth_not_configured','Ожидается настройка сервера');started=false;return;}
   if(!window.VKIDSDK)await new Promise((resolve,reject)=>{
    const script=document.createElement('script');
-   script.src='https://unpkg.com/@vkid/sdk@2/dist-sdk/umd/index.js';
+   script.src='https://unpkg.com/@vkid/sdk@2.6.9/dist-sdk/umd/index.js';
    script.onload=resolve;script.onerror=reject;document.head.append(script);
   });
   const VKID=window.VKIDSDK;
@@ -55,7 +71,7 @@ async function start(){
        token=account.token;localStorage.setItem(key,token);await refresh();
       }catch(error){console.error('[VKID]',error);status.textContent=t('auth_failed','Ошибка авторизации');}
     });
- }catch(error){console.error('[VKID]',error);started=false;status.textContent=t('auth_failed','Ошибка авторизации');}
+ }catch(error){console.error('[VKID]',error);started=false;status.textContent=t('auth_unavailable','Сервер авторизации ECHO недоступен');}
 }
 document.querySelector('#menu-settings')?.addEventListener('click',()=>token?refresh():start());
 document.querySelector('#echo-nickname-form')?.addEventListener('submit',async event=>{
