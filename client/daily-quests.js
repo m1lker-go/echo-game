@@ -1,108 +1,82 @@
-// ECHO daily quests — read-only server progress, one-time completion per day.
-// Guest identities are not verified; this interface never mints currency.
-const list = document.querySelector('#quests-list');
-const status = document.querySelector('#quests-status');
-const reset = document.querySelector('#quests-reset');
-const screen = document.querySelector('#menu-quests-screen');
-const profileKey = 'echo.activityProfileId';
-let current = null;
-let loading = false;
-const t = (key, fallback) => window.$t?.('menu:' + key, fallback) || fallback;
-function endpoint(path) {
-  return new URL(path, window.ECHO_SERVER_URL || location.origin);
-}
-function profileId() {
-  let id = localStorage.getItem(profileKey);
-  if (!/^[a-zA-Z0-9_-]{16,80}$/.test(id || '')) {
-    id = (globalThis.crypto?.randomUUID?.() || ('echo_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2))).replace(/[^a-zA-Z0-9_-]/g, '_');
-    localStorage.setItem(profileKey, id);
-  }
-  return id;
-}
-function show(message) { status.textContent = message; }
-const meta = {
-  play: { icon: '◷', title: 'quests_play', fallback: 'Время в ECHO' },
-  food: { icon: '✦', title: 'quests_food', fallback: 'Собиратель' },
-  pvp: { icon: '⚔', title: 'quests_pvp', fallback: 'Победитель' },
+// ECHO daily quests: server verified account, cumulative daily tiers.
+const list=document.querySelector('#quests-list');
+const status=document.querySelector('#quests-status');
+const reset=document.querySelector('#quests-reset');
+const screen=document.querySelector('#menu-quests-screen');
+const t=(key,fallback)=>window.$t?.('menu:'+key,fallback)||fallback;
+const meta={
+ play:{icon:'fa-regular fa-clock',title:'quests_play',desc:'quests_play_desc'},
+ food:{icon:'fa-solid fa-apple-whole',title:'quests_food',desc:'quests_food_desc'},
+ pvp:{icon:'fa-solid fa-trophy',title:'quests_pvp',desc:'quests_pvp_desc'},
+ pack_coin:{icon:'fa-solid fa-box',title:'quests_pack_coin',desc:'quests_pack_coin_desc'},
+ pack_premium:{icon:'fa-solid fa-gem',title:'quests_pack_premium',desc:'quests_pack_premium_desc'}
 };
-function render() {
-  list.replaceChildren();
-  reset.textContent = t('quests_reset', 'Обновление ежедневно в 00:00 по Москве');
-  if (!current) return;
-  for (const quest of current.quests || []) {
-    const info = meta[quest.id];
-    if (!info) continue;
-    const progress = Math.max(0, Math.min(quest.target, quest.progress));
-    const ready = progress >= quest.target;
-    const article = document.createElement('article');
-    article.className = 'echo-quest' + (quest.claimed ? ' is-complete' : '');
-    const heading = document.createElement('div');
-    heading.className = 'echo-quest-heading';
-    const icon = document.createElement('span');
-    icon.className = 'echo-quest-icon';
-    icon.textContent = info.icon;
-    const title = document.createElement('strong');
-    title.textContent = t(info.title, info.fallback);
-    const counter = document.createElement('span');
-    counter.className = 'echo-quest-counter';
-    counter.textContent = quest.id === 'play'
-      ? `${Math.floor(progress / 60)}/${Math.floor(quest.target / 60)} ${t('quests_progress_minutes','мин')}`
-      : `${progress}/${quest.target}`;
-    heading.append(icon, title, counter);
-    const track = document.createElement('div');
-    track.className = 'echo-quest-track';
-    const bar = document.createElement('div');
-    bar.style.width = `${100 * progress / quest.target}%`;
-    track.append(bar);
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'echo-quest-claim';
-    button.disabled = !ready || quest.claimed || loading;
-    button.textContent = quest.claimed
-      ? t('quests_claimed', 'Выполнено')
-      : ready ? t('quests_claim', 'Завершить') : t('quests_incomplete', 'В процессе');
-    button.addEventListener('click', () => claim(quest.id));
-    article.append(heading, track, button);
-    list.append(article);
-  }
-  show(t('quests_guest', 'Награды гостевым профилям пока не начисляют монеты.'));
+let current=null,loading=false;
+function endpoint(path){return new URL(path,window.ECHO_SERVER_URL||location.origin)}
+function token(){return localStorage.getItem('echo.authToken')}
+function show(message){status.textContent=message}
+function render(){
+ list.replaceChildren();
+ reset.textContent=t('quests_reset','Обновление ежедневно в 00:00 по Москве');
+ if(!current)return;
+ for(const quest of current.quests||[]){
+  const info=meta[quest.id];if(!info)continue;
+  const progress=Math.max(0,Math.min(quest.target,quest.progress));
+  const ready=quest.available&&!quest.claimed&&progress>=quest.target;
+  const article=document.createElement('article');
+  article.className='echo-quest'+(quest.claimed?' is-complete':ready?' is-ready':'');
+  const heading=document.createElement('div');heading.className='echo-quest-heading';
+  const symbol=document.createElement('i');symbol.className='echo-quest-icon '+info.icon;symbol.setAttribute('aria-hidden','true');
+  const summary=document.createElement('div');summary.className='echo-quest-summary';
+  const title=document.createElement('strong');title.textContent=t(info.title,quest.id);
+  const description=document.createElement('span');description.className='echo-quest-description';
+  const value=quest.id==='play'?Math.floor(quest.target/60):quest.target;
+  description.textContent=t(info.desc,'')+(quest.id==='play'?' '+value+' '+t('quests_progress_minutes','мин'):quest.id.startsWith('pack_')?'':' '+value);
+  if(quest.levels>1)title.textContent+=' · '+quest.level+'/'+quest.levels;
+  summary.append(title,description);
+  const reward=document.createElement('span');reward.className='echo-quest-reward';
+  const coin=document.createElement('img');coin.src='./assets/icons/coin.webp';coin.alt='ECHO Coin';coin.width=28;coin.height=28;
+  reward.append(coin,document.createTextNode('+'+quest.reward));
+  heading.append(symbol,summary,reward);
+  const track=document.createElement('div');track.className='echo-quest-track';
+  const bar=document.createElement('div');bar.style.width=(quest.claimed?'100':quest.available?100*progress/quest.target:0)+'%';track.append(bar);
+  const footer=document.createElement('div');footer.className='echo-quest-footer';
+  const counter=document.createElement('span');counter.className='echo-quest-counter';
+  counter.textContent=quest.id==='play'?Math.floor(progress/60)+' / '+Math.floor(quest.target/60):quest.available?progress+' / '+quest.target:'0 / 1';
+  const button=document.createElement('button');button.type='button';button.className='echo-quest-claim';
+  button.disabled=!ready||loading;
+  button.textContent=quest.claimed?t('quests_claimed','Выполнено'):!quest.available?t('quests_soon','Скоро'):ready?t('quests_take','Забрать'):t('quests_incomplete','В процессе');
+  button.addEventListener('click',()=>claim(quest.id));
+  footer.append(counter,button);article.append(heading,track,footer);list.append(article);
+ }
+ show('');
 }
-async function refresh() {
-  if (screen.hidden || loading) return;
-  const id = profileId();
-  if (!id) { show(t('quests_error', 'Не удалось загрузить задания. Попробуй снова.')); return; }
-  loading = true;
-  show(t('quests_loading', 'Загружаем задания…'));
-  try {
-    const url = endpoint('/api/daily-quests');
-    url.searchParams.set('profileId', id);
-    const response = await fetch(url, { cache: 'no-store' });
-    if (!response.ok) throw Error(String(response.status));
-    current = await response.json();
-    render();
-  } catch (error) {
-    console.warn('[echo quests] fetch failed', error);
-    show(t('quests_error', 'Не удалось загрузить задания. Попробуй снова.'));
-  } finally { loading = false; }
+async function refresh(){
+ if(screen.hidden||loading)return;
+ const auth=token();
+ if(!auth){current=null;list.replaceChildren();reset.textContent='';show(t('quests_guest','Задания доступны только авторизованным пользователям.'));return}
+ loading=true;show(t('quests_loading','Загружаем задания…'));
+ try{
+  const response=await fetch(endpoint('/api/daily-quests'),{headers:{Authorization:'Bearer '+auth},cache:'no-store'});
+  if(response.status===401){current=null;list.replaceChildren();reset.textContent='';show(t('quests_guest','Задания доступны только авторизованным пользователям.'));return}
+  if(!response.ok)throw Error(String(response.status));
+  current=await response.json();render();
+ }catch(error){console.warn('[echo quests] fetch failed',error);show(t('quests_error','Не удалось загрузить задания. Попробуй снова.'))}
+ finally{loading=false}
 }
-async function claim(questId) {
-  const id = profileId();
-  if (!id || loading) return;
-  loading = true;
-  try {
-    const response = await fetch(endpoint('/api/daily-quests/claim'), {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ profileId: id, questId }),
-    });
-    const data = await response.json();
-    if (!response.ok && response.status !== 409) throw Error(String(response.status));
-    if (data.quests) current = data;
-    render();
-  } catch (error) {
-    console.warn('[echo quests] claim failed', error);
-    show(t('quests_error', 'Не удалось загрузить задания. Попробуй снова.'));
-  } finally { loading = false; }
+async function claim(questId){
+ if(loading||!token())return;
+ loading=true;
+ try{
+  const response=await fetch(endpoint('/api/daily-quests/claim'),{method:'POST',headers:{Authorization:'Bearer '+token(),'Content-Type':'application/json'},body:JSON.stringify({questId})});
+  const data=await response.json();
+  if(!response.ok&&response.status!==409)throw Error(String(response.status));
+  if(data.quests)current=data;
+  render();
+  if(data.claimedNow)window.ECHOToast?.show(t('quests_reward','Получено ECHO Coin: ')+data.reward);
+ }catch(error){console.warn('[echo quests] claim failed',error);show(t('quests_error','Не удалось загрузить задания. Попробуй снова.'))}
+ finally{loading=false}
 }
-window.addEventListener('echo:quests-open', refresh);
-window.addEventListener('echo:language-changed', () => { if (current) render(); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && !screen.hidden) refresh(); });
+window.addEventListener('echo:quests-open',refresh);
+window.addEventListener('echo:language-changed',()=>{if(current)render();else if(!token())show(t('quests_guest','Задания доступны только авторизованным пользователям.'))});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!screen.hidden)refresh()});
