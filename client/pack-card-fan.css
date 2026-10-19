@@ -44,3 +44,5 @@
 #echo-pack-3d .echo-fan-inner.is-instant{animation:none!important;transform:rotateY(0deg)!important}
 #echo-pack-3d .echo-fan-portrait img.echo-fan-still[hidden]{display:none!important}
 #echo-pack-3d .echo-fan-portrait img.echo-fan-still:not([hidden]){position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1}
+
+#echo-pack-3d .echo-pack-card-fan.is-visible{pointer-events:auto;cursor:pointer}
