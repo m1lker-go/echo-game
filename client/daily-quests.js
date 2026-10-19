@@ -29,7 +29,7 @@ function questIcon(id){
 function questDots(q){
  const dots=document.createElement('span');dots.className='echo-quest-levels';
  const count=Math.min(5,Math.max(0,Number(q.levels)||0));
- const filled=q.claimed?count:Math.max(0,(Number(q.level)||1)-1);
+ const filled=q.claimed?count:Math.max(0,(Number(q.level)||1)-1)+(q.available&&q.progress>=q.target?1:0);
  for(let i=0;i<count;i++){const dot=document.createElement('span');dot.className='echo-quest-dot'+(i<filled?' is-done':'');dots.append(dot);}
  dots.setAttribute('aria-label',filled+' / '+count);return dots;
 }
