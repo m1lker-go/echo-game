@@ -11,6 +11,28 @@ const meta={
  pack_coin:{icon:'fa-solid fa-box',title:'quests_pack_coin',desc:'quests_pack_coin_desc'},
  pack_premium:{icon:'fa-solid fa-gem',title:'quests_pack_premium',desc:'quests_pack_premium_desc'}
 };
+// Local SVG icons avoid dependence on an external icon-font CDN.
+const iconPaths={
+ play:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+ food:'<path d="M12 7c-3-4-9-2-9 4 0 5 4 10 7 10 1 0 1.4-.6 2-.6s1 .6 2 .6c3 0 7-5 7-10 0-6-6-8-9-4Z"/><path d="M12 7c0-3 2-5 5-5"/>',
+ pvp:'<path d="M7 3h10v7a5 5 0 0 1-10 0V3Z"/><path d="M7 5H4v3a4 4 0 0 0 4 4m9-7h3v3a4 4 0 0 1-4 4M12 15v4m-4 2h8m-8-2h8"/>',
+ pack_coin:'<path d="m3 7 9-4 9 4v10l-9 4-9-4V7Zm0 0 9 4 9-4m-9 4v10"/>',
+ pack_premium:'<path d="M6 3h12l4 6-10 12L2 9l4-6Zm-4 6h20M9 3l3 6 3-6m-3 6v12"/>'
+};
+function questIcon(id){
+ const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+ svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.8');
+ svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');
+ svg.setAttribute('class','echo-quest-icon');svg.setAttribute('aria-hidden','true');
+ svg.innerHTML=iconPaths[id]||iconPaths.play;return svg;
+}
+function questDots(q){
+ const dots=document.createElement('span');dots.className='echo-quest-levels';
+ const count=Math.min(5,Math.max(0,Number(q.levels)||0));
+ const filled=q.claimed?count:Math.max(0,(Number(q.level)||1)-1);
+ for(let i=0;i<count;i++){const dot=document.createElement('span');dot.className='echo-quest-dot'+(i<filled?' is-done':'');dots.append(dot);}
+ dots.setAttribute('aria-label',filled+' / '+count);return dots;
+}
 let current=null,loading=false;
 function endpoint(path){return new URL('/echo'+path,location.origin)}
 function token(){return localStorage.getItem('echo.authToken')}
@@ -39,7 +61,7 @@ function displayQuestHud(){
  if(!q)return;
  const info=meta[q.id];
  const target=q.id==='play'?Math.floor(q.target/60):q.target;
- questHudName.textContent=t(info.title,q.id)+' · '+target+(q.id==='play'?' '+t('quests_progress_minutes','мин'):'');
+ questHudName.replaceChildren(document.createTextNode(t(info.title,q.id)+' '+target),questDots(q));
  const ready=q.progress>=q.target;
  // Estimate only time that has passed since the latest server response; the API stays authoritative.
  const elapsed=q.id==='play'&&!document.hidden?Math.min(5,Math.max(0,Math.floor((Date.now()-hudFetchedAt)/1000))):0;
@@ -76,13 +98,13 @@ function render(){
   const article=document.createElement('article');
   article.className='echo-quest'+(quest.claimed?' is-complete':ready?' is-ready':'');
   const heading=document.createElement('div');heading.className='echo-quest-heading';
-  const symbol=document.createElement('i');symbol.className='echo-quest-icon '+info.icon;symbol.setAttribute('aria-hidden','true');
+  const symbol=questIcon(quest.id);
   const summary=document.createElement('div');summary.className='echo-quest-summary';
   const title=document.createElement('strong');title.textContent=t(info.title,quest.id);
   const description=document.createElement('span');description.className='echo-quest-description';
   const value=quest.id==='play'?Math.floor(quest.target/60):quest.target;
   description.textContent=t(info.desc,'').replaceAll('{count}',String(value));
-  if(quest.levels>1)title.textContent+=' · '+quest.level+'/'+quest.levels;
+  if(quest.levels>1)summary.append(questDots(quest));
   summary.append(title,description);
   const reward=document.createElement('span');reward.className='echo-quest-reward';
   const coin=document.createElement('img');coin.src='./assets/icons/coin.webp';coin.alt='ECHO Coin';coin.width=28;coin.height=28;
