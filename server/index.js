@@ -8,6 +8,7 @@ const { pool, checkDatabase } = require('./db');
 const { normalizePlayerName } = require('./player-name');
 const { roundWindow, createRoomManager } = require('./room-manager');
 const roundRewards = require('./round-rewards');
+const echoAuth = require('./auth');
 
 const app = express();
 const server = http.createServer(app);
@@ -17,6 +18,7 @@ const allowedOrigin = process.env.CORS_ORIGIN || '*';
 
 app.use(cors({ origin: allowedOrigin === '*' ? true : allowedOrigin.split(',').map(v => v.trim()) }));
 app.use(express.json());
+app.use('/api/auth', echoAuth.router);
 
 const io = new Server(server, {
   cors: {
@@ -1082,6 +1084,7 @@ server.listen(port, '0.0.0.0', async () => {
     await ensureDailyActivitySchema();
     await pool.query('CREATE TABLE IF NOT EXISTS echo_daily_quest_claims (profile_id TEXT NOT NULL, quest_date DATE NOT NULL, quest_id TEXT NOT NULL, claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (profile_id, quest_date, quest_id))');
     await roundRewards.initialize(pool);
+    await echoAuth.initialize();
     rewardsReady = true;
     queueRewardWork(()=>roundRewards.finalizeOverdue(pool,Date.now()));
     console.log('[echo-server] database connection OK');
