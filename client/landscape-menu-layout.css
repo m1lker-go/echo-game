@@ -65,3 +65,17 @@
  #game #main-menu .character-card-name{font-size:11px}
  #game #main-menu .echo-shop-packs{gap:8px}
 }
+
+/* Shop: prioritize the complete packs, their actions, and Back on landscape. */
+#game #main-menu .echo-shop-screen{gap:clamp(5px,1.2vh,10px);padding-top:max(7px,env(safe-area-inset-top));padding-bottom:max(8px,env(safe-area-inset-bottom));}
+#game #main-menu .echo-shop-balance{display:flex;align-items:center;justify-content:center;gap:8px;margin:4px 0 0;font-size:clamp(15px,3vh,22px);line-height:1.2;color:#e9f3ff;}
+#game #main-menu .echo-shop-balance strong{font-size:inherit;color:#fff;font-weight:750}
+#game #main-menu .echo-shop-balance img{height:clamp(20px,4vh,30px);width:clamp(20px,4vh,30px);object-fit:contain}
+#game #main-menu .echo-shop-screen .echo-shop-packs{flex:0 0 auto;gap:clamp(8px,1.5vw,16px);margin:clamp(4px,1vh,8px) auto}
+#game #main-menu .echo-shop-pack{padding:clamp(6px,1.3vh,12px);gap:clamp(4px,.8vh,8px)}
+#game #main-menu .echo-shop-pack-art{height:clamp(58px,17vh,132px);width:min(100%,146px);flex:0 0 auto}
+#game #main-menu .echo-shop-pack-art img{display:block;max-width:100%;max-height:100%;object-fit:contain}
+#game #main-menu .echo-shop-pack h2{font-size:clamp(14px,2.7vh,20px);line-height:1.15}
+#game #main-menu .echo-shop-price{min-height:22px;font-size:clamp(12px,2.5vh,17px)}
+#game #main-menu .echo-shop-pack .menu-button{min-height:clamp(32px,6vh,44px);height:auto;padding:5px 8px;margin-top:2px;font-size:clamp(12px,2.4vh,17px)}
+#game #main-menu .echo-shop-screen .menu-back{margin:clamp(4px,1.2vh,10px) auto 0;height:clamp(34px,7vh,52px);font-size:clamp(14px,2.7vh,20px)}
