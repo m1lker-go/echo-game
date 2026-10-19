@@ -92,7 +92,7 @@
         <div class="echo-modal-actions" id="echo-modal-actions"></div>
       </section>
     `;
-    document.body.appendChild(overlay);
+    (document.fullscreenElement || document.webkitFullscreenElement || document.body).appendChild(overlay);
 
     particlesCanvas = overlay.querySelector('.echo-modal-particles');
     particlesContext = particlesCanvas.getContext('2d');
@@ -151,6 +151,8 @@
 
   function open(options = {}) {
     ensureModal();
+    // A fullscreen element hides siblings: keep the dialog inside its top layer.
+    (document.fullscreenElement || document.webkitFullscreenElement || document.body).appendChild(overlay);
     // Close an existing modal before assigning any new Promise resolver.
     close(null);
 
