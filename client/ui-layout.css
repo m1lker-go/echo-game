@@ -25,7 +25,7 @@
   --echo-brand-font: 38px;
   --echo-brand-dx: 0px;
   --echo-brand-dy: 0px;
-  --echo-status-font: 12px;
+  --echo-status-font: 16px;
   --echo-status-gap: 8px;
   --echo-status-stack-gap: 7px;
   --echo-status-dx: 0px;
@@ -33,7 +33,7 @@
   --echo-connection-dot-size: 6px;
   --echo-exit-width: 190px;
   --echo-exit-height: 36px;
-  --echo-exit-font: 11px;
+  --echo-exit-font: 16px;
   --echo-exit-pad-x: 13px;
   --echo-exit-dx: 0px;
   --echo-exit-dy: 0px;
