@@ -70,7 +70,19 @@
     "quests_error": "Could not load quests. Try again.",
     "quests_guest": "Guest rewards do not grant coins yet.",
     "quests_reset": "Resets daily at 00:00 Moscow time",
-    "quests_progress_minutes": "minutes"
+    "quests_progress_minutes": "minutes",
+    "account_title": "ACCOUNT",
+    "auth_hint": "Sign in with VK, Mail or OK",
+    "nickname": "Player name",
+    "save_nickname": "Save",
+    "logout": "Sign out",
+    "coins": "Coins",
+    "account_guest": "Guest account",
+    "account_connected": "Account connected",
+    "auth_failed": "Sign-in failed",
+    "auth_not_configured": "Waiting for server configuration",
+    "nickname_invalid": "Name must be 3–20 letters, digits, _ or -",
+    "nickname_taken": "Name is taken"
   },
   "game": {
     "map_short": "MAP",
