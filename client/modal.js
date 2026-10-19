@@ -176,11 +176,17 @@
       if (item.variant === 'danger') button.classList.add('is-danger');
       button.textContent = String(item.label ?? 'OK');
       button.disabled = Boolean(item.disabled);
-      button.addEventListener('click', () => {
+      button.addEventListener('click', async () => {
+        if (button.disabled) return;
+        button.disabled = true;
         try {
-          if (typeof item.onClick === 'function') item.onClick();
+          // Returning false keeps this modal open (e.g. invalid form data).
+          const result = typeof item.onClick === 'function' ? await item.onClick() : undefined;
+          if (result !== false) close(item.value ?? item.label ?? true);
+        } catch (error) {
+          console.error('[echo modal] button handler failed', error);
         } finally {
-          close(item.value ?? item.label ?? true);
+          button.disabled = false;
         }
       });
       actionsNode.appendChild(button);
