@@ -1,5 +1,5 @@
 /* Account block follows the same 390px content width as settings controls. */
-#main-menu .settings-screen .echo-auth-panel{box-sizing:border-box;width:min(390px,calc(100% - 40px));max-width:390px;margin:0 auto;padding:14px 16px;background:#000;border:1px solid #fff;border-radius:13px;text-align:center;flex-shrink:0}
+#main-menu .settings-screen .echo-auth-panel{box-sizing:border-box;width:var(--echo-settings-button-width,min(390px,calc(100% - 40px)));max-width:none;margin:0 auto;padding:14px 16px;background:#000;border:1px solid #fff;border-radius:13px;text-align:center;flex-shrink:0}
 #main-menu .echo-auth-panel h2{margin:0 0 6px;font-size:clamp(16px,2.4vw,21px);color:#fff}
 #main-menu .echo-auth-panel p{font-size:12px;color:#fff;margin:5px 0 10px}
 #main-menu #echo-vkid-widget{display:flex;justify-content:center;min-height:38px}
