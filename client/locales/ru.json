@@ -125,6 +125,8 @@
     "defeat_aria_label": "Поражение",
     "fullscreen_enter": "На весь экран",
     "fullscreen_exit": "Выйти из полноэкранного режима",
-    "fullscreen_unavailable": "Полноэкранный режим недоступен в этом браузере"
+    "fullscreen_unavailable": "Полноэкранный режим недоступен в этом браузере",
+    "exit_confirm_title": "Выход из игры",
+    "exit_confirm_text": "Вы действительно хотите покинуть игру?"
   }
 }
