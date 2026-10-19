@@ -3,6 +3,7 @@ const crypto = require('node:crypto');
 const express = require('express');
 const router = express.Router();
 const { pool } = require('./db');
+const { validateNickname } = require('./nickname-policy');
 const APP_ID = String(process.env.VK_ID_APP_ID || '');
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 const nameValid = name => typeof name === 'string' && /^[a-zA-Zа-яА-ЯёЁ0-9_-]{3,20}$/u.test(name);
@@ -77,7 +78,8 @@ router.get('/me',async(req,res)=>{
   catch(error){console.error('[auth] me failed:',error.message);res.status(500).json({error:'Unavailable'});}
 });
 router.post('/nickname',async(req,res)=>{
-  if(!nameValid(req.body?.nickname))return res.status(400).json({error:'Nickname must be 3–20 letters, digits, _ or -'});
+  const validation=validateNickname(req.body?.nickname);
+  if(!validation.ok)return res.status(400).json({error:validation.reason==='forbidden'?'Nickname contains prohibited words':'Invalid nickname',code:validation.reason});
   try {
     const user=await sessionUser(req);
     if(!user)return res.status(401).json({error:'Unauthorized'});
