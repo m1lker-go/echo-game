@@ -96,7 +96,8 @@
     "sound_section": "SOUND",
     "other_section": "OTHER",
     "rotate_title": "ROTATE YOUR DEVICE",
-    "rotate_description": "Turn your device to landscape mode to play ECHO."
+    "rotate_description": "Turn your device to landscape mode to play ECHO.",
+    "shop_balance": "Balance:"
   },
   "game": {
     "map_short": "MAP",
