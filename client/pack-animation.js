@@ -7,8 +7,8 @@ if(root){
  const handle=root.querySelector('#echo-pack-tear-handle');
  let hintTimer=null,toastTimer=null,hintIndex=0;
  const hints=['Открой пак! ✨','Потяни за голубой кружок!','Давай, ты справишься! 😁','Ещё чуть-чуть!','Что же там внутри? 👀'];
- function showHint(message){clearTimeout(toastTimer);tip.textContent=message;tip.classList.add('is-visible');toastTimer=setTimeout(()=>tip.classList.remove('is-visible'),2600);}
- function beginHints(){clearInterval(hintTimer);hintIndex=0;showHint(hints[0]);hintTimer=setInterval(()=>{if(!root.hidden&&progress<1)showHint(hints[++hintIndex%hints.length]);},5500);}
+ function showHint(message){clearTimeout(toastTimer);tip.textContent=message;tip.classList.remove('is-left','is-right');tip.classList.add(hintIndex%2===0?'is-left':'is-right');tip.classList.add('is-visible');toastTimer=setTimeout(()=>tip.classList.remove('is-visible'),2600);}
+ function beginHints(){clearInterval(hintTimer);hintIndex=0;showHint(hints[0]);hintTimer=setInterval(()=>{if(!root.hidden&&progress<1)hintIndex++;showHint(hints[hintIndex%hints.length]);},5500);}
  const source='./assets/packs/basiccard.webp';
  let decoder=null,frames=1,progress=0,active=false,busy=false,wanted=-1,shown=-1,down=false,lastX=0;
  let generation=0,frameWidth=2,frameHeight=3;
