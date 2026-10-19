@@ -125,6 +125,8 @@
     "defeat_aria_label": "Defeat",
     "fullscreen_enter": "Enter fullscreen",
     "fullscreen_exit": "Exit fullscreen",
-    "fullscreen_unavailable": "Fullscreen is unavailable in this browser"
+    "fullscreen_unavailable": "Fullscreen is unavailable in this browser",
+    "exit_confirm_title": "Leave game",
+    "exit_confirm_text": "Are you sure you want to leave the game?"
   }
 }
