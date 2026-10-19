@@ -4,6 +4,11 @@ if(root){
  const canvas=root.querySelector('#echo-pack-3d-canvas'),ctx=canvas.getContext('2d',{alpha:false});
  const tip=root.querySelector('#echo-pack-3d-hint'),bar=root.querySelector('#echo-pack-3d-bar');
  const closeButton=root.querySelector('#echo-pack-3d-close'),resetButton=root.querySelector('#echo-pack-3d-reset');
+ const handle=root.querySelector('#echo-pack-tear-handle');
+ let hintTimer=null,toastTimer=null,hintIndex=0;
+ const hints=['Открой пак! ✨','Потяни за голубой кружок!','Давай, ты справишься! 😁','Ещё чуть-чуть!','Что же там внутри? 👀'];
+ function showHint(message){clearTimeout(toastTimer);tip.textContent=message;tip.classList.add('is-visible');toastTimer=setTimeout(()=>tip.classList.remove('is-visible'),2600);}
+ function beginHints(){clearInterval(hintTimer);hintIndex=0;showHint(hints[0]);hintTimer=setInterval(()=>{if(!root.hidden&&progress<1)showHint(hints[++hintIndex%hints.length]);},5500);}
  const source='./assets/packs/basiccard.webp';
  let decoder=null,frames=1,progress=0,active=false,busy=false,wanted=-1,shown=-1,down=false,lastX=0;
  let generation=0,frameWidth=2,frameHeight=3;
@@ -25,10 +30,9 @@ if(root){
  function info(message){tip.textContent=message}
  function updateUI(){
   bar.style.width=(progress*100).toFixed(1)+'%';
-  if(frames<=1)return;
-  info(progress>=1?'Пак открыт! Нажми «Повторить», чтобы открыть ещё раз.':
-    progress>0?'Останови палец — кадр замрёт. Проведи дальше, чтобы продолжить.':
-    'Проведи по паку слева направо. Скорость анимации зависит от пальца.');
+  handle.style.left=(13+progress*74)+'%';
+  handle.hidden=progress>=1;
+  if(progress>=1){resetButton.hidden=false;clearInterval(hintTimer);showHint('Пак открыт! 🎉');}
  }
  function requestFrame(){
   if(!active||!decoder)return;
@@ -80,29 +84,26 @@ if(root){
    decoder=next;frames=track.frameCount;active=true;requestFrame();updateUI();
   }catch(err){console.warn('[Echo Pack] Animation init failed',err);info('Анимированный WebP не удалось открыть покадрово: '+err.message);}
  }
- function reset(){progress=0;down=false;shown=cache.has(0)?0:-1;updateUI();requestFrame();}
+ function reset(){progress=0;down=false;shown=cache.has(0)?0:-1;resetButton.hidden=true;updateUI();requestFrame();beginHints();}
  function open(){root.hidden=false;reset();resize();prepare();}
- function close(){root.hidden=true;down=false;active=false;}
+ function close(){root.hidden=true;down=false;active=false;clearInterval(hintTimer);clearTimeout(toastTimer);}
  document.querySelectorAll('[data-echo-preview-pack]').forEach(b=>b.addEventListener('click',open));
  closeButton.addEventListener('click',close);
  resetButton.addEventListener('click',reset);
  window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!root.hidden)close()});
- function packWidth(){
-  const css=canvas.getBoundingClientRect();
-  return Math.min(css.width,css.height*(frameWidth/frameHeight));
- }
- canvas.addEventListener('pointerdown',e=>{
+ // Tear can start only on the blue handle, not anywhere on the canvas.
+ handle.addEventListener('pointerdown',e=>{
   if(root.hidden||!active||progress>=1)return;
-  down=true;lastX=e.clientX;canvas.setPointerCapture(e.pointerId);e.preventDefault();
+  down=true;lastX=e.clientX;handle.setPointerCapture(e.pointerId);e.preventDefault();showHint('Тяни вправо! 👉');
  });
- canvas.addEventListener('pointermove',e=>{
+ handle.addEventListener('pointermove',e=>{
   if(!down)return;
+  const rect=root.querySelector('.echo-pack-view').getBoundingClientRect();
   const dx=e.clientX-lastX;lastX=e.clientX;
-  // Equal distance -> equal frame advancement; stationary finger -> frozen frame.
-  progress=Math.max(progress,Math.min(1,progress+dx/Math.max(60,packWidth()*.85)));
+  progress=Math.max(progress,Math.min(1,progress+dx/Math.max(60,rect.width*.74)));
   requestFrame();updateUI();e.preventDefault();
  });
  const release=()=>{down=false};
- canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',release);
+ handle.addEventListener('pointerup',release);handle.addEventListener('pointercancel',release);
  window.addEventListener('resize',resize);
 }
