@@ -62,7 +62,7 @@ async function refresh(){
   if(!response.ok)throw Error(String(response.status));
   current=await response.json();render();
  }catch(error){console.warn('[echo quests] fetch failed',error);show(t('quests_error','Не удалось загрузить задания. Попробуй снова.'))}
- finally{loading=false}
+ finally{loading=false;if(current&&!screen.hidden)render()}
 }
 async function claim(questId){
  if(loading||!token())return;
@@ -75,7 +75,7 @@ async function claim(questId){
   render();
   if(data.claimedNow)window.ECHOToast?.show(t('quests_reward','Получено ECHO Coin: ')+data.reward);
  }catch(error){console.warn('[echo quests] claim failed',error);show(t('quests_error','Не удалось загрузить задания. Попробуй снова.'))}
- finally{loading=false}
+ finally{loading=false;if(current&&!screen.hidden)render()}
 }
 window.addEventListener('echo:quests-open',refresh);
 window.addEventListener('echo:language-changed',()=>{if(current)render();else if(!token())show(t('quests_guest','Задания доступны только авторизованным пользователям.'))});
