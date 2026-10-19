@@ -127,6 +127,11 @@
     "fullscreen_exit": "Exit fullscreen",
     "fullscreen_unavailable": "Fullscreen is unavailable in this browser",
     "exit_confirm_title": "Leave game",
-    "exit_confirm_text": "Are you sure you want to leave the game?"
+    "exit_confirm_text": "Are you sure you want to leave the game?",
+    "round_finished": "GAME OVER!",
+    "round_place": "You placed #{place}",
+    "round_reward": "Reward:",
+    "round_guest_login": "To receive coins, you need to sign in to your account in the game settings.",
+    "round_continue": "CONTINUE"
   }
 }
