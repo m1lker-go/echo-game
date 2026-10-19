@@ -12,7 +12,7 @@ const meta={
  pack_premium:{icon:'fa-solid fa-gem',title:'quests_pack_premium',desc:'quests_pack_premium_desc'}
 };
 let current=null,loading=false;
-function endpoint(path){return new URL(path,window.ECHO_SERVER_URL||location.origin)}
+function endpoint(path){return new URL('/echo'+path,location.origin)}
 function token(){return localStorage.getItem('echo.authToken')}
 function show(message){status.textContent=message}
 function render(){
