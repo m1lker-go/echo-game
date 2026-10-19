@@ -12,7 +12,7 @@ if(root){
  function beginHints(){clearInterval(hintTimer);hintIndex=0;showHint(tr(hints[0],'Открой пак! ✨'));hintTimer=setInterval(()=>{if(!root.hidden&&progress<1){hintIndex++;showHint(tr(hints[hintIndex%hints.length],''));}},5500);}
  const source='./assets/packs/basiccard.webp';
  let decoder=null,frames=1,progress=0,active=false,busy=false,wanted=-1,shown=-1,down=false,lastX=0;
- let generation=0,frameWidth=2,frameHeight=3;
+ let generation=0,frameWidth=2,frameHeight=3,fanTriggered=false;
  const cache=new Map(),MAX_CACHE=14;
  function resize(){
   const rect=canvas.getBoundingClientRect(),ratio=Math.min(devicePixelRatio||1,2);
@@ -33,7 +33,7 @@ if(root){
   bar.style.width=(progress*100).toFixed(1)+'%';
   handle.style.left=(13+progress*74)+'%';
   handle.hidden=progress>=1;
-  if(progress>=1){resetButton.hidden=false;clearInterval(hintTimer);showHint(tr('pack_hint_done','Пак открыт! 🎉'));}
+  if(progress>=1){resetButton.hidden=false;clearInterval(hintTimer);if(!fanTriggered){fanTriggered=true;showHint(tr('pack_hint_done','Пак открыт! 🎉'));window.dispatchEvent(new Event('echo:pack-opened'));}}
  }
  function requestFrame(){
   if(!active||!decoder)return;
@@ -85,9 +85,9 @@ if(root){
    decoder=next;frames=track.frameCount;active=true;requestFrame();updateUI();
   }catch(err){console.warn('[Echo Pack] Animation init failed',err);info(tr('pack_init_failed','Анимированный WebP не удалось открыть покадрово.'));}
  }
- function reset(){progress=0;down=false;shown=cache.has(0)?0:-1;resetButton.hidden=true;updateUI();requestFrame();beginHints();}
+ function reset(){window.dispatchEvent(new Event('echo:pack-reset'));fanTriggered=false;progress=0;down=false;shown=cache.has(0)?0:-1;resetButton.hidden=true;updateUI();requestFrame();beginHints();}
  function open(){root.hidden=false;reset();resize();prepare();}
- function close(){root.hidden=true;down=false;active=false;clearInterval(hintTimer);clearTimeout(toastTimer);}
+ function close(){window.dispatchEvent(new Event('echo:pack-closed'));root.hidden=true;down=false;active=false;clearInterval(hintTimer);clearTimeout(toastTimer);}
  document.querySelectorAll('[data-echo-preview-pack]').forEach(b=>b.addEventListener('click',open));
  closeButton.addEventListener('click',close);
  resetButton.addEventListener('click',reset);
