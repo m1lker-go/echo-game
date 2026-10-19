@@ -1,0 +1,22 @@
+/* ECHO portrait orientation gate for touch devices. No JS: responds instantly to rotation. */
+#echo-rotate-overlay{display:none}
+@media (orientation:landscape) and (pointer:coarse) and (hover:none){
+ #echo-rotate-overlay{
+  position:fixed;inset:0;z-index:2147483647;display:flex;
+  align-items:center;justify-content:center;
+  padding:max(18px,env(safe-area-inset-top)) max(24px,env(safe-area-inset-right)) max(18px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left));
+  background:radial-gradient(ellipse at center,#10151c 0%,#030406 64%,#000 100%);
+  color:#fff;text-align:center;overflow:auto;overscroll-behavior:contain;
+ }
+ .echo-rotate-content{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(8px,2.5vh,18px);max-width:min(92vw,540px)}
+ .echo-rotate-logo{font-size:clamp(18px,4.5vh,28px);letter-spacing:.3em;font-weight:800}
+ .echo-rotate-logo span{color:#9da7b5}
+ .echo-rotate-device{width:clamp(68px,17vh,126px);height:clamp(68px,17vh,126px);display:grid;place-items:center;position:relative}
+ .echo-rotate-device svg{width:100%;height:100%;overflow:visible;filter:drop-shadow(0 0 12px rgba(255,255,255,.14))}
+ .echo-rotate-device .echo-rotate-phone{transform-origin:50% 50%;animation:echo-device-turn 2.8s cubic-bezier(.45,0,.2,1) infinite}
+ .echo-rotate-title{margin:0;font-size:clamp(20px,5.4vh,38px);line-height:1.12;letter-spacing:.06em;text-transform:uppercase}
+ .echo-rotate-description{margin:0;font-size:clamp(13px,3.1vh,20px);line-height:1.4;color:#a9b0bb}
+ .echo-rotate-decoration{height:2px;width:68px;background:linear-gradient(90deg,transparent,#fff,transparent);opacity:.65}
+ @keyframes echo-device-turn{0%,16%{transform:rotate(-90deg)}48%,78%{transform:rotate(0deg)}100%{transform:rotate(-90deg)}}
+}
+@media(prefers-reduced-motion:reduce){.echo-rotate-device .echo-rotate-phone{animation:none!important;transform:rotate(0deg)!important}}
