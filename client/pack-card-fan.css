@@ -1,5 +1,5 @@
 /* Five animated demo character-fragment cards above the foil pack. */
-#echo-pack-3d .echo-pack-card-fan{position:absolute;z-index:7;left:50%;top:47%;width:min(74vw,580px);height:min(62vh,430px);transform:translate(-50%,-50%);pointer-events:auto;perspective:900px;overflow:visible}
+#echo-pack-3d .echo-pack-card-fan{position:absolute;z-index:7;left:50%;top:47%;width:min(74vw,580px);height:min(62vh,430px);transform:translate(-50%,-50%);pointer-events:none;perspective:900px;overflow:visible}
 #echo-pack-3d .echo-fan-card{
  --angle:0deg;--spread:0%;--rise:0px;--rarity:#aab7c6;
  position:absolute;left:50%;top:49%;width:clamp(78px,14vw,125px);aspect-ratio:2/3;
@@ -32,7 +32,7 @@
 @media(prefers-reduced-motion:reduce){#echo-pack-3d .echo-fan-card.is-launched{transition:none}#echo-pack-3d .echo-fan-inner{animation:none}}
 
 /* Tap the spread to reveal one more card; the active hero renders in its portrait. */
-#echo-pack-3d .echo-pack-card-fan.can-advance{cursor:pointer}
+#echo-pack-3d .echo-pack-card-fan.can-advance{pointer-events:auto;cursor:pointer}
 #echo-pack-3d .echo-fan-card{pointer-events:none}
 #echo-pack-3d .echo-fan-portrait.is-live img{visibility:hidden}
 #echo-pack-3d .echo-fan-live{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:2;pointer-events:none}
