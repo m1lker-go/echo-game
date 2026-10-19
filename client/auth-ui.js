@@ -76,9 +76,7 @@ async function start(){
      const auth=await VKID.Auth.exchangeCode(payload.code,payload.device_id);
      const account=await request('vk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accessToken:auth.access_token})});
      token=account.token;localStorage.setItem(key,token);
-     await // Share the existing authenticated API with the shop; never infer balance from local storage.
-window.ECHOAuth = Object.freeze({getMe:()=>token?request('me'):Promise.resolve(null)});
-refresh();
+     await refresh();
      window.ECHOModal?.close();
     }catch(error){console.error('[VKID]',error);loginMessage(t('auth_failed','Ошибка авторизации'));}
    });
@@ -160,4 +158,6 @@ document.querySelector('#echo-logout')?.addEventListener('click',async()=>{
  try{await request('logout',{method:'POST'});}catch{}
  token=null;localStorage.removeItem(key);showGuest();
 });
+// Share the existing authenticated API with the shop; never infer balance from local storage.
+window.ECHOAuth = Object.freeze({getMe:()=>token?request('me'):Promise.resolve(null)});
 refresh();
