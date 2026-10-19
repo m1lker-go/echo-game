@@ -1,40 +1,87 @@
-/* Echo pack tiles: a single rounded 2:3 picture plus attached black action footer. */
+/* ECHO shop: portrait packs with a shared bordered action footer.
+   Explicit overrides beat the legacy preview styles loaded earlier. */
 #main-menu .echo-shop-packs{
- display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(10px,3vw,22px);
- width:100%;max-width:640px;margin:14px auto 20px;align-items:start;
+ display:grid!important;
+ grid-template-columns:repeat(2,minmax(0,1fr))!important;
+ justify-items:center!important;
+ align-items:start!important;
+ gap:clamp(10px,2.5vw,24px)!important;
+ width:min(100%,calc(2 * min(28.5dvh,220px) + 30px))!important;
+ max-width:none!important;
+ margin:12px auto 18px!important;
 }
 #main-menu .echo-shop-pack{
- display:flex;flex-direction:column;align-items:stretch;min-width:0;
- overflow:hidden;padding:0;gap:0;border:1.5px solid #f4f8ff;
- border-radius:19px;background:#000;box-shadow:0 10px 30px #0006;
+ width:100%!important;
+ max-width:220px!important;
+ min-width:0!important;
+ padding:0!important;
+ margin:0!important;
+ gap:0!important;
+ display:flex!important;
+ flex-direction:column!important;
+ align-items:stretch!important;
+ overflow:hidden!important;
+ border:1.5px solid #fff!important;
+ border-radius:clamp(13px,2vw,19px)!important;
+ background:#000!important;
+ box-shadow:0 8px 24px #0006!important;
 }
-#main-menu .echo-shop-pack-art,
-#main-menu .echo-shop-pack-premium{
- box-sizing:border-box;display:block;position:relative;width:100%;
- aspect-ratio:2 / 3;height:auto;max-height:none;padding:0;margin:0;
- background:#000;border:0;border-radius:0;box-shadow:none;
- transform:none;overflow:hidden;
+#main-menu .echo-shop-pack .echo-shop-pack-art,
+#main-menu .echo-shop-pack .echo-shop-pack-premium{
+ width:100%!important;
+ height:auto!important;
+ aspect-ratio:2 / 3!important;
+ min-height:0!important;
+ max-height:none!important;
+ padding:0!important;
+ margin:0!important;
+ overflow:hidden!important;
+ position:relative!important;
+ border:0!important;
+ border-radius:0!important;
+ background:#000!important;
+ transform:none!important;
+ box-shadow:none!important;
 }
 #main-menu .echo-shop-pack-art img,
 #main-menu .echo-shop-pack-premium img{
- display:block;width:100%;height:100%;object-fit:cover;object-position:center;
- filter:none;transform:none;
+ position:absolute!important;
+ inset:0!important;
+ display:block!important;
+ width:100%!important;
+ height:100%!important;
+ object-fit:fill!important;
+ object-position:center!important;
+ max-width:none!important;
+ filter:none!important;
+ transform:none!important;
 }
 #main-menu .echo-shop-pack [data-echo-preview-pack]{
- display:flex;align-items:center;justify-content:center;
- flex:0 0 auto;box-sizing:border-box;width:100%;max-width:none;
- min-height:clamp(48px,7vh,62px);height:auto;margin:0;padding:10px;
- border:0;border-top:1.5px solid #f4f8ff;border-radius:0;
- color:#fff;background:#000;box-shadow:none;
- font-size:clamp(15px,2.6vw,21px);font-weight:700;line-height:1.25;
- opacity:1;cursor:pointer;transform:none;
+ display:flex!important;
+ align-items:center!important;
+ justify-content:center!important;
+ width:100%!important;
+ max-width:none!important;
+ min-height:clamp(44px,8dvh,58px)!important;
+ margin:0!important;
+ padding:8px!important;
+ border:0!important;
+ border-top:1.5px solid #fff!important;
+ border-radius:0!important;
+ background:#000!important;
+ color:#fff!important;
+ box-shadow:none!important;
+ opacity:1!important;
+ cursor:pointer!important;
+ font-size:clamp(16px,2.5vw,20px)!important;
+ font-weight:600!important;
+ text-align:center!important;
+ line-height:1.2!important;
 }
-#main-menu .echo-shop-pack [data-echo-preview-pack]:active{background:#1b1b1b;}
-#main-menu .echo-shop-screen{width:min(94vw,820px);max-height:calc(100dvh - 32px);overflow-y:auto;box-sizing:border-box;padding:16px 14px 24px;text-align:center;margin:auto;}
 #main-menu .echo-shop-screen .menu-back{margin:0 auto;}
-@media(max-width:520px){
- #main-menu .echo-shop-packs{gap:10px;margin:12px auto 18px;}
- #main-menu .echo-shop-screen{padding:12px 8px 20px;}
- #main-menu .echo-shop-pack{border-radius:14px;}
- #main-menu .echo-shop-pack [data-echo-preview-pack]{min-height:48px;}
+@media (orientation:portrait){
+ #main-menu .echo-shop-packs{
+  width:min(100%,calc(2 * min(42vw,210px) + 12px))!important;
+  gap:10px!important;
+ }
 }
