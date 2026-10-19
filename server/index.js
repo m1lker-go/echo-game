@@ -833,7 +833,7 @@ function finishFight(fight) {
   if (!winnerState || !loserState) return;
   const winnerProfileId = dailyActivityProfileIds.get(winnerState.id);
   if (winnerProfileId) addDailyActivity(winnerProfileId, 'pvp_wins', 1).catch((error) => console.error('[daily-activity] PvP write failed:', error.message));
-  if (winner.socketAccountId) addDailyActivity(winner.socketAccountId, 'pvp_wins', 1).catch(error => console.error('[daily-quests] PvP write failed:', error.message));
+  if (winnerState.socketAccountId) addDailyActivity(winnerState.socketAccountId, 'pvp_wins', 1).catch(error => console.error('[daily-quests] PvP write failed:', error.message));
 
   const winnerEnergyBefore = winnerState.energy;
   const loserEnergy = loserState.energy;
