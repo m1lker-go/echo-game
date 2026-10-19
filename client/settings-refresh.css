@@ -213,3 +213,15 @@
  font-weight:500;letter-spacing:.12em;line-height:1.3;
  text-align:left;text-transform:uppercase;
 }
+
+/* Keep every section heading exactly 12px from its own controls.
+   Sound/Other are direct flex children: neutralize the screen's 18px gap.
+   Put flexible vertical spacing BEFORE section titles, never between title and control. */
+#game #menu-settings-screen > .settings-section-heading{
+ margin-top:auto;
+ margin-bottom:-6px;
+}
+#game #menu-settings-screen > .echo-volume-settings,
+#game #menu-settings-screen > .settings-cache-button{
+ margin-top:0;
+}
