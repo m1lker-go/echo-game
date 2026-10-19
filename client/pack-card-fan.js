@@ -84,10 +84,10 @@ async function animateHero(r,card,id){
  try{
   const loader=new GLTFLoader();
   const gltf=await loader.loadAsync('./assets/models/'+r.model);
-  if(id!==session||root.hidden||!card.isConnected)return;
+  if(id!==session||root.hidden||!card.isConnected||currentCard!==card)return;
   const canvas=document.createElement('canvas');canvas.className='echo-fan-live';
   slot.append(canvas);slot.classList.add('is-live');
-  renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'low-power'});
+  renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,preserveDrawingBuffer:true,powerPreference:'low-power'});
   renderer.setPixelRatio(1);renderer.setSize(180,230,false);renderer.outputColorSpace=THREE.SRGBColorSpace;
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(32,180/230,.1,100);
   scene.add(new THREE.HemisphereLight(0xffffff,0x395474,3));
