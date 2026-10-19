@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="./pack-preview.css?v=echo-ribbon-v6" />
   <link rel="stylesheet" href="./pack-shop-3d.css?v=1" />
   <link rel="stylesheet" href="./shop.css?v=1" />
-  <link rel="stylesheet" href="./daily-quests.css?v=2" />
+  <link rel="stylesheet" href="./daily-quests.css?v=3" />
   <link rel="stylesheet" href="./auth.css?v=2" />
   <link rel="stylesheet" href="./toast.css?v=2" />
   <link rel="preload" href="./assets/fonts/SchuelerSuperXP-Regular_0.otf" as="font" type="font/otf" crossorigin />
@@ -91,7 +91,8 @@
         <button id="jump" class="ability jump-ability" type="button" aria-label="Прыжок" data-i18n-aria-label="game:jump_aria_label"><span>↑</span><small data-i18n="game:jump">ПРЫЖОК</small></button>
       </div>
     </div>
-    <div id="coords" data-i18n="game:coords_zero">0 · 0</div>
+    <div id="echo-quest-hud" class="echo-quest-hud" hidden><span id="echo-quest-hud-name" class="echo-quest-hud-name"></span><button type="button" id="echo-quest-hud-action" class="echo-quest-hud-action"></button></div>
+     <div id="coords" data-i18n="game:coords_zero">0 · 0</div>
     <section id="defeat-screen" class="defeat-screen" hidden aria-label="Поражение" data-i18n-aria-label="game:defeat_aria_label"><div class="defeat-card"><div class="defeat-title" data-i18n="game:defeat_title">ВЫ ПРОИГРАЛИ</div><div class="defeat-subtitle" data-i18n="game:defeat_subtitle">Ваша энергия закончилась</div><div class="defeat-buttons"><button id="defeat-replay" class="menu-button" type="button" data-i18n="game:replay">Сыграть ещё</button><button id="defeat-menu" class="menu-button" type="button" data-i18n="game:back_to_menu">Назад в меню</button></div></div></section>
     <section id="main-menu" class="main-menu" aria-label="Главное меню" data-i18n-aria-label="menu:main_aria_label">
       <canvas id="menu-food" class="menu-food" aria-hidden="true"></canvas>
@@ -120,7 +121,7 @@
   <script type="module" src="./menu.js?v=echo-daily-quests-1"></script>
   <script type="module" src="./toast.js?v=2"></script>
   <script type="module" src="./auth-ui.js?v=10"></script>
-  <script type="module" src="./daily-quests.js?v=6"></script>
+  <script type="module" src="./daily-quests.js?v=7"></script>
   <script type="module" src="./shop-balance.js?v=1"></script>
   <script type="module" src="./pack-lab.js?v=echo-shop-integrated-1"></script>
   <script type="module" src="./music-manager.js?v=echo-volume-controls-1"></script>
