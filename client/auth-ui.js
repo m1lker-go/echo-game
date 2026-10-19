@@ -125,10 +125,16 @@ document.querySelector('#echo-edit-name')?.addEventListener('click',()=>{
      window.ECHOToast?.show(t('nickname_invalid','Имя: 3–20 букв, цифр, _ или -'));return;
     }
     if(value===current?.nickname)return;
-    // The shared modal closes after onClick; open confirmation on the next task.
+    // Validate against the authoritative server moderation rules BEFORE confirmation.
     setTimeout(async()=>{
+     try{
+      await request('nickname/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nickname:value})});
+     }catch(error){
+      window.ECHOToast?.show(error.code==='forbidden'?t('nickname_forbidden','Имя содержит запрещённые слова'):error.status===409?t('nickname_taken','Имя занято'):error.status===400?t('nickname_invalid','Имя: 3–20 букв, цифр, _ или -'):t('auth_failed','Ошибка авторизации'));
+      return;
+     }
      const confirmed=await window.ECHOModal.confirm({
-      title:t('nickname_confirm_title','ИЗМЕНЕНИЕ ИМЕНИ'),
+      title:t('nickname_confirm_title','Изменить имя'),
       text:t('nickname_confirm_text','Сохранить новое имя игрока?'),
       confirmText:t('yes','Да'),cancelText:t('no','Нет')
      });
