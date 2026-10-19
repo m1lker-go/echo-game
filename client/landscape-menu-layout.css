@@ -35,7 +35,7 @@
 #game #main-menu .echo-shop-price{font-size:clamp(14px,2.6vh,19px)}
 #game #main-menu .echo-shop-pack .menu-button{font-size:clamp(14px,2.8vh,18px);min-height:44px}
 /* Quests: wide readable rows and normal vertical scrolling. */
-#game #main-menu .echo-quests-list{width:min(100%,950px);max-width:100%;gap:clamp(10px,1.8vh,17px)}
+#game #main-menu .echo-quests-list{width:min(100%,100dvh,650px);max-width:100%;gap:clamp(10px,1.8vh,17px);margin-left:auto;margin-right:auto}
 #game #main-menu .echo-quest{padding:clamp(12px,2.3vh,20px)}
 #game #main-menu .echo-quest-heading strong{font-size:clamp(16px,3vh,23px)}
 #game #main-menu .echo-quest-counter,
