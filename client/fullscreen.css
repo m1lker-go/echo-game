@@ -6,3 +6,8 @@
 #game .echo-fullscreen-toggle.is-fullscreen .echo-collapse-icon{display:block}
 #game .echo-fullscreen-toggle:hover{border-color:#fff;background:#202020}
 #game .echo-fullscreen-toggle:focus-visible{outline:2px solid #fff;outline-offset:3px}
+
+/* Preserve the original full-width Exit button: the fullscreen icon sits outside its width. */
+#game .status-stack .echo-game-top-actions{width:100%;position:relative;display:flex;justify-content:center}
+#game .status-stack .echo-game-top-actions .game-exit{width:100%;flex:0 0 100%;min-width:0}
+#game .status-stack .echo-game-top-actions .echo-fullscreen-toggle{position:absolute;right:calc(100% + clamp(8px,calc(10px * var(--echo-ui-scale,1)),16px));top:50%;transform:translateY(-50%)}
