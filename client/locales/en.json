@@ -91,7 +91,8 @@
     "edit_nickname": "Edit name",
     "auth_entry_title": "Sign in / Create account",
     "auth_open": "Sign in to account",
-    "auth_modal_title": "SIGN IN"
+    "auth_modal_title": "SIGN IN",
+    "nickname_forbidden": "Name contains prohibited words"
   },
   "game": {
     "map_short": "MAP",
