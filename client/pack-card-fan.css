@@ -37,3 +37,10 @@
 #echo-pack-3d .echo-fan-portrait.is-live img{visibility:hidden}
 #echo-pack-3d .echo-fan-live{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:2;pointer-events:none}
 #echo-pack-3d .echo-pack-card-fan:focus-visible{outline:2px solid #b7eaff;border-radius:15px}
+
+/* Centre-anchored symmetric fan and immediate settle on quick taps. */
+#echo-pack-3d .echo-fan-card.is-instant,
+#echo-pack-3d .echo-fan-card.is-instant.is-launched{transition:none!important}
+#echo-pack-3d .echo-fan-inner.is-instant{animation:none!important;transform:rotateY(0deg)!important}
+#echo-pack-3d .echo-fan-portrait img.echo-fan-still[hidden]{display:none!important}
+#echo-pack-3d .echo-fan-portrait img.echo-fan-still:not([hidden]){position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1}
