@@ -70,7 +70,19 @@
     "quests_error": "Не удалось загрузить задания. Попробуй снова.",
     "quests_guest": "Награды гостевым профилям пока не начисляют монеты.",
     "quests_reset": "Обновление ежедневно в 00:00 по Москве",
-    "quests_progress_minutes": "мин"
+    "quests_progress_minutes": "мин",
+    "account_title": "АККАУНТ",
+    "auth_hint": "Войди через ВКонтакте, Mail или Одноклассники",
+    "nickname": "Имя игрока",
+    "save_nickname": "Сохранить",
+    "logout": "Выйти из аккаунта",
+    "coins": "Монеты",
+    "account_guest": "Гостевой аккаунт",
+    "account_connected": "Аккаунт подключён",
+    "auth_failed": "Ошибка авторизации",
+    "auth_not_configured": "Ожидается настройка сервера",
+    "nickname_invalid": "Имя: 3–20 букв, цифр, _ или -",
+    "nickname_taken": "Это имя занято"
   },
   "game": {
     "map_short": "КАРТА",
