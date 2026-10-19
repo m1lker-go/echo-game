@@ -20,7 +20,7 @@ const questHud=document.querySelector('#echo-quest-hud');
 const questHudName=document.querySelector('#echo-quest-hud-name');
 const questHudAction=document.querySelector('#echo-quest-hud-action');
 let hudSnapshot=null,hudFetchedAt=0,hudLoading=false;
-function inGame(){return new URLSearchParams(location.search).get('play')==='1'&&!!token()}
+function inGame(){return !!token()&&document.querySelector('#main-menu')?.classList.contains('is-hidden')===true}
 function hudCandidate(){
  const active=(hudSnapshot?.quests||[]).filter(q=>['play','food','pvp'].includes(q.id)&&!q.claimed);
  if(!active.length)return null;
