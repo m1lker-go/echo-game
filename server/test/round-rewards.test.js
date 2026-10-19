@@ -14,3 +14,12 @@ test('no phantom participants: only actual participants are rewarded',()=>{
  assert.equal(ranked.length,10);
  assert.equal(ranked.filter(x=>x.coins>0).length,10);
 });
+
+
+test('only explicitly prefixed, well-formed account IDs are eligible for verification',()=>{
+ const {accountIdFromScore}=require('../round-rewards');
+ const id='123e4567-e89b-42d3-a456-426614174000';
+ assert.equal(accountIdFromScore('account:'+id),id);
+ for(const value of ['guest123','Tom_12345',id,'account:not-a-uuid','account:'+id+'-extra',null])
+  assert.equal(accountIdFromScore(value),null);
+});
