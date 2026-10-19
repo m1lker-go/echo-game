@@ -1,0 +1,8 @@
+#game .echo-game-top-actions{display:flex;align-items:center;justify-content:flex-end;gap:clamp(8px,calc(10px * var(--echo-ui-scale,1)),16px)}
+#game .echo-fullscreen-toggle{display:grid;place-items:center;flex:none;width:clamp(34px,calc(42px * var(--echo-ui-scale,1)),64px);height:clamp(34px,calc(42px * var(--echo-ui-scale,1)),64px);padding:7px;border:1px solid rgba(255,255,255,.7);border-radius:10px;background:#000;color:#fff;cursor:pointer;touch-action:manipulation}
+#game .echo-fullscreen-toggle svg{width:100%;height:100%}
+#game .echo-fullscreen-toggle .echo-collapse-icon{display:none}
+#game .echo-fullscreen-toggle.is-fullscreen .echo-expand-icon{display:none}
+#game .echo-fullscreen-toggle.is-fullscreen .echo-collapse-icon{display:block}
+#game .echo-fullscreen-toggle:hover{border-color:#fff;background:#202020}
+#game .echo-fullscreen-toggle:focus-visible{outline:2px solid #fff;outline-offset:3px}
