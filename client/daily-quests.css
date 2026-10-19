@@ -1,0 +1,17 @@
+#main-menu .echo-quests-screen{width:min(94vw,720px);max-height:calc(100dvh - 32px);overflow-y:auto;box-sizing:border-box;padding:18px 16px 28px;margin:auto;text-align:center}
+#main-menu .echo-quests-reset{font-size:12px;color:#acc7da;margin:8px 0 16px}
+#main-menu .echo-quests-list{display:grid;gap:12px;margin:12px auto 18px;max-width:600px}
+#main-menu .echo-quest{padding:14px 16px;background:rgba(15,29,45,.78);border:1px solid rgba(185,215,240,.28);border-radius:14px;text-align:left}
+#main-menu .echo-quest.is-complete{border-color:rgba(112,204,174,.55)}
+#main-menu .echo-quest-heading{display:flex;align-items:center;gap:12px;color:#edf8ff;flex-wrap:wrap}
+#main-menu .echo-quest-icon{font-size:26px;min-width:28px;text-align:center;color:#b5ddf5}
+#main-menu .echo-quest-heading strong{font-size:16px;flex:1}
+#main-menu .echo-quest-counter{font-size:13px;color:#bfd7ea;white-space:nowrap}
+#main-menu .echo-quest-track{height:8px;border-radius:99px;background:#102136;overflow:hidden;margin:13px 0}
+#main-menu .echo-quest-track>div{height:100%;background:linear-gradient(90deg,#5191c9,#a6defa);border-radius:99px}
+#main-menu .echo-quest-claim{display:block;margin-left:auto;padding:9px 18px;background:#b5daf2;color:#0b1d31;border:0;border-radius:9px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+#main-menu .echo-quest-claim:disabled{opacity:.48;cursor:default}
+#main-menu .echo-quest.is-complete .echo-quest-claim{background:#89dbc1;opacity:.8}
+#main-menu .echo-quests-status{font-size:12px;color:#bed4e5;min-height:20px}
+#main-menu .echo-quests-screen .menu-back{margin:8px auto}
+@media(max-width:520px){#main-menu .echo-quests-screen{padding:12px 8px 20px}#main-menu .echo-quest{padding:12px}#main-menu .echo-quest-heading strong{font-size:14px}}
