@@ -726,7 +726,7 @@ function advanceRoomRound() {
       const id=socket.data.verifiedAccountId ? 'account:' + socket.data.verifiedAccountId : socket.data.roomIdentity;
       if(!id)continue;
       const results=await roundRewards.getRecentResults(pool,id);
-      if(results.length)socket.emit('echo:roundResults',results);
+      if(results.length)socket.emit('echo:roundResults',results.map(item=>({...item,authenticated: Boolean(socket.data.verifiedAccountId)})));
     }
   });
   roundScores.clear();
@@ -975,7 +975,7 @@ io.on('connection', (socket) => {
   socket.emit('echo:roundClock', currentRoundClock());
   if(rewardsReady && activityProfileId) queueRewardWork(async()=>{
     const results=await roundRewards.getRecentResults(pool,socket.data.verifiedAccountId ? 'account:' + socket.data.verifiedAccountId : activityProfileId);
-    if(socket.connected && results.length)socket.emit('echo:roundResults',results);
+    if(socket.connected && results.length)socket.emit('echo:roundResults',results.map(item=>({...item,authenticated: Boolean(socket.data.verifiedAccountId)})));
   });
 
   const identity = activityProfileId || socket.id;
