@@ -1,5 +1,5 @@
 /* Five animated demo character-fragment cards above the foil pack. */
-#echo-pack-3d .echo-pack-card-fan{position:absolute;z-index:7;left:50%;top:47%;width:min(74vw,580px);height:min(62vh,430px);transform:translate(-50%,-50%);pointer-events:none;perspective:900px;overflow:visible}
+#echo-pack-3d .echo-pack-card-fan{position:absolute;z-index:7;left:50%;top:47%;width:min(74vw,580px);height:min(62vh,430px);transform:translate(-50%,-50%);pointer-events:auto;perspective:900px;overflow:visible}
 #echo-pack-3d .echo-fan-card{
  --angle:0deg;--spread:0%;--rise:0px;--rarity:#aab7c6;
  position:absolute;left:50%;top:49%;width:clamp(78px,14vw,125px);aspect-ratio:2/3;
@@ -10,9 +10,9 @@
 #echo-pack-3d .echo-fan-card.is-launched{
  opacity:1;
  transform:translate(-50%,-50%) translateX(var(--spread)) translateY(var(--rise)) rotate(var(--angle)) rotateY(720deg) scale(1);
- transition:transform 1.5s cubic-bezier(.18,.85,.18,1.03),opacity .35s ease-out;
+ transition:transform 2.05s cubic-bezier(.18,.85,.18,1.03),opacity .55s ease-out;
 }
-#echo-pack-3d .echo-fan-inner{position:absolute;inset:0;transform-style:preserve-3d;animation:echo-fan-flip 1.5s ease-out both}
+#echo-pack-3d .echo-fan-inner{position:absolute;inset:0;transform-style:preserve-3d;animation:echo-fan-flip 2.05s ease-out both}
 @keyframes echo-fan-flip{0%,42%{transform:rotateY(180deg)}100%{transform:rotateY(0deg)}}
 #echo-pack-3d .echo-fan-back,#echo-pack-3d .echo-fan-front{position:absolute;inset:0;backface-visibility:hidden;border:2px solid var(--rarity);border-radius:9px;box-shadow:inset 0 0 18px #ffffff1a,0 0 16px var(--rarity);overflow:hidden}
 #echo-pack-3d .echo-fan-back{transform:rotateY(180deg);background:radial-gradient(circle at 50% 40%,#2c516d,#060c16 74%);display:flex;align-items:center;justify-content:center;flex-direction:column;color:white;letter-spacing:.14em}
@@ -30,3 +30,10 @@
  #echo-pack-3d .echo-fan-card.is-launched{transform:translate(-50%,-50%) translateX(calc(var(--spread)*.86)) translateY(var(--rise)) rotate(var(--angle)) rotateY(720deg) scale(1)}
 }
 @media(prefers-reduced-motion:reduce){#echo-pack-3d .echo-fan-card.is-launched{transition:none}#echo-pack-3d .echo-fan-inner{animation:none}}
+
+/* Tap the spread to reveal one more card; the active hero renders in its portrait. */
+#echo-pack-3d .echo-pack-card-fan.can-advance{cursor:pointer}
+#echo-pack-3d .echo-fan-card{pointer-events:none}
+#echo-pack-3d .echo-fan-portrait.is-live img{visibility:hidden}
+#echo-pack-3d .echo-fan-live{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:2;pointer-events:none}
+#echo-pack-3d .echo-pack-card-fan:focus-visible{outline:2px solid #b7eaff;border-radius:15px}
