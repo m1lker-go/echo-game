@@ -683,13 +683,17 @@ function scoreRoomTick() {
     const active = [...players.values()].filter(p => p.roomId === roomId && p.roundId === roundId && !p.defeated);
     active.sort((a,b) => b.energy-a.energy || a.id.localeCompare(b.id));
     const earned=[];
+    const scoredAccountIds=new Set();
     for (const [index, player] of active.entries()) {
       const identity = io.sockets.sockets.get(player.id)?.data.roomIdentity || player.id;
       const previous = scores.get(identity) || { identity, name: player.name, score: 0, reachedAt: 0 };
       const points=SCORE_BY_PLACE(index + 1);
       const accountId = io.sockets.sockets.get(player.id)?.data.verifiedAccountId;
       const rewardIdentity = accountId ? 'account:' + accountId : identity;
-      earned.push({identity:rewardIdentity,name:player.name,points,reachedAt:Date.now()});
+      if (!accountId || !scoredAccountIds.has(accountId)) {
+        earned.push({identity:rewardIdentity,name:player.name,points,reachedAt:Date.now()});
+        if (accountId) scoredAccountIds.add(accountId);
+      }
       previous.score += points;
       previous.reachedAt = Date.now();
       previous.name = player.name;
