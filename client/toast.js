@@ -11,7 +11,7 @@
    document.body.append(node);
   }
   clearTimeout(timer);
-  node.textContent=String(message);
+  if(message instanceof Node){node.replaceChildren(message);}else{node.textContent=String(message);}
   node.classList.add('is-visible');
   timer=setTimeout(()=>{node.classList.remove('is-visible');},Math.max(500,Math.min(10000,duration)));
  }
