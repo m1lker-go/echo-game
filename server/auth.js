@@ -76,6 +76,17 @@ router.get('/me',async(req,res)=>{
   try { const user=await sessionUser(req); if(!user)return res.status(401).json({error:'Unauthorized'});res.json({accountId:user.id,nickname:user.nickname,coins:Number(user.coins||0)}); }
   catch(error){console.error('[auth] me failed:',error.message);res.status(500).json({error:'Unavailable'});}
 });
+router.post('/nickname/validate',async(req,res)=>{
+ try{
+  const user=await sessionUser(req);
+  if(!user)return res.status(401).json({error:'Unauthorized'});
+  const validation=validateNickname(req.body?.nickname);
+  if(!validation.ok)return res.status(400).json({error:'Invalid nickname',code:validation.reason});
+  const existing=await pool.query('SELECT 1 FROM echo_accounts WHERE LOWER(nickname)=LOWER($1) AND id<>$2 LIMIT 1',[req.body.nickname,user.id]);
+  if(existing.rows.length)return res.status(409).json({error:'Nickname already taken',code:'taken'});
+  res.json({ok:true});
+ }catch(error){console.error('[auth] nickname validation failed:',error.message);res.status(500).json({error:'Unavailable'});}
+});
 router.post('/nickname',async(req,res)=>{
   const validation=validateNickname(req.body?.nickname);
   if(!validation.ok)return res.status(400).json({error:validation.reason==='forbidden'?'Nickname contains prohibited words':'Invalid nickname',code:validation.reason});
