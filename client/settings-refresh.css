@@ -191,3 +191,17 @@
 }
 #game #menu-settings-screen #echo-auth-status[hidden]{display:none!important}
 #game #menu-settings-screen #echo-auth-guest{width:100%;min-width:0}
+
+
+/* Guest account is a single full-width settings button. */
+#game #menu-settings-screen .echo-open-login {
+  width:100%;
+  height:var(--echo-settings-button-height);
+  font-size:clamp(17px,calc(24px * var(--echo-ui-scale)),32px);
+  border:1px solid #fff;
+  border-radius:13px;
+}
+.echo-login-modal-content{width:100%;min-width:0;text-align:center}
+.echo-login-widget{display:flex;justify-content:center;min-height:52px;max-width:100%;overflow:visible}
+.echo-login-error{min-height:0;margin:10px 0 0;color:#fff;font-size:14px}
+.echo-login-error:empty{display:none}
