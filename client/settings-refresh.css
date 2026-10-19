@@ -177,3 +177,17 @@
 #game #menu-settings-screen .echo-auth-panel .echo-auth-note{
   text-align:left;
 }
+
+
+/* Guest VK ID login heading matches secondary labels; status only appears on errors. */
+#game #menu-settings-screen .echo-auth-entry-title{
+  margin:2px 0 12px;
+  color:#fff;
+  font-size:clamp(17px,calc(22px * var(--echo-ui-scale)),30px);
+  font-weight:500;
+  letter-spacing:0;
+  text-align:center;
+  line-height:1.25;
+}
+#game #menu-settings-screen #echo-auth-status[hidden]{display:none!important}
+#game #menu-settings-screen #echo-auth-guest{width:100%;min-width:0}
