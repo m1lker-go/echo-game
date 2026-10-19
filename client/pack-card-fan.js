@@ -9,10 +9,26 @@ const rarities=[
  {key:'epic',ru:'ЭПИЧЕСКАЯ',en:'EPIC',color:'#c19aff',model:'character-male-d.glb',count:1},
  {key:'legendary',ru:'ЛЕГЕНДАРНАЯ',en:'LEGENDARY',color:'#ffe098',model:'character-female-f.glb',count:1}
 ];
-let session=0,timers=[],portraitCache=new Map(),portraitPromise=null,nextIndex=0,canAdvance=false,live=null;
+let session=0,timers=[],portraitCache=new Map(),portraitPromise=null,nextIndex=0,canAdvance=false,live=null,settleTimer=null,currentCard=null;
 const locale=()=>document.documentElement.lang?.startsWith('en')?'en':'ru';
-function stopLive(){if(live){cancelAnimationFrame(live.raf);live.renderer.dispose();live.renderer.forceContextLoss();live=null;}}
-function clear(){session++;timers.forEach(clearTimeout);timers=[];stopLive();nextIndex=0;canAdvance=false;fan?.replaceChildren();fan?.classList.remove('is-visible');fan?.classList.remove('can-advance');}
+function stopLive(){
+ if(!live)return;
+ cancelAnimationFrame(live.raf);
+ const {renderer,card}=live;
+ // Preserve a still image of the last rendered 3D hero before stopping its scene.
+ const slot=card?.querySelector('.echo-fan-portrait');
+ if(slot){
+  const frame=slot.querySelector('.echo-fan-still');
+  try{
+   const snapshot=renderer.domElement.toDataURL('image/png');
+   if(frame){frame.src=snapshot;frame.hidden=false;}
+  }catch(err){console.warn('[ECHO cards] Snapshot unavailable:',err);}
+  slot.classList.remove('is-live');
+  slot.querySelector('.echo-fan-live')?.remove();
+ }
+ renderer.dispose();renderer.forceContextLoss();live=null;
+}
+function clear(){if(settleTimer){clearTimeout(settleTimer);settleTimer=null;}session++;timers.forEach(clearTimeout);timers=[];stopLive();nextIndex=0;canAdvance=false;currentCard=null;fan?.replaceChildren();fan?.classList.remove('is-visible');fan?.classList.remove('can-advance');}
 function schedule(fn,ms){timers.push(setTimeout(fn,ms));}
 async function portraits(){
  if(portraitPromise)return portraitPromise;
@@ -44,9 +60,9 @@ async function portraits(){
 function makeCard(r,i){
  const card=document.createElement('div');card.className='echo-fan-card';card.style.setProperty('--rarity',r.color);
  card.style.setProperty('--index',i);
- card.style.setProperty('--angle',(-12+i*6)+'deg');
- card.style.setProperty('--spread',(-2+i)*33+'%');
- card.style.setProperty('--rise',(Math.abs(i-2)*5)+'px');
+ card.style.setProperty('--angle',(-40+i*20)+'deg');
+ card.style.setProperty('--spread',(-2+i)*49+'%');
+ card.style.setProperty('--rise',(Math.abs(i-2)*10)+'px');
  const label=locale()==='en'?r.en:r.ru;
  const name=r.model.replace('character-','').replace('.glb','').toUpperCase().replaceAll('-',' ');
  card.innerHTML='<div class="echo-fan-inner"><div class="echo-fan-back"><b>ECHO</b><small>CARDS</small></div><div class="echo-fan-front"><div class="echo-fan-glow"></div><div class="echo-fan-portrait"></div><div class="echo-fan-rarity"></div><div class="echo-fan-name"></div><div class="echo-fan-count"></div></div></div>';
@@ -56,6 +72,7 @@ function makeCard(r,i){
  const pic=portraitCache.get(r.key);
  if(pic){const img=document.createElement('img');img.src=pic;img.alt='';card.querySelector('.echo-fan-portrait').append(img);}
  else{card.querySelector('.echo-fan-portrait').textContent='✦';}
+ const still=document.createElement('img');still.className='echo-fan-still';still.alt='';still.hidden=true;card.querySelector('.echo-fan-portrait').append(still);
  return card;
 }
 // Only the latest revealed card hosts a live model; older cards keep their static portraits.
@@ -86,7 +103,7 @@ async function animateHero(r,card,id){
    const expressive=gltf.animations.find(c=>/dance|wave|victory|cheer|celebrat|jump|emote|idle/i.test(c.name));
    mixer.clipAction(expressive||gltf.animations[0]).play();
   }
-  const state={renderer,raf:0};live=state;
+  const state={renderer,raf:0,card};live=state;
   let previous=performance.now(),elapsed=0;
   const frame=(now)=>{
    if(live!==state||id!==session||root.hidden||!card.isConnected)return;
@@ -98,15 +115,31 @@ async function animateHero(r,card,id){
   state.raf=requestAnimationFrame(frame);
  }catch(err){console.warn('[ECHO cards] Animated hero unavailable:',r.model,err);if(renderer){renderer.dispose();renderer.forceContextLoss();}}
 }
+function finishCurrent(){
+ if(!currentCard)return;
+ currentCard.classList.add('is-instant');
+ // Force the final transform rather than waiting for a transition to complete.
+ const card=currentCard;
+ card.classList.add('is-launched');
+ card.querySelector('.echo-fan-inner').classList.add('is-instant');
+ if(settleTimer){clearTimeout(settleTimer);settleTimer=null;}
+ if(!live)animateHero(rarities[nextIndex-1],card,session);
+ canAdvance=nextIndex<rarities.length;
+ fan.classList.toggle('can-advance',canAdvance);
+}
 function launchNext(){
- if(!canAdvance||nextIndex>=rarities.length||root.hidden)return;
- canAdvance=false;fan.classList.remove('can-advance');stopLive();
+ if(root.hidden||nextIndex>=rarities.length)return;
+ // A quick tap skips the remaining flip and immediately advances.
+ if(!canAdvance&&currentCard)finishCurrent();
+ if(!canAdvance)return;
+ canAdvance=false;fan.classList.add('can-advance');
+ stopLive();
  const i=nextIndex++,r=rarities[i],id=session,card=makeCard(r,i);
- fan.append(card);
+ currentCard=card;fan.append(card);
  requestAnimationFrame(()=>card.classList.add('is-launched'));
- // The new card has time to turn and settle before it becomes interactive.
- schedule(()=>{
-  if(id!==session||root.hidden)return;
+ settleTimer=setTimeout(()=>{
+  settleTimer=null;
+  if(id!==session||root.hidden||currentCard!==card)return;
   animateHero(r,card,id);
   canAdvance=nextIndex<rarities.length;
   fan.classList.toggle('can-advance',canAdvance);
