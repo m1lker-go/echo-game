@@ -20,8 +20,9 @@ async function initialize() {
   await pool.query(`CREATE TABLE IF NOT EXISTS echo_accounts (
     id UUID PRIMARY KEY, provider TEXT NOT NULL, provider_id TEXT NOT NULL,
     nickname TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(provider, provider_id), UNIQUE(LOWER(nickname))
+    UNIQUE(provider, provider_id)
   )`);
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS echo_accounts_nickname_lower_unique ON echo_accounts (LOWER(nickname))');
   await pool.query(`CREATE TABLE IF NOT EXISTS echo_auth_sessions (
     token_hash TEXT PRIMARY KEY, account_id UUID NOT NULL REFERENCES echo_accounts(id) ON DELETE CASCADE,
     expires_at TIMESTAMPTZ NOT NULL
