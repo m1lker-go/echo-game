@@ -687,7 +687,9 @@ function scoreRoomTick() {
       const identity = io.sockets.sockets.get(player.id)?.data.roomIdentity || player.id;
       const previous = scores.get(identity) || { identity, name: player.name, score: 0, reachedAt: 0 };
       const points=SCORE_BY_PLACE(index + 1);
-      earned.push({identity,name:player.name,points,reachedAt:Date.now()});
+      const accountId = io.sockets.sockets.get(player.id)?.data.verifiedAccountId;
+      const rewardIdentity = accountId ? 'account:' + accountId : identity;
+      earned.push({identity:rewardIdentity,name:player.name,points,reachedAt:Date.now()});
       previous.score += points;
       previous.reachedAt = Date.now();
       previous.name = player.name;
@@ -717,7 +719,7 @@ function advanceRoomRound() {
   if (rewardsReady) queueRewardWork(async()=>{
     await roundRewards.finalizeOverdue(pool,Date.now());
     for (const socket of io.sockets.sockets.values()) {
-      const id=socket.data.roomIdentity;
+      const id=socket.data.verifiedAccountId ? 'account:' + socket.data.verifiedAccountId : socket.data.roomIdentity;
       if(!id)continue;
       const results=await roundRewards.getRecentResults(pool,id);
       if(results.length)socket.emit('echo:roundResults',results);
@@ -868,11 +870,15 @@ setInterval(() => {
 // Authenticate optional game-session token on the server; never trust a client nickname.
 io.use(async (socket, next) => {
   socket.data.verifiedNickname = null;
+  socket.data.verifiedAccountId = null;
   const token = socket.handshake.auth?.accountToken;
   if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) return next();
   try {
     const user = await echoAuth.sessionUser({ headers: { authorization: 'Bearer ' + token } });
-    if (user) socket.data.verifiedNickname = user.nickname;
+    if (user) {
+      socket.data.verifiedNickname = user.nickname;
+      socket.data.verifiedAccountId = user.id;
+    }
   } catch (error) {
     console.error('[socket] account verification unavailable:', error.message);
   }
@@ -964,7 +970,7 @@ io.on('connection', (socket) => {
   console.log(`[socket] connected: ${socket.id}`);
   socket.emit('echo:roundClock', currentRoundClock());
   if(rewardsReady && activityProfileId) queueRewardWork(async()=>{
-    const results=await roundRewards.getRecentResults(pool,activityProfileId);
+    const results=await roundRewards.getRecentResults(pool,socket.data.verifiedAccountId ? 'account:' + socket.data.verifiedAccountId : activityProfileId);
     if(socket.connected && results.length)socket.emit('echo:roundResults',results);
   });
 
