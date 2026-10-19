@@ -89,7 +89,9 @@
     "logout_confirm_title": "SIGN OUT",
     "logout_confirm_text": "Sign out of your ECHO account?",
     "edit_nickname": "Edit name",
-    "auth_entry_title": "Sign in / Create account"
+    "auth_entry_title": "Sign in / Create account",
+    "auth_open": "Sign in to account",
+    "auth_modal_title": "SIGN IN"
   },
   "game": {
     "map_short": "MAP",
