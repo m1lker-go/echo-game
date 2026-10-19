@@ -87,7 +87,7 @@
     "nickname_confirm_text": "Save your new player name?",
     "nickname_saved": "Name updated successfully",
     "logout_confirm_title": "SIGN OUT",
-    "logout_confirm_text": "Sign out of your ECHO account?",
+    "logout_confirm_text": "Are you sure you want to sign out of your account?",
     "edit_nickname": "Edit name",
     "auth_entry_title": "Sign in / Create account",
     "auth_open": "Sign in to account",
