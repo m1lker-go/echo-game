@@ -1,6 +1,7 @@
 'use strict';
-// No verified server-side accounts exist yet. Never mint currency for client-provided guest IDs.
-const VERIFIED_ACCOUNT_REWARDS_ENABLED = false;
+// Scores marked account:<uuid> originate only from server-verified Socket.IO sessions.
+const ACCOUNT_SCORE_ID = /^account:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+const accountIdFromScore = identity => typeof identity === 'string' ? identity.match(ACCOUNT_SCORE_ID)?.[1] || null : null;
 const REWARDS = [[1,25],[2,21],[3,18],[10,16],[20,12],[30,10],[40,8],[50,5]];
 function rewardForPlace(place) {
   for (const [limit, coins] of REWARDS) if (place<=limit) return coins;
@@ -48,12 +49,19 @@ async function finalizeRoom(pool,roundId,roomId) {
     const claim=await client.query('INSERT INTO echo_round_finalized(round_id,room_id) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING round_id',[roundId,roomId]);
     if (!claim.rowCount) {await client.query('COMMIT');return [];}
     const result=await client.query('SELECT profile_id,player_name,score,reached_at FROM echo_round_scores WHERE round_id=$1 AND room_id=$2',[roundId,roomId]);
-    const ranks=rankParticipants(result.rows).map(item=>({ ...item, coins: VERIFIED_ACCOUNT_REWARDS_ENABLED ? item.coins : 0 }));
+    const ranks=rankParticipants(result.rows);
+    // Restrict minting to actual registered accounts, even if old guest rows exist.
+    const verified=await client.query('SELECT id::text AS id FROM echo_accounts WHERE id::text = ANY($1::text[])',[ranks.map(item=>accountIdFromScore(item.profile_id)).filter(Boolean)]);
+    const registered=new Set(verified.rows.map(row=>row.id));
+    for(const item of ranks){
+      const accountId=accountIdFromScore(item.profile_id);
+      if(!accountId || !registered.has(accountId))item.coins=0;
+    }
     for(const item of ranks) {
       await client.query('INSERT INTO echo_coin_ledger(round_id,room_id,profile_id,place,score,coins) VALUES($1,$2,$3,$4,$5,$6)',
         [roundId,roomId,item.profile_id,item.place,item.score,item.coins]);
       if(item.coins>0)await client.query(`INSERT INTO echo_wallets(profile_id,coins) VALUES($1,$2)
-        ON CONFLICT(profile_id) DO UPDATE SET coins=echo_wallets.coins+EXCLUDED.coins`,[item.profile_id,item.coins]);
+        ON CONFLICT(profile_id) DO UPDATE SET coins=echo_wallets.coins+EXCLUDED.coins`,[accountIdFromScore(item.profile_id),item.coins]);
     }
     await client.query('COMMIT');
     return ranks;
@@ -71,4 +79,4 @@ async function getRecentResults(pool,profileId) {
     WHERE profile_id=$1 ORDER BY round_id DESC LIMIT 10`,[profileId]);
   return result.rows;
 }
-module.exports={rewardForPlace,rankParticipants,initialize,writeTick,finalizeRoom,finalizeOverdue,getRecentResults};
+module.exports={rewardForPlace,rankParticipants,accountIdFromScore,initialize,writeTick,finalizeRoom,finalizeOverdue,getRecentResults};
