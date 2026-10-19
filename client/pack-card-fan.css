@@ -46,3 +46,20 @@
 #echo-pack-3d .echo-fan-portrait img.echo-fan-still:not([hidden]){position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1}
 
 #echo-pack-3d .echo-pack-card-fan.is-visible{pointer-events:auto;cursor:pointer}
+
+/* Clock-hand fan: every card's bottom-center lies on the same circle
+   around a shared pivot; angles alone determine position. */
+#echo-pack-3d .echo-fan-card{
+ top:84%!important;
+ left:50%!important;
+ transform-origin:50% 100%!important;
+ transform:translate(-50%,-100%) rotate(0deg) translateY(80px) rotateY(0deg) scale(.3)!important;
+}
+#echo-pack-3d .echo-fan-card.is-launched{
+ transform:translate(-50%,-100%) rotate(var(--angle)) translateY(-20px) rotateY(720deg) scale(1)!important;
+}
+@media(max-width:620px){
+ #echo-pack-3d .echo-fan-card.is-launched{
+  transform:translate(-50%,-100%) rotate(var(--angle)) translateY(-14px) rotateY(720deg) scale(1)!important;
+ }
+}
