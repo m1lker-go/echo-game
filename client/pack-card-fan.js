@@ -9,9 +9,10 @@ const rarities=[
  {key:'epic',ru:'ЭПИЧЕСКАЯ',en:'EPIC',color:'#c19aff',model:'character-male-d.glb',count:1},
  {key:'legendary',ru:'ЛЕГЕНДАРНАЯ',en:'LEGENDARY',color:'#ffe098',model:'character-female-f.glb',count:1}
 ];
-let session=0,timers=[],portraitCache=new Map(),portraitPromise=null;
+let session=0,timers=[],portraitCache=new Map(),portraitPromise=null,nextIndex=0,canAdvance=false,live=null;
 const locale=()=>document.documentElement.lang?.startsWith('en')?'en':'ru';
-function clear(){session++;timers.forEach(clearTimeout);timers=[];fan?.replaceChildren();fan?.classList.remove('is-visible');}
+function stopLive(){if(live){cancelAnimationFrame(live.raf);live.renderer.dispose();live.renderer.forceContextLoss();live=null;}}
+function clear(){session++;timers.forEach(clearTimeout);timers=[];stopLive();nextIndex=0;canAdvance=false;fan?.replaceChildren();fan?.classList.remove('is-visible');fan?.classList.remove('can-advance');}
 function schedule(fn,ms){timers.push(setTimeout(fn,ms));}
 async function portraits(){
  if(portraitPromise)return portraitPromise;
@@ -43,9 +44,9 @@ async function portraits(){
 function makeCard(r,i){
  const card=document.createElement('div');card.className='echo-fan-card';card.style.setProperty('--rarity',r.color);
  card.style.setProperty('--index',i);
- card.style.setProperty('--angle',(-24+i*12)+'deg');
- card.style.setProperty('--spread',(-2+i)*29+'%');
- card.style.setProperty('--rise',(Math.abs(i-2)*11)+'px');
+ card.style.setProperty('--angle',(-12+i*6)+'deg');
+ card.style.setProperty('--spread',(-2+i)*33+'%');
+ card.style.setProperty('--rise',(Math.abs(i-2)*5)+'px');
  const label=locale()==='en'?r.en:r.ru;
  const name=r.model.replace('character-','').replace('.glb','').toUpperCase().replaceAll('-',' ');
  card.innerHTML='<div class="echo-fan-inner"><div class="echo-fan-back"><b>ECHO</b><small>CARDS</small></div><div class="echo-fan-front"><div class="echo-fan-glow"></div><div class="echo-fan-portrait"></div><div class="echo-fan-rarity"></div><div class="echo-fan-name"></div><div class="echo-fan-count"></div></div></div>';
@@ -57,18 +58,74 @@ function makeCard(r,i){
  else{card.querySelector('.echo-fan-portrait').textContent='✦';}
  return card;
 }
+// Only the latest revealed card hosts a live model; older cards keep their static portraits.
+async function animateHero(r,card,id){
+ stopLive();
+ const slot=card.querySelector('.echo-fan-portrait');
+ if(!slot||!card.isConnected)return;
+ let renderer;
+ try{
+  const loader=new GLTFLoader();
+  const gltf=await loader.loadAsync('./assets/models/'+r.model);
+  if(id!==session||root.hidden||!card.isConnected)return;
+  const canvas=document.createElement('canvas');canvas.className='echo-fan-live';
+  slot.append(canvas);slot.classList.add('is-live');
+  renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'low-power'});
+  renderer.setPixelRatio(1);renderer.setSize(180,230,false);renderer.outputColorSpace=THREE.SRGBColorSpace;
+  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(32,180/230,.1,100);
+  scene.add(new THREE.HemisphereLight(0xffffff,0x395474,3));
+  const light=new THREE.DirectionalLight(0xffffff,2.8);light.position.set(-2,4,6);scene.add(light);
+  const hero=gltf.scene;scene.add(hero);
+  const box=new THREE.Box3().setFromObject(hero),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());
+  hero.position.sub(center);
+  const dist=Math.max(size.y,size.x*1.45,size.z*1.6,.1)/(2*Math.tan(THREE.MathUtils.degToRad(16)))*1.2;
+  camera.position.set(0,0,dist);camera.lookAt(0,0,0);
+  const mixer=gltf.animations.length?new THREE.AnimationMixer(hero):null;
+  if(mixer){
+   // Favor an expressive clip if the model provides one, otherwise its first real animation.
+   const expressive=gltf.animations.find(c=>/dance|wave|victory|cheer|celebrat|jump|emote|idle/i.test(c.name));
+   mixer.clipAction(expressive||gltf.animations[0]).play();
+  }
+  const state={renderer,raf:0};live=state;
+  let previous=performance.now(),elapsed=0;
+  const frame=(now)=>{
+   if(live!==state||id!==session||root.hidden||!card.isConnected)return;
+   const dt=Math.min(.05,(now-previous)/1000);previous=now;elapsed+=dt;
+   if(mixer)mixer.update(dt);
+   else{hero.rotation.y=Math.sin(elapsed*1.1)*.19;hero.position.y=-center.y+Math.sin(elapsed*1.8)*.025;}
+   renderer.render(scene,camera);state.raf=requestAnimationFrame(frame);
+  };
+  state.raf=requestAnimationFrame(frame);
+ }catch(err){console.warn('[ECHO cards] Animated hero unavailable:',r.model,err);if(renderer){renderer.dispose();renderer.forceContextLoss();}}
+}
+function launchNext(){
+ if(!canAdvance||nextIndex>=rarities.length||root.hidden)return;
+ canAdvance=false;fan.classList.remove('can-advance');stopLive();
+ const i=nextIndex++,r=rarities[i],id=session,card=makeCard(r,i);
+ fan.append(card);
+ requestAnimationFrame(()=>card.classList.add('is-launched'));
+ // The new card has time to turn and settle before it becomes interactive.
+ schedule(()=>{
+  if(id!==session||root.hidden)return;
+  animateHero(r,card,id);
+  canAdvance=nextIndex<rarities.length;
+  fan.classList.toggle('can-advance',canAdvance);
+  fan.setAttribute('aria-label',canAdvance?
+   (locale()==='en'?'Tap to reveal the next card':'Нажми, чтобы открыть следующую карточку'):
+   (locale()==='en'?'All cards revealed':'Все карточки открыты'));
+ },2100);
+}
 async function reveal(){
  if(!fan||root.hidden)return;
  clear();const id=session;fan.classList.add('is-visible');
- // Preview portraits before revealing; loading failures never prevent animations.
+ fan.setAttribute('role','button');fan.setAttribute('tabindex','0');
+ fan.setAttribute('aria-label',locale()==='en'?'Revealing character cards':'Открытие карточек героев');
  await portraits().catch(err=>console.warn('[ECHO cards] portraits unavailable',err));
  if(id!==session||root.hidden)return;
- rarities.forEach((r,i)=>schedule(()=>{
-  if(id!==session||root.hidden)return;
-  const card=makeCard(r,i);fan.append(card);
-  requestAnimationFrame(()=>card.classList.add('is-launched'));
- },i*580));
+ canAdvance=true;launchNext();
 }
+fan?.addEventListener('click',launchNext);
+fan?.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();launchNext();}});
 window.addEventListener('echo:pack-opened',reveal);
 window.addEventListener('echo:pack-reset',clear);
 window.addEventListener('echo:pack-closed',clear);
