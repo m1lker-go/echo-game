@@ -21,10 +21,11 @@
   <link rel="stylesheet" href="./echo-font.css?v=echo-global-font-1" />
   <link rel="stylesheet" href="./menu-width.css?v=1" />
   <link rel="stylesheet" href="./settings-refresh.css?v=6" />
-  <link rel="stylesheet" href="./orientation.css?v=3" />
-  <link rel="stylesheet" href="./fullscreen.css?v=1" />
+  <link rel="stylesheet" href="./orientation.css?v=4" />
+  <link rel="stylesheet" href="./fullscreen.css?v=2" />
 </head>
 <body>
+  <main id="game" aria-label="ECHO game" data-i18n-aria-label="menu:game_aria_label">
   <div id="echo-rotate-overlay" role="status" aria-live="polite">
     <div class="echo-rotate-content">
       <div class="echo-rotate-logo" aria-hidden="true" data-i18n="menu:logo">ЭХО.</div>
@@ -46,7 +47,6 @@
       <p class="echo-rotate-description" data-i18n="menu:rotate_description">Для игры в ECHO поверните устройство горизонтально.</p>
     </div>
   </div>
-  <main id="game" aria-label="ECHO game" data-i18n-aria-label="menu:game_aria_label">
     <canvas id="world" aria-label="Игровое поле" data-i18n-aria-label="menu:world_aria_label"></canvas>
     <canvas id="shared-food" aria-hidden="true"></canvas>
     <canvas id="models" aria-hidden="true"></canvas>
@@ -128,7 +128,7 @@
   <script type="module" src="./shared-food.js?v=echo-world-zoom-2"></script>
   <script type="module" src="./water-effect.js?v=echo-water-splash-above-aura-1"></script>
   <script type="module" src="./player-aura.js?v=echo-blended-hero-center-1"></script>
-  <script type="module" src="./game.js?v=echo-verified-nickname-1"></script>
+  <script type="module" src="./game.js?v=echo-exit-confirm-1"></script>
   <script type="module" src="./fullscreen.js?v=1"></script>
   <script type="module" src="./room-leaderboard.js?v=1"></script>
   <script type="module" src="./round-results.js?v=guest-1"></script>
