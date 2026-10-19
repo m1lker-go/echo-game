@@ -73,7 +73,13 @@ async function claim(questId){
   if(!response.ok&&response.status!==409)throw Error(String(response.status));
   if(data.quests)current=data;
   render();
-  if(data.claimedNow)window.ECHOToast?.show(t('quests_reward','Получено ECHO Coin: ')+data.reward);
+  if(data.claimedNow){
+   const message=document.createElement('span');message.className='echo-quest-reward-toast';
+   const label=document.createElement('span');label.textContent=t('quests_reward','Получено: ')+' '+data.reward;
+   const image=document.createElement('img');image.src='./assets/icons/coin.webp';image.alt='ECHO Coin';image.width=25;image.height=25;
+   message.append(label,image);
+   window.ECHOToast?.show(message);
+  }
  }catch(error){console.warn('[echo quests] claim failed',error);show(t('quests_error','Не удалось загрузить задания. Попробуй снова.'))}
  finally{loading=false;if(current&&!screen.hidden)render()}
 }
