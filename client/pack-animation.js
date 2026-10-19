@@ -6,9 +6,10 @@ if(root){
  const closeButton=root.querySelector('#echo-pack-3d-close'),resetButton=root.querySelector('#echo-pack-3d-reset');
  const handle=root.querySelector('#echo-pack-tear-handle');
  let hintTimer=null,toastTimer=null,hintIndex=0;
- const hints=['Открой пак! ✨','Потяни за голубой кружок!','Давай, ты справишься! 😁','Ещё чуть-чуть!','Что же там внутри? 👀'];
+ const tr=(key,fallback)=>window.$t?.('menu:'+key,fallback)??fallback;
+ const hints=['pack_hint_0','pack_hint_1','pack_hint_2','pack_hint_3','pack_hint_4'];
  function showHint(message){clearTimeout(toastTimer);tip.textContent=message;tip.classList.remove('is-left','is-right');tip.classList.add(hintIndex%2===0?'is-left':'is-right');tip.classList.add('is-visible');toastTimer=setTimeout(()=>tip.classList.remove('is-visible'),2600);}
- function beginHints(){clearInterval(hintTimer);hintIndex=0;showHint(hints[0]);hintTimer=setInterval(()=>{if(!root.hidden&&progress<1)hintIndex++;showHint(hints[hintIndex%hints.length]);},5500);}
+ function beginHints(){clearInterval(hintTimer);hintIndex=0;showHint(tr(hints[0],'Открой пак! ✨'));hintTimer=setInterval(()=>{if(!root.hidden&&progress<1)hintIndex++;showHint(tr(hints[hintIndex%hints.length],''));},5500);}
  const source='./assets/packs/basiccard.webp';
  let decoder=null,frames=1,progress=0,active=false,busy=false,wanted=-1,shown=-1,down=false,lastX=0;
  let generation=0,frameWidth=2,frameHeight=3;
@@ -32,7 +33,7 @@ if(root){
   bar.style.width=(progress*100).toFixed(1)+'%';
   handle.style.left=(13+progress*74)+'%';
   handle.hidden=progress>=1;
-  if(progress>=1){resetButton.hidden=false;clearInterval(hintTimer);showHint('Пак открыт! 🎉');}
+  if(progress>=1){resetButton.hidden=false;clearInterval(hintTimer);showHint(tr('pack_hint_done','Пак открыт! 🎉'));}
  }
  function requestFrame(){
   if(!active||!decoder)return;
@@ -59,17 +60,17 @@ if(root){
     }
     if(index===wanted){shown=index;draw();}
    }
-  }catch(err){console.warn('[Echo Pack] WebP frame decode failed:',err);info('Не удалось прочитать кадр WebP. Проверь анимацию и обнови страницу.');}
+  }catch(err){console.warn('[Echo Pack] WebP frame decode failed:',err);info(tr('pack_decode_failed','Не удалось прочитать кадр WebP. Проверь анимацию и обнови страницу.'));}
   finally{busy=false;if(active&&token===generation&&wanted>=0&&!cache.has(wanted))queueMicrotask(pump);}
  }
  async function prepare(){
   if(decoder){active=true;requestFrame();return;}
   if(typeof ImageDecoder==='undefined'){
-   info('Для покадрового открытия нужен браузер с поддержкой ImageDecoder (например, Chrome).');return;
+   info(tr('pack_decoder_unsupported','Для покадрового открытия нужен браузер с поддержкой ImageDecoder (например, Chrome).'));return;
   }
   const token=++generation;
   try{
-   info('Загружаем кадры упаковки…');
+   info(tr('pack_loading','Загружаем кадры упаковки…'));
    const response=await fetch(source,{cache:'force-cache'});
    if(!response.ok)throw new Error('HTTP '+response.status);
    const bytes=await response.arrayBuffer();
@@ -82,7 +83,7 @@ if(root){
     next.close();throw new Error('basiccard.webp is not recognized as animated WebP');
    }
    decoder=next;frames=track.frameCount;active=true;requestFrame();updateUI();
-  }catch(err){console.warn('[Echo Pack] Animation init failed',err);info('Анимированный WebP не удалось открыть покадрово: '+err.message);}
+  }catch(err){console.warn('[Echo Pack] Animation init failed',err);info(tr('pack_init_failed','Анимированный WebP не удалось открыть покадрово.'));}
  }
  function reset(){progress=0;down=false;shown=cache.has(0)?0:-1;resetButton.hidden=true;updateUI();requestFrame();beginHints();}
  function open(){root.hidden=false;reset();resize();prepare();}
@@ -94,7 +95,7 @@ if(root){
  // Tear can start only on the blue handle, not anywhere on the canvas.
  handle.addEventListener('pointerdown',e=>{
   if(root.hidden||!active||progress>=1)return;
-  down=true;lastX=e.clientX;handle.setPointerCapture(e.pointerId);e.preventDefault();showHint('Тяни вправо! 👉');
+  down=true;lastX=e.clientX;handle.setPointerCapture(e.pointerId);e.preventDefault();showHint(tr('pack_hint_drag','Тяни вправо! 👉'));
  });
  handle.addEventListener('pointermove',e=>{
   if(!down)return;
@@ -105,5 +106,6 @@ if(root){
  });
  const release=()=>{down=false};
  handle.addEventListener('pointerup',release);handle.addEventListener('pointercancel',release);
+ document.addEventListener('echo:language-changed',()=>{if(!root.hidden)showHint(progress>=1?tr('pack_hint_done','Пак открыт! 🎉'):tr(hints[hintIndex%hints.length],''));});
  window.addEventListener('resize',resize);
 }
