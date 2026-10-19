@@ -12,8 +12,12 @@ function endpoint(path) {
   return new URL(path, window.ECHO_SERVER_URL || location.origin);
 }
 function profileId() {
-  const id = localStorage.getItem(profileKey);
-  return /^[a-zA-Z0-9_-]{16,80}$/.test(id || '') ? id : null;
+  let id = localStorage.getItem(profileKey);
+  if (!/^[a-zA-Z0-9_-]{16,80}$/.test(id || '')) {
+    id = (globalThis.crypto?.randomUUID?.() || ('echo_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2))).replace(/[^a-zA-Z0-9_-]/g, '_');
+    localStorage.setItem(profileKey, id);
+  }
+  return id;
 }
 function show(message) { status.textContent = message; }
 const meta = {
