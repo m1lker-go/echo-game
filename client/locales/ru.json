@@ -107,7 +107,8 @@
     "quests_pack_premium_desc": "Купи один премиум пак",
     "quests_take": "Забрать",
     "quests_soon": "Скоро",
-    "quests_reward": "Получено:"
+    "quests_reward": "Получено:",
+    "quests_remaining": "Осталось:"
   },
   "game": {
     "map_short": "КАРТА",
