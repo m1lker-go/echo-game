@@ -91,7 +91,8 @@
     "edit_nickname": "Изменить имя",
     "auth_entry_title": "Вход / Регистрация",
     "auth_open": "Войти в аккаунт",
-    "auth_modal_title": "АВТОРИЗАЦИЯ"
+    "auth_modal_title": "АВТОРИЗАЦИЯ",
+    "nickname_forbidden": "Имя содержит запрещённые слова"
   },
   "game": {
     "map_short": "КАРТА",
