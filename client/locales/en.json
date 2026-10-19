@@ -58,7 +58,19 @@
     "shop_premium_pack": "Real-money pack",
     "shop_coin_price": "Price coming soon",
     "shop_real_price": "Price coming soon",
-    "shop_soon": "Coming soon"
+    "shop_soon": "Coming soon",
+    "quests_hint": "Complete new challenges every day",
+    "quests_play": "Time in ECHO",
+    "quests_food": "Collector",
+    "quests_pvp": "Winner",
+    "quests_claim": "Complete",
+    "quests_claimed": "Completed",
+    "quests_incomplete": "In progress",
+    "quests_loading": "Loading quests…",
+    "quests_error": "Could not load quests. Try again.",
+    "quests_guest": "Guest rewards do not grant coins yet.",
+    "quests_reset": "Resets daily at 00:00 Moscow time",
+    "quests_progress_minutes": "minutes"
   },
   "game": {
     "map_short": "MAP",
