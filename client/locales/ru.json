@@ -94,7 +94,9 @@
     "auth_modal_title": "АВТОРИЗАЦИЯ",
     "nickname_forbidden": "Имя содержит запрещённые слова",
     "sound_section": "ЗВУК",
-    "other_section": "ДРУГОЕ"
+    "other_section": "ДРУГОЕ",
+    "rotate_title": "ПОВЕРНИТЕ УСТРОЙСТВО",
+    "rotate_description": "Для игры в ECHO переверните экран в вертикальное положение."
   },
   "game": {
     "map_short": "КАРТА",
