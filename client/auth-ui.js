@@ -142,7 +142,7 @@ document.querySelector('#echo-edit-name')?.addEventListener('click',()=>{
  requestAnimationFrame(()=>field.focus());
 });
 document.querySelector('#echo-logout')?.addEventListener('click',async()=>{
- const approved=await window.ECHOModal.confirm({title:t('logout_confirm_title','ВЫХОД ИЗ АККАУНТА'),text:t('logout_confirm_text','Выйти из аккаунта ECHO?'),confirmText:t('yes','Да'),cancelText:t('no','Нет')});
+ const approved=await window.ECHOModal.confirm({title:t('logout_confirm_title','ВЫХОД'),text:t('logout_confirm_text','Вы уверены, что хотите выйти из аккаунта?'),confirmText:t('yes','Да'),cancelText:t('no','Нет')});
  if(!approved)return;
  try{await request('logout',{method:'POST'});}catch{}
  token=null;localStorage.removeItem(key);showGuest();
