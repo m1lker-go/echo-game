@@ -125,56 +125,96 @@ async function addDailyPlaySeconds(profileId, seconds, dateKey) {
 }
 
 
+// Account-bound daily quests. Targets accumulate throughout the Moscow day.
 const DAILY_QUESTS = Object.freeze([
-  { id: 'play', target: 600, column: 'play_seconds' },
-  { id: 'food', target: 30, column: 'food_collected' },
-  { id: 'pvp', target: 3, column: 'pvp_wins' },
+  { id: 'play', column: 'play_seconds', targets: [300,600,1800,2700,3600] },
+  { id: 'food', column: 'food_collected', targets: [50,200,500,1000,2000] },
+  { id: 'pvp', column: 'pvp_wins', targets: [3,7,12,18,25] },
+  // Pack purchases are deliberately not awarded by demo-pack interactions.
+  { id: 'pack_coin', column: null, targets: [1], reward: 5 },
+  { id: 'pack_premium', column: null, targets: [1], reward: 50 },
 ]);
-async function getDailyQuests(profileId) {
+const QUEST_LEVEL_REWARDS = [2,4,6,8,10];
+const questKey = (id, level) => id + ':' + level;
+async function questAccount(req, res) {
+  const user = await echoAuth.sessionUser(req);
+  if (!user) { res.status(401).json({ error: 'Unauthorized' }); return null; }
+  return user.id;
+}
+async function getDailyQuests(accountId) {
   const date = dailyDateKey();
-  await ensureDailyActivityRow(profileId, date);
+  await ensureDailyActivityRow(accountId, date);
   const [activityResult, claimsResult] = await Promise.all([
-    pool.query('SELECT play_seconds, food_collected, pvp_wins FROM echo_daily_activity WHERE profile_id=$1 AND activity_date=$2::date', [profileId, date]),
-    pool.query('SELECT quest_id FROM echo_daily_quest_claims WHERE profile_id=$1 AND quest_date=$2::date', [profileId, date]),
+    pool.query('SELECT play_seconds, food_collected, pvp_wins FROM echo_daily_activity WHERE profile_id=$1 AND activity_date=$2::date', [accountId, date]),
+    pool.query('SELECT quest_id FROM echo_daily_quest_claims WHERE profile_id=$1 AND quest_date=$2::date', [accountId, date]),
   ]);
   const activity = activityResult.rows[0] || {};
   const claimed = new Set(claimsResult.rows.map(row => row.quest_id));
-  return {
-    date, timezone: DAILY_TIME_ZONE,
-    quests: DAILY_QUESTS.map(quest => ({
-      id: quest.id, target: quest.target,
-      progress: Math.min(quest.target, Number(activity[quest.column] || 0)),
-      claimed: claimed.has(quest.id),
-    })),
-  };
+  return { date, timezone: DAILY_TIME_ZONE, quests: DAILY_QUESTS.map(quest => {
+    const count = quest.targets.length;
+    let level = quest.targets.findIndex((_, i) => !claimed.has(questKey(quest.id, i+1)));
+    if (level === -1) level = count-1;
+    const done = quest.targets.every((_, i) => claimed.has(questKey(quest.id, i+1)));
+    const target = quest.targets[level];
+    const progress = quest.column ? Math.min(target, Number(activity[quest.column] || 0)) : 0;
+    return { id: quest.id, level: level+1, levels: count, target, progress,
+      reward: quest.reward ?? QUEST_LEVEL_REWARDS[level], claimed: done, available: !!quest.column };
+  }) };
 }
 app.get('/api/daily-quests', async (req, res) => {
-  const profileId = normalizeActivityProfileId(req.query.profileId);
-  if (!profileId) return res.status(400).json({ error: 'Invalid profileId' });
-  try { res.json(await getDailyQuests(profileId)); }
-  catch (error) {
+  try {
+    const accountId = await questAccount(req,res);
+    if (accountId) res.json(await getDailyQuests(accountId));
+  } catch(error) {
     console.error('[daily-quests] read failed:', error.message);
     res.status(500).json({ error: 'Daily quests unavailable' });
   }
 });
 app.post('/api/daily-quests/claim', async (req, res) => {
-  const profileId = normalizeActivityProfileId(req.body?.profileId);
-  const quest = DAILY_QUESTS.find(item => item.id === req.body?.questId);
-  if (!profileId || !quest) return res.status(400).json({ error: 'Invalid quest request' });
-  const date = dailyDateKey();
+  let client;
   try {
-    // A single INSERT ... SELECT makes completion and once-per-day claim atomic.
-    // Guest profiles are not authenticated: claims deliberately do not grant currency.
-    const result = await pool.query(
-      'INSERT INTO echo_daily_quest_claims (profile_id, quest_date, quest_id) SELECT $1, $2::date, $3 WHERE EXISTS (SELECT 1 FROM echo_daily_activity WHERE profile_id=$1 AND activity_date=$2::date AND ' + quest.column + ' >= $4) ON CONFLICT DO NOTHING RETURNING quest_id',
-      [profileId, date, quest.id, quest.target]
-    );
-    const data = await getDailyQuests(profileId);
-    res.status(result.rowCount ? 200 : 409).json({ ...data, claimedNow: result.rowCount === 1 });
-  } catch (error) {
+    const accountId = await questAccount(req,res);
+    if (!accountId) return;
+    const quest = DAILY_QUESTS.find(q => q.id === req.body?.questId);
+    if (!quest) return res.status(400).json({ error: 'Invalid quest' });
+    if (!quest.column) return res.status(409).json({ error: 'Purchase not available yet' });
+    const date = dailyDateKey();
+    client = await pool.connect();
+    await client.query('BEGIN');
+    // Serialize claims per account/date, including simultaneous browser sessions.
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))',[accountId,date]);
+    const existing = await client.query(
+      'SELECT quest_id FROM echo_daily_quest_claims WHERE profile_id=$1 AND quest_date=$2::date AND quest_id LIKE $3',
+      [accountId,date,quest.id+':%']);
+    const claimed = new Set(existing.rows.map(row=>row.quest_id));
+    const levelIndex = quest.targets.findIndex((_,i)=>!claimed.has(questKey(quest.id,i+1)));
+    if (levelIndex < 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ ...(await getDailyQuests(accountId)), claimedNow:false });
+    }
+    const target = quest.targets[levelIndex];
+    const activity = await client.query(
+      'SELECT ' + quest.column + ' AS progress FROM echo_daily_activity WHERE profile_id=$1 AND activity_date=$2::date',
+      [accountId,date]);
+    if (Number(activity.rows[0]?.progress||0) < target) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ ...(await getDailyQuests(accountId)), claimedNow:false });
+    }
+    await client.query(
+      'INSERT INTO echo_daily_quest_claims(profile_id,quest_date,quest_id) VALUES($1,$2::date,$3)',
+      [accountId,date,questKey(quest.id,levelIndex+1)]);
+    const reward = QUEST_LEVEL_REWARDS[levelIndex];
+    await client.query(
+      'INSERT INTO echo_wallets(profile_id,coins) VALUES($1,$2) ON CONFLICT(profile_id) DO UPDATE SET coins=echo_wallets.coins+EXCLUDED.coins',
+      [accountId,reward]);
+    await client.query('COMMIT');
+    client.release();client=null;
+    res.json({ ...(await getDailyQuests(accountId)), claimedNow:true, reward });
+  } catch(error) {
+    if(client) await client.query('ROLLBACK').catch(()=>{});
     console.error('[daily-quests] claim failed:', error.message);
     res.status(500).json({ error: 'Daily claim unavailable' });
-  }
+  } finally { if(client) client.release(); }
 });
 
 const players = new Map();
@@ -793,6 +833,7 @@ function finishFight(fight) {
   if (!winnerState || !loserState) return;
   const winnerProfileId = dailyActivityProfileIds.get(winnerState.id);
   if (winnerProfileId) addDailyActivity(winnerProfileId, 'pvp_wins', 1).catch((error) => console.error('[daily-activity] PvP write failed:', error.message));
+  if (winner.socketAccountId) addDailyActivity(winner.socketAccountId, 'pvp_wins', 1).catch(error => console.error('[daily-quests] PvP write failed:', error.message));
 
   const winnerEnergyBefore = winnerState.energy;
   const loserEnergy = loserState.energy;
@@ -916,6 +957,10 @@ io.on('connection', (socket) => {
       const profileId = activityProfileId;
       const intervalDate = dayKey;
       enqueueWrite(() => addDailyPlaySeconds(profileId, elapsed, intervalDate));
+      if (socket.data.verifiedAccountId && players.has(socket.id) && !players.get(socket.id).defeated) {
+        const accountId = socket.data.verifiedAccountId;
+        enqueueWrite(() => addDailyPlaySeconds(accountId, elapsed, intervalDate));
+      }
     }
   };
   const receiveActivityPing = (payload) => {
@@ -1004,6 +1049,7 @@ io.on('connection', (socket) => {
     inWater: false,
     lastWaterDamageAt: 0,
     skin: ALLOWED_SKINS.has(requestedSkin) ? requestedSkin : 'character-female-a.glb',
+    socketAccountId: socket.data.verifiedAccountId,
     fightingWith: null,
     fightId: null,
     defeated: false,
@@ -1070,6 +1116,7 @@ io.on('connection', (socket) => {
       current.energy = Math.min(MAX_ENERGY, current.energy + collected);
       const profileId = dailyActivityProfileIds.get(socket.id);
       if (profileId) addDailyActivity(profileId, 'food_collected', collected).catch((error) => console.error('[daily-activity] food write failed:', error.message));
+      if (socket.data.verifiedAccountId) addDailyActivity(socket.data.verifiedAccountId, 'food_collected', collected).catch(error => console.error('[daily-quests] food write failed:', error.message));
     }
 
     const requestedSkin = payload.skin;
