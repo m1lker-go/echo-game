@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="./round-results.css?v=2" />
   <link rel="stylesheet" href="./pack-preview.css?v=echo-ribbon-v6" />
   <link rel="stylesheet" href="./pack-shop-3d.css?v=1" />
-  <link rel="stylesheet" href="./shop.css?v=1" />
+  <link rel="stylesheet" href="./shop.css?v=echo-cards-preview-2" />
   <link rel="stylesheet" href="./daily-quests.css?v=6" />
   <link rel="stylesheet" href="./auth.css?v=2" />
   <link rel="stylesheet" href="./toast.css?v=2" />
@@ -102,8 +102,14 @@
       <div id="menu-shop-screen" class="menu-screen echo-shop-screen" hidden aria-label="Магазин">
   <div class="menu-page-head"><h1 data-i18n="menu:shop_title">МАГАЗИН</h1><p class="echo-shop-balance" role="status"><span data-i18n="menu:shop_balance">Баланс:</span> <strong id="echo-shop-balance-value">—</strong> <img src="./assets/icons/coin.webp" alt="ECHO Coin" width="26" height="26"></p></div>
   <div class="echo-shop-packs">
-    <article class="echo-shop-pack"><div class="echo-shop-pack-art"><img src="./assets/packs/foil-base.svg" alt="Echo foil pack"></div><h2 data-i18n="menu:shop_coin_pack">Пак за монеты</h2><div class="echo-shop-price"><img src="./assets/icons/coin.webp" alt="" width="26" height="26"><span data-i18n="menu:shop_coin_price">Цена скоро появится</span></div><button class="menu-button" type="button" data-echo-preview-pack="coin">Открыть демо</button></article>
-    <article class="echo-shop-pack"><div class="echo-shop-pack-art echo-shop-pack-premium"><img src="./assets/packs/foil-base.svg" alt="Echo premium foil pack"></div><h2 data-i18n="menu:shop_premium_pack">Пак за реальные деньги</h2><div class="echo-shop-price" data-i18n="menu:shop_real_price">Цена скоро появится</div><button class="menu-button" type="button" data-echo-preview-pack="premium">Открыть демо</button></article>
+    <article class="echo-shop-pack" aria-label="Обычный пак Echo">
+      <div class="echo-shop-pack-art"><img src="./assets/packs/basiccardpic.webp" alt="ECHO CARDS — обычная колода"></div>
+      <button class="menu-button" type="button" data-echo-preview-pack="coin">Открыть</button>
+    </article>
+    <article class="echo-shop-pack" aria-label="Специальный пак Echo">
+      <div class="echo-shop-pack-art"><img src="./assets/packs/specialcardpic.webp" alt="ECHO CARDS — Special Edition"></div>
+      <button class="menu-button" type="button" data-echo-preview-pack="premium">Открыть</button>
+    </article>
   </div>
   <button id="shop-back" class="menu-back" type="button" data-i18n="menu:back">Назад</button>
 </div>
