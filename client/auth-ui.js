@@ -34,12 +34,14 @@ async function request(path,options={}){
 }
 function showGuest(message){
  current=null;guest.hidden=false;panel.hidden=true;
- status.textContent=message||t('account_guest','Гостевой аккаунт');
+ status.textContent=message||'';
+ status.hidden=!message;
 }
 function showUser(data){
  current=data;guest.hidden=true;panel.hidden=false;
  document.querySelector('#echo-account-name').textContent=data.nickname;
  status.textContent='';
+ status.hidden=true;
 }
 async function refresh(){
  if(!token){showGuest();return;}
@@ -51,7 +53,7 @@ async function start(){
  started=true;
  try{
   const config=await request('config');
-  if(!config.enabled){status.textContent=t('auth_not_configured','Ожидается настройка сервера');started=false;return;}
+  if(!config.enabled){status.hidden=false;status.textContent=t('auth_not_configured','Ожидается настройка сервера');started=false;return;}
   if(!window.VKIDSDK)await new Promise((resolve,reject)=>{
    const script=document.createElement('script');
    script.src='https://unpkg.com/@vkid/sdk@2.6.9/dist-sdk/umd/index.js';
@@ -61,7 +63,7 @@ async function start(){
   if(!VKID)throw new Error('VK ID SDK unavailable');
   VKID.Config.init({app:config.appId,redirectUrl:'https://cat-fight.ru/echo/',responseMode:VKID.ConfigResponseMode.Callback,source:VKID.ConfigSource.LOWCODE,scope:''});
   new VKID.OAuthList().render({container:widget,scheme:'dark',styles:{borderRadius:12,height:40},oauthList:['vkid','ok_ru','mail_ru']})
-    .on(VKID.WidgetEvents.ERROR,error=>{console.error('[VKID]',error);status.textContent=t('auth_failed','Ошибка авторизации');})
+    .on(VKID.WidgetEvents.ERROR,error=>{console.error('[VKID]',error);status.hidden=false;status.textContent=t('auth_failed','Ошибка авторизации');})
     .on(VKID.OAuthListInternalEvents.LOGIN_SUCCESS,async payload=>{
       try{
        const auth=await VKID.Auth.exchangeCode(payload.code,payload.device_id);
@@ -69,7 +71,7 @@ async function start(){
        token=account.token;localStorage.setItem(key,token);await refresh();
       }catch(error){console.error('[VKID]',error);status.textContent=t('auth_failed','Ошибка авторизации');}
     });
- }catch(error){console.error('[VKID]',error);started=false;status.textContent=t('auth_unavailable','Сервер авторизации ECHO недоступен');}
+ }catch(error){console.error('[VKID]',error);started=false;status.hidden=false;status.textContent=t('auth_unavailable','Сервер авторизации ECHO недоступен');}
 }
 document.querySelector('#menu-settings')?.addEventListener('click',()=>token?refresh():start());
 document.querySelector('#echo-edit-name')?.addEventListener('click',()=>{
