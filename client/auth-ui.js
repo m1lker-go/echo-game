@@ -119,20 +119,21 @@ document.querySelector('#echo-edit-name')?.addEventListener('click',()=>{
   title:t('nickname','Имя игрока'),contentElement:content,
   buttons:[
    {label:t('no','Отмена'),value:false},
-   {label:t('save_nickname','Сохранить'),value:true,variant:'primary',onClick:()=>{
+   {label:t('save_nickname','Сохранить'),value:true,variant:'primary',onClick:async()=>{
     const value=field.value.trim();
     if(!/^[a-zA-Zа-яА-ЯёЁ0-9_-]{3,20}$/u.test(value)){
-     window.ECHOToast?.show(t('nickname_invalid','Имя: 3–20 букв, цифр, _ или -'));return;
+     window.ECHOToast?.show(t('nickname_invalid','Имя: 3–20 букв, цифр, _ или -'));
+     return false;
     }
-    if(value===current?.nickname)return;
-    // Validate against the authoritative server moderation rules BEFORE confirmation.
+    if(value===current?.nickname)return false;
+    try{
+     await request('nickname/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nickname:value})});
+    }catch(error){
+     window.ECHOToast?.show(error.code==='forbidden'?t('nickname_forbidden','Имя содержит запрещённые слова'):error.status===409?t('nickname_taken','Имя занято'):error.status===400?t('nickname_invalid','Имя: 3–20 букв, цифр, _ или -'):t('auth_failed','Ошибка авторизации'));
+     return false;
+    }
+    // Open confirmation only after this input modal has closed.
     setTimeout(async()=>{
-     try{
-      await request('nickname/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nickname:value})});
-     }catch(error){
-      window.ECHOToast?.show(error.code==='forbidden'?t('nickname_forbidden','Имя содержит запрещённые слова'):error.status===409?t('nickname_taken','Имя занято'):error.status===400?t('nickname_invalid','Имя: 3–20 букв, цифр, _ или -'):t('auth_failed','Ошибка авторизации'));
-      return;
-     }
      const confirmed=await window.ECHOModal.confirm({
       title:t('nickname_confirm_title','Изменить имя'),
       text:t('nickname_confirm_text','Сохранить новое имя игрока?'),
@@ -145,6 +146,7 @@ document.querySelector('#echo-edit-name')?.addEventListener('click',()=>{
       window.ECHOToast?.show(t('nickname_saved','Имя успешно изменено'));
      }catch(error){window.ECHOToast?.show(error.code==='forbidden'?t('nickname_forbidden','Имя содержит запрещённые слова'):error.status===409?t('nickname_taken','Имя занято'):error.status===400?t('nickname_invalid','Имя: 3–20 букв, цифр, _ или -'):t('auth_failed','Ошибка авторизации'));}
     },0);
+    return true;
    }}
   ]
  });
