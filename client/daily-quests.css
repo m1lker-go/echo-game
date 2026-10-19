@@ -18,3 +18,13 @@
 #main-menu .echo-quest.is-complete .echo-quest-claim{color:#85bda9}
 #main-menu .echo-quests-status{font-size:clamp(14px,2.5vh,18px);color:#d6e6f4;min-height:24px}
 @media(max-width:520px){#main-menu .echo-quest{padding:12px}#main-menu .echo-quest-heading{gap:8px}}
+
+/* In-game quest cloud: above coordinates, centred in landscape. */
+#game .echo-quest-hud{position:absolute;z-index:12;top:max(7px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:flex;align-items:stretch;max-width:min(72vw,410px);min-height:38px;border:1px solid rgba(185,215,240,.55);border-radius:10px;overflow:hidden;background:rgba(4,12,22,.88);box-shadow:0 5px 20px #0008;color:#f1f8ff;font-size:clamp(12px,2.5vh,16px)}
+#game .echo-quest-hud[hidden]{display:none}
+#game .echo-quest-hud-name{display:flex;align-items:center;justify-content:center;min-width:0;flex:1;padding:7px 12px;font-weight:600;text-align:center}
+#game .echo-quest-hud-action{border:0;border-left:1px solid rgba(185,215,240,.45);background:rgba(64,105,136,.32);color:#fff;font:inherit;font-weight:600;padding:7px 12px;min-width:116px;white-space:nowrap;cursor:default}
+#game .echo-quest-hud-action.is-ready{background:rgba(38,143,105,.45);color:#b9ffdd;cursor:pointer}
+#game .echo-quest-hud-action:disabled{opacity:.83}
+#game:has(.echo-quest-hud:not([hidden])) #coords{top:max(57px,calc(env(safe-area-inset-top) + 57px))}
+@media(max-width:600px){#game .echo-quest-hud{max-width:75vw;min-height:34px;font-size:12px}#game .echo-quest-hud-name{padding:5px 8px}#game .echo-quest-hud-action{min-width:98px;padding:5px 8px}}
