@@ -164,6 +164,7 @@
       ...options,
     };
 
+    panel.classList.remove('echo-round-result-modal');
     previousFocus = document.activeElement;
     titleNode.textContent = String(config.title ?? '');
     textNode.textContent = String(config.text ?? '');
