@@ -89,7 +89,9 @@
     "logout_confirm_title": "ВЫХОД ИЗ АККАУНТА",
     "logout_confirm_text": "Выйти из аккаунта ECHO?",
     "edit_nickname": "Изменить имя",
-    "auth_entry_title": "Вход / Регистрация"
+    "auth_entry_title": "Вход / Регистрация",
+    "auth_open": "Войти в аккаунт",
+    "auth_modal_title": "АВТОРИЗАЦИЯ"
   },
   "game": {
     "map_short": "КАРТА",
