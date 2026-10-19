@@ -205,3 +205,11 @@
 .echo-login-widget{display:flex;justify-content:center;min-height:52px;max-width:100%;overflow:visible}
 .echo-login-error{min-height:0;margin:10px 0 0;color:#fff;font-size:14px}
 .echo-login-error:empty{display:none}
+
+/* Additional settings section labels share the Account/Language typography. */
+#game #menu-settings-screen .settings-section-heading{
+ display:block;width:100%;margin:0 0 12px;
+ color:#8f97a3;font-size:clamp(13px,calc(16px * var(--echo-ui-scale)),22px);
+ font-weight:500;letter-spacing:.12em;line-height:1.3;
+ text-align:left;text-transform:uppercase;
+}
