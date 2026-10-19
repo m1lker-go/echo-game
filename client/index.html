@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="./menu-width.css?v=1" />
   <link rel="stylesheet" href="./settings-refresh.css?v=6" />
   <link rel="stylesheet" href="./orientation.css?v=3" />
+  <link rel="stylesheet" href="./fullscreen.css?v=1" />
 </head>
 <body>
   <div id="echo-rotate-overlay" role="status" aria-live="polite">
@@ -55,7 +56,7 @@
       <div class="brand" data-i18n="menu:logo">ЭХО<span class="brand-dot">.</span></div>
       <div class="status-stack">
         <div class="status"><span id="connection-dot"></span><span id="connection-label" data-i18n="game:connection_pending">подключение…</span></div>
-        <button id="game-exit" class="game-exit" type="button" data-i18n="game:exit">Покинуть игру</button>
+        <div class="echo-game-top-actions"><button id="echo-fullscreen-toggle" class="echo-fullscreen-toggle" type="button" aria-label="На весь экран" title="На весь экран"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="echo-expand-icon" d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/><path class="echo-collapse-icon" d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5"/></svg></button><button id="game-exit" class="game-exit" type="button" data-i18n="game:exit">Покинуть игру</button></div>
       </div>
     </header>
     <aside id="echo-room-leaderboard" class="echo-room-leaderboard" aria-label="Рейтинг комнаты">
@@ -128,6 +129,7 @@
   <script type="module" src="./water-effect.js?v=echo-water-splash-above-aura-1"></script>
   <script type="module" src="./player-aura.js?v=echo-blended-hero-center-1"></script>
   <script type="module" src="./game.js?v=echo-verified-nickname-1"></script>
+  <script type="module" src="./fullscreen.js?v=1"></script>
   <script type="module" src="./room-leaderboard.js?v=1"></script>
   <script type="module" src="./round-results.js?v=guest-1"></script>
   <script type="module" src="./world-boundary.js?v=echo-world-zoom-2"></script>
