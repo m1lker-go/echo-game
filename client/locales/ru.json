@@ -58,7 +58,19 @@
     "shop_premium_pack": "Пак за реальные деньги",
     "shop_coin_price": "Цена скоро появится",
     "shop_real_price": "Цена скоро появится",
-    "shop_soon": "Скоро"
+    "shop_soon": "Скоро",
+    "quests_hint": "Выполняй задания каждый день",
+    "quests_play": "Время в ECHO",
+    "quests_food": "Собиратель",
+    "quests_pvp": "Победитель",
+    "quests_claim": "Завершить",
+    "quests_claimed": "Выполнено",
+    "quests_incomplete": "В процессе",
+    "quests_loading": "Загружаем задания…",
+    "quests_error": "Не удалось загрузить задания. Попробуй снова.",
+    "quests_guest": "Награды гостевым профилям пока не начисляют монеты.",
+    "quests_reset": "Обновление ежедневно в 00:00 по Москве",
+    "quests_progress_minutes": "мин"
   },
   "game": {
     "map_short": "КАРТА",
