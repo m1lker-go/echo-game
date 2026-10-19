@@ -39,7 +39,7 @@ function showGuest(message){
 function showUser(data){
  current=data;guest.hidden=true;panel.hidden=false;
  document.querySelector('#echo-account-name').textContent=data.nickname;
- status.textContent=t('account_connected','Аккаунт подключён');
+ status.textContent='';
 }
 async function refresh(){
  if(!token){showGuest();return;}
