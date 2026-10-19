@@ -30,6 +30,7 @@ const placeholderScreen = document.querySelector('#menu-placeholder');
 const placeholderTitle = document.querySelector('#placeholder-title');
 const settingsScreen = document.querySelector('#menu-settings-screen');
 const shopScreen = document.querySelector('#menu-shop-screen');
+const questsScreen = document.querySelector('#menu-quests-screen');
 const characterGrid = document.querySelector('#character-grid');
 const startButton = document.querySelector('#menu-start');
 const characterButton = document.querySelector('#menu-character-button');
@@ -47,6 +48,7 @@ function showScreen(screen) {
   characterScreen.hidden = screen !== 'character';
   placeholderScreen.hidden = screen !== 'placeholder';
   if (shopScreen) shopScreen.hidden = screen !== 'shop';
+  if (questsScreen) questsScreen.hidden = screen !== 'quests';
   if (settingsScreen) settingsScreen.hidden = screen !== 'settings';
 }
 
@@ -77,7 +79,8 @@ characterButton.addEventListener('click', () => showScreen('character'));
 settingsButton.addEventListener('click', openSettings);
 shopButton.addEventListener('click', () => showScreen('shop'));
 document.querySelector('#shop-back')?.addEventListener('click', openMenu);
-questsButton.addEventListener('click', () => openPlaceholder(window.$t?.('menu:quests_title', 'ЗАДАНИЯ') || 'ЗАДАНИЯ'));
+questsButton.addEventListener('click', () => { showScreen('quests'); window.dispatchEvent(new Event('echo:quests-open')); });
+document.querySelector('#quests-back')?.addEventListener('click', openMenu);
 characterBack.addEventListener('click', openMenu);
 placeholderBack.addEventListener('click', openMenu);
 settingsBack?.addEventListener('click', openMenu);
