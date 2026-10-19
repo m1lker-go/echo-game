@@ -122,6 +122,59 @@ async function addDailyPlaySeconds(profileId, seconds, dateKey) {
   await pool.query('INSERT INTO echo_daily_activity (profile_id, activity_date, play_seconds) VALUES ($1, $2::date, $3) ON CONFLICT (profile_id, activity_date) DO UPDATE SET play_seconds = LEAST(echo_daily_activity.play_seconds + EXCLUDED.play_seconds, 86400), updated_at = NOW()', [profileId, dateKey, n]);
 }
 
+
+const DAILY_QUESTS = Object.freeze([
+  { id: 'play', target: 600, column: 'play_seconds' },
+  { id: 'food', target: 30, column: 'food_collected' },
+  { id: 'pvp', target: 3, column: 'pvp_wins' },
+]);
+async function getDailyQuests(profileId) {
+  const date = dailyDateKey();
+  await ensureDailyActivityRow(profileId, date);
+  const [activityResult, claimsResult] = await Promise.all([
+    pool.query('SELECT play_seconds, food_collected, pvp_wins FROM echo_daily_activity WHERE profile_id=$1 AND activity_date=$2::date', [profileId, date]),
+    pool.query('SELECT quest_id FROM echo_daily_quest_claims WHERE profile_id=$1 AND quest_date=$2::date', [profileId, date]),
+  ]);
+  const activity = activityResult.rows[0] || {};
+  const claimed = new Set(claimsResult.rows.map(row => row.quest_id));
+  return {
+    date, timezone: DAILY_TIME_ZONE,
+    quests: DAILY_QUESTS.map(quest => ({
+      id: quest.id, target: quest.target,
+      progress: Math.min(quest.target, Number(activity[quest.column] || 0)),
+      claimed: claimed.has(quest.id),
+    })),
+  };
+}
+app.get('/api/daily-quests', async (req, res) => {
+  const profileId = normalizeActivityProfileId(req.query.profileId);
+  if (!profileId) return res.status(400).json({ error: 'Invalid profileId' });
+  try { res.json(await getDailyQuests(profileId)); }
+  catch (error) {
+    console.error('[daily-quests] read failed:', error.message);
+    res.status(500).json({ error: 'Daily quests unavailable' });
+  }
+});
+app.post('/api/daily-quests/claim', async (req, res) => {
+  const profileId = normalizeActivityProfileId(req.body?.profileId);
+  const quest = DAILY_QUESTS.find(item => item.id === req.body?.questId);
+  if (!profileId || !quest) return res.status(400).json({ error: 'Invalid quest request' });
+  const date = dailyDateKey();
+  try {
+    // A single INSERT ... SELECT makes completion and once-per-day claim atomic.
+    // Guest profiles are not authenticated: claims deliberately do not grant currency.
+    const result = await pool.query(
+      'INSERT INTO echo_daily_quest_claims (profile_id, quest_date, quest_id) SELECT $1, $2::date, $3 WHERE EXISTS (SELECT 1 FROM echo_daily_activity WHERE profile_id=$1 AND activity_date=$2::date AND ' + quest.column + ' >= $4) ON CONFLICT DO NOTHING RETURNING quest_id',
+      [profileId, date, quest.id, quest.target]
+    );
+    const data = await getDailyQuests(profileId);
+    res.status(result.rowCount ? 200 : 409).json({ ...data, claimedNow: result.rowCount === 1 });
+  } catch (error) {
+    console.error('[daily-quests] claim failed:', error.message);
+    res.status(500).json({ error: 'Daily claim unavailable' });
+  }
+});
+
 const players = new Map();
 const roomManager = createRoomManager();
 const roomFood = new Map();
@@ -1027,6 +1080,7 @@ server.listen(port, '0.0.0.0', async () => {
   try {
     await checkDatabase();
     await ensureDailyActivitySchema();
+    await pool.query('CREATE TABLE IF NOT EXISTS echo_daily_quest_claims (profile_id TEXT NOT NULL, quest_date DATE NOT NULL, quest_id TEXT NOT NULL, claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (profile_id, quest_date, quest_id))');
     await roundRewards.initialize(pool);
     rewardsReady = true;
     queueRewardWork(()=>roundRewards.finalizeOverdue(pool,Date.now()));
