@@ -31,7 +31,7 @@ function render(){
   const title=document.createElement('strong');title.textContent=t(info.title,quest.id);
   const description=document.createElement('span');description.className='echo-quest-description';
   const value=quest.id==='play'?Math.floor(quest.target/60):quest.target;
-  description.textContent=t(info.desc,'')+(quest.id==='play'?' '+value+' '+t('quests_progress_minutes','мин'):quest.id.startsWith('pack_')?'':' '+value);
+  description.textContent=t(info.desc,'').replaceAll('{count}',String(value));
   if(quest.levels>1)title.textContent+=' · '+quest.level+'/'+quest.levels;
   summary.append(title,description);
   const reward=document.createElement('span');reward.className='echo-quest-reward';
