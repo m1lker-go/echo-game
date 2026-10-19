@@ -61,7 +61,9 @@ function displayQuestHud(){
  if(!q)return;
  const info=meta[q.id];
  const target=q.id==='play'?Math.floor(q.target/60):q.target;
- questHudName.replaceChildren(document.createTextNode(t(info.title,q.id)+' '+target),questDots(q));
+ const name=document.createElement('span');name.className='echo-quest-hud-title';name.textContent=t(info.title,q.id);
+ const details=document.createElement('span');details.className='echo-quest-hud-description';details.textContent=t(info.desc,'').replaceAll('{count}',String(target));
+ questHudName.replaceChildren(name,questDots(q),details);
  const ready=q.progress>=q.target;
  // Estimate only time that has passed since the latest server response; the API stays authoritative.
  const elapsed=q.id==='play'&&!document.hidden?Math.min(5,Math.max(0,Math.floor((Date.now()-hudFetchedAt)/1000))):0;
@@ -104,8 +106,9 @@ function render(){
   const description=document.createElement('span');description.className='echo-quest-description';
   const value=quest.id==='play'?Math.floor(quest.target/60):quest.target;
   description.textContent=t(info.desc,'').replaceAll('{count}',String(value));
+  summary.append(title);
   if(quest.levels>1)summary.append(questDots(quest));
-  summary.append(title,description);
+  summary.append(description);
   const reward=document.createElement('span');reward.className='echo-quest-reward';
   const coin=document.createElement('img');coin.src='./assets/icons/coin.webp';coin.alt='ECHO Coin';coin.width=28;coin.height=28;
   reward.append(coin,document.createTextNode('+'+quest.reward));
