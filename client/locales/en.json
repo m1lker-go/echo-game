@@ -83,7 +83,7 @@
     "auth_not_configured": "Waiting for server configuration",
     "nickname_invalid": "Name must be 3–20 letters, digits, _ or -",
     "nickname_taken": "Name is taken",
-    "nickname_confirm_title": "CHANGE NAME",
+    "nickname_confirm_title": "Change name",
     "nickname_confirm_text": "Save your new player name?",
     "nickname_saved": "Name updated successfully",
     "logout_confirm_title": "SIGN OUT",
