@@ -2,7 +2,8 @@ const t=(key,fallback)=>window.$t?.('menu:'+key,fallback)||fallback;
 const guest=document.querySelector('#echo-auth-guest');
 const panel=document.querySelector('#echo-auth-user');
 const status=document.querySelector('#echo-auth-status');
-const widget=document.querySelector('#echo-vkid-widget');
+let loginWidget=null;
+let loginError=null;
 
 const key='echo.authToken';
 let token=localStorage.getItem(key);
@@ -48,12 +49,15 @@ async function refresh(){
  try{showUser(await request('me'));}
  catch(error){if(error.status===401){token=null;localStorage.removeItem(key);}showGuest(t('auth_failed','Ошибка авторизации'));}
 }
+function loginMessage(message){
+ if(loginError)loginError.textContent=message;
+}
 async function start(){
  if(started||current)return;
  started=true;
  try{
   const config=await request('config');
-  if(!config.enabled){status.hidden=false;status.textContent=t('auth_not_configured','Ожидается настройка сервера');started=false;return;}
+  if(!config.enabled){loginMessage(t('auth_not_configured','Ожидается настройка сервера'));return;}
   if(!window.VKIDSDK)await new Promise((resolve,reject)=>{
    const script=document.createElement('script');
    script.src='https://unpkg.com/@vkid/sdk@2.6.9/dist-sdk/umd/index.js';
@@ -62,18 +66,40 @@ async function start(){
   const VKID=window.VKIDSDK;
   if(!VKID)throw new Error('VK ID SDK unavailable');
   VKID.Config.init({app:config.appId,redirectUrl:'https://cat-fight.ru/echo/',responseMode:VKID.ConfigResponseMode.Callback,source:VKID.ConfigSource.LOWCODE,scope:''});
-  new VKID.OAuthList().render({container:widget,scheme:'dark',styles:{borderRadius:12,height:40},oauthList:['vkid','ok_ru','mail_ru']})
-    .on(VKID.WidgetEvents.ERROR,error=>{console.error('[VKID]',error);status.hidden=false;status.textContent=t('auth_failed','Ошибка авторизации');})
-    .on(VKID.OAuthListInternalEvents.LOGIN_SUCCESS,async payload=>{
-      try{
-       const auth=await VKID.Auth.exchangeCode(payload.code,payload.device_id);
-       const account=await request('vk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accessToken:auth.access_token})});
-       token=account.token;localStorage.setItem(key,token);await refresh();
-      }catch(error){console.error('[VKID]',error);status.textContent=t('auth_failed','Ошибка авторизации');}
-    });
- }catch(error){console.error('[VKID]',error);started=false;status.hidden=false;status.textContent=t('auth_unavailable','Сервер авторизации ECHO недоступен');}
+  new VKID.OAuthList().render({container:loginWidget,scheme:'dark',styles:{borderRadius:12,height:40},oauthList:['vkid','ok_ru','mail_ru']})
+   .on(VKID.WidgetEvents.ERROR,error=>{console.error('[VKID]',error);loginMessage(t('auth_failed','Ошибка авторизации'));})
+   .on(VKID.OAuthListInternalEvents.LOGIN_SUCCESS,async payload=>{
+    try{
+     const auth=await VKID.Auth.exchangeCode(payload.code,payload.device_id);
+     const account=await request('vk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accessToken:auth.access_token})});
+     token=account.token;localStorage.setItem(key,token);
+     await refresh();
+     window.ECHOModal?.close();
+    }catch(error){console.error('[VKID]',error);loginMessage(t('auth_failed','Ошибка авторизации'));}
+   });
+ }catch(error){
+  console.error('[VKID]',error);
+  loginMessage(t('auth_unavailable','Сервер авторизации ECHO недоступен'));
+ }finally{started=false;}
 }
-document.querySelector('#menu-settings')?.addEventListener('click',()=>token?refresh():start());
+document.querySelector('#menu-settings')?.addEventListener('click',()=>{if(token)refresh();});
+document.querySelector('#echo-open-login')?.addEventListener('click',()=>{
+ if(current)return;
+ const content=document.createElement('div');
+ content.className='echo-login-modal-content';
+ loginWidget=document.createElement('div');
+ loginWidget.className='echo-login-widget';
+ loginError=document.createElement('p');
+ loginError.className='echo-login-error';
+ loginError.setAttribute('role','status');
+ content.append(loginWidget,loginError);
+ window.ECHOModal?.open({
+  title:t('auth_modal_title','АВТОРИЗАЦИЯ'),
+  contentElement:content,
+  buttons:[{label:t('back','Назад'),value:false}],
+ });
+ start();
+});
 document.querySelector('#echo-edit-name')?.addEventListener('click',()=>{
  if(!current)return;
  const field=document.createElement('input');
@@ -119,6 +145,6 @@ document.querySelector('#echo-logout')?.addEventListener('click',async()=>{
  const approved=await window.ECHOModal.confirm({title:t('logout_confirm_title','ВЫХОД ИЗ АККАУНТА'),text:t('logout_confirm_text','Выйти из аккаунта ECHO?'),confirmText:t('yes','Да'),cancelText:t('no','Нет')});
  if(!approved)return;
  try{await request('logout',{method:'POST'});}catch{}
- token=null;localStorage.removeItem(key);showGuest();start();
+ token=null;localStorage.removeItem(key);showGuest();
 });
 refresh();
