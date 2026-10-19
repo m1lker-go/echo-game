@@ -88,7 +88,8 @@
     "nickname_saved": "Имя успешно изменено",
     "logout_confirm_title": "ВЫХОД ИЗ АККАУНТА",
     "logout_confirm_text": "Выйти из аккаунта ECHO?",
-    "edit_nickname": "Изменить имя"
+    "edit_nickname": "Изменить имя",
+    "auth_entry_title": "Вход / Регистрация"
   },
   "game": {
     "map_short": "КАРТА",
