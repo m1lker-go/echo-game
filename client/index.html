@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="./echo-font.css?v=echo-global-font-1" />
   <link rel="stylesheet" href="./menu-width.css?v=1" />
   <link rel="stylesheet" href="./settings-refresh.css?v=8" />
-  <link rel="stylesheet" href="./landscape-menu-layout.css?v=1" />
+  <link rel="stylesheet" href="./landscape-menu-layout.css?v=2" />
   <link rel="stylesheet" href="./orientation.css?v=4" />
   <link rel="stylesheet" href="./fullscreen.css?v=2" />
 </head>
@@ -99,7 +99,7 @@
       <div id="menu-character" class="menu-screen character-screen" hidden aria-label="Выбор персонажа" data-i18n-aria-label="menu:character_screen_aria_label"><div class="menu-page-head"><h1 data-i18n="menu:choose_character_title">ПЕРСОНАЖ</h1><p data-i18n="menu:choose_character_hint">Выбери того, кто появится в игре</p></div><div id="character-grid" class="character-grid"></div><button id="character-back" class="menu-back" type="button" data-i18n="menu:back">Назад</button></div>
       <div id="menu-quests-screen" class="menu-screen echo-quests-screen" hidden><div class="menu-page-head"><h1 data-i18n="menu:quests_title">ЗАДАНИЯ</h1><p data-i18n="menu:quests_hint">Выполняй задания каждый день</p></div><p id="quests-reset" class="echo-quests-reset"></p><div id="quests-list" class="echo-quests-list" aria-live="polite"></div><p id="quests-status" class="echo-quests-status" role="status"></p><button id="quests-back" class="menu-back" type="button" data-i18n="menu:back">Назад</button></div>
       <div id="menu-shop-screen" class="menu-screen echo-shop-screen" hidden aria-label="Магазин">
-  <div class="menu-page-head"><h1 data-i18n="menu:shop_title">МАГАЗИН</h1><p data-i18n="menu:shop_hint">Выбери набор карточек Echo</p></div>
+  <div class="menu-page-head"><h1 data-i18n="menu:shop_title">МАГАЗИН</h1><p class="echo-shop-balance" role="status"><span data-i18n="menu:shop_balance">Баланс:</span> <strong id="echo-shop-balance-value">—</strong> <img src="./assets/icons/coin.webp" alt="ECHO Coin" width="26" height="26"></p></div>
   <div class="echo-shop-packs">
     <article class="echo-shop-pack"><div class="echo-shop-pack-art"><img src="./assets/packs/foil-base.svg" alt="Echo foil pack"></div><h2 data-i18n="menu:shop_coin_pack">Пак за монеты</h2><div class="echo-shop-price"><img src="./assets/icons/coin.webp" alt="" width="26" height="26"><span data-i18n="menu:shop_coin_price">Цена скоро появится</span></div><button class="menu-button" type="button" data-echo-preview-pack="coin">Открыть демо</button></article>
     <article class="echo-shop-pack"><div class="echo-shop-pack-art echo-shop-pack-premium"><img src="./assets/packs/foil-base.svg" alt="Echo premium foil pack"></div><h2 data-i18n="menu:shop_premium_pack">Пак за реальные деньги</h2><div class="echo-shop-price" data-i18n="menu:shop_real_price">Цена скоро появится</div><button class="menu-button" type="button" data-echo-preview-pack="premium">Открыть демо</button></article>
@@ -118,8 +118,9 @@
   <script type="module" src="./asset-loader-patch.js?v=echo-water-gradient-1"></script>
   <script type="module" src="./menu.js?v=echo-daily-quests-1"></script>
   <script type="module" src="./toast.js?v=1"></script>
-  <script type="module" src="./auth-ui.js?v=9"></script>
+  <script type="module" src="./auth-ui.js?v=10"></script>
   <script type="module" src="./daily-quests.js?v=1"></script>
+  <script type="module" src="./shop-balance.js?v=1"></script>
   <script type="module" src="./pack-lab.js?v=echo-shop-integrated-1"></script>
   <script type="module" src="./music-manager.js?v=echo-volume-controls-1"></script>
   <script type="module" src="./audio-settings.js?v=echo-volume-controls-1"></script>
