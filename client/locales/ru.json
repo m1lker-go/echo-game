@@ -96,7 +96,8 @@
     "sound_section": "ЗВУК",
     "other_section": "ДРУГОЕ",
     "rotate_title": "ПОВЕРНИТЕ УСТРОЙСТВО",
-    "rotate_description": "Для игры в ECHO поверните устройство горизонтально."
+    "rotate_description": "Для игры в ECHO поверните устройство горизонтально.",
+    "shop_balance": "Баланс:"
   },
   "game": {
     "map_short": "КАРТА",
