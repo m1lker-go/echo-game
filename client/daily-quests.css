@@ -28,13 +28,18 @@
 @keyframes echo-quest-pulse{from{opacity:.75;box-shadow:0 0 3px #fff}to{opacity:1;box-shadow:0 0 6px #fff,0 0 13px #ccecff}}
 @media(prefers-reduced-motion:reduce){.echo-quest-dot.is-done{animation:none}}
 /* Fixed-size compact quest HUD above coordinates. */
-#game .echo-quest-hud{position:absolute;z-index:12;top:max(5px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:flex;align-items:stretch;width:min(72vw,310px);height:34px;box-sizing:border-box;border:1px solid rgba(185,215,240,.55);border-radius:8px;overflow:hidden;background:rgba(4,12,22,.88);box-shadow:0 4px 12px #0007;color:#f1f8ff;font-size:clamp(11px,2.2vh,13px)}
+#game .echo-quest-hud{position:absolute;z-index:12;top:max(5px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:flex;align-items:stretch;width:min(78vw,370px);height:66px;box-sizing:border-box;border:1px solid rgba(185,215,240,.55);border-radius:8px;overflow:hidden;background:rgba(4,12,22,.88);box-shadow:0 4px 12px #0007;color:#f1f8ff;font-size:clamp(11px,2.2vh,13px)}
 #game .echo-quest-hud[hidden]{display:none}
-#game .echo-quest-hud-name{display:flex;align-items:center;justify-content:center;flex-wrap:nowrap;gap:7px;min-width:0;flex:1 1 58%;padding:4px 6px;overflow:hidden;white-space:nowrap;font-weight:600}
-#game .echo-quest-hud-action{border:0;border-left:1px solid rgba(185,215,240,.45);background:rgba(64,105,136,.32);color:#fff;font:inherit;font-weight:600;padding:4px 6px;min-width:0;flex:0 0 42%;white-space:nowrap;cursor:default}
+#game .echo-quest-hud-name{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;min-width:0;flex:1 1 60%;padding:5px 7px;overflow:hidden;white-space:nowrap;font-weight:600}
+#game .echo-quest-hud-action{border:0;border-left:1px solid rgba(185,215,240,.45);background:rgba(64,105,136,.32);color:#fff;font:inherit;font-weight:600;padding:4px 6px;min-width:0;flex:0 0 40%;white-space:nowrap;cursor:default}
 #game .echo-quest-hud-action.is-ready{background:rgba(38,143,105,.45);color:#b9ffdd;cursor:pointer}
 #game .echo-quest-hud-action:disabled{opacity:.83}
 #game .echo-quest-hud .echo-quest-levels{gap:3px}
 #game .echo-quest-hud .echo-quest-dot{width:6px;height:6px}
-#game:has(.echo-quest-hud:not([hidden])) #coords{top:max(46px,calc(env(safe-area-inset-top) + 46px))}
-@media(max-width:600px){#game .echo-quest-hud{width:min(75vw,300px);height:32px;font-size:11px}#game .echo-quest-hud-name{gap:4px;padding:3px 4px}#game .echo-quest-hud-action{padding:3px 4px}}
+#game:has(.echo-quest-hud:not([hidden])) #coords{top:max(79px,calc(env(safe-area-inset-top) + 79px))}
+@media(max-width:600px){#game .echo-quest-hud{width:min(80vw,340px);height:60px;font-size:11px}#game .echo-quest-hud-name{gap:2px;padding:4px 5px}#game .echo-quest-hud-action{padding:3px 4px}}
+
+#game .echo-quest-hud-title{display:block;font-weight:700;line-height:1.1;white-space:nowrap}
+#game .echo-quest-hud-description{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.85em;line-height:1.1;color:#b7cad9;font-weight:400}
+#game .echo-quest-hud .echo-quest-levels{flex:0 0 auto}
+@media(max-width:600px){#game:has(.echo-quest-hud:not([hidden])) #coords{top:max(74px,calc(env(safe-area-inset-top) + 74px))}}
