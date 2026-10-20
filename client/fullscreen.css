@@ -11,3 +11,16 @@
 #game .status-stack .echo-game-top-actions{width:100%;position:relative;display:flex;justify-content:center}
 #game .status-stack .echo-game-top-actions .game-exit{width:100%;flex:0 0 100%;min-width:0}
 #game .status-stack .echo-game-top-actions .echo-fullscreen-toggle{position:absolute;right:calc(100% + clamp(8px,calc(10px * var(--echo-ui-scale,1)),16px));top:50%;transform:translateY(-50%)}
+
+/* One persistent fullscreen control for the entire ECHO app, including menus. */
+#game > #echo-fullscreen-toggle{
+ position:fixed;
+ top:max(10px,env(safe-area-inset-top));
+ right:max(10px,env(safe-area-inset-right));
+ z-index:2100;
+ pointer-events:auto;
+ box-shadow:0 2px 14px #0009;
+}
+#game:has(#echo-pack-3d:not([hidden])) > #echo-fullscreen-toggle{
+ right:calc(max(10px,env(safe-area-inset-right)) + 55px);
+}
