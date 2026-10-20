@@ -3,7 +3,7 @@ export const CHARACTER_RARITY = Object.freeze({
   'character-female-a.glb': 'common',
   'character-female-b.glb': 'common',
   'character-female-c.glb': 'common',
-  'character-female-d.glb': 'common',
+  'character-female-d.glb': 'uncommon',
   'character-female-e.glb': 'common',
   'character-female-f.glb': 'common',
   'character-male-a.glb': 'common',
