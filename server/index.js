@@ -125,6 +125,49 @@ async function addDailyPlaySeconds(profileId, seconds, dateKey) {
 }
 
 
+// Secure pack rolls: no rewards are accepted from the browser.
+const packRandom=require('node:crypto');
+const PACK_WEIGHTS={
+ coin:{common:60,uncommon:27,rare:10,epic:2.5,legendary:.5},
+ premium:{common:0,uncommon:28,rare:39,epic:26,legendary:7}
+};
+const PACK_RARITY_LIMIT={common:4,uncommon:3,rare:3,epic:2,legendary:1};
+function pickWeighted(items,getWeight){
+ const total=items.reduce((sum,item)=>sum+getWeight(item),0);
+ let ticket=packRandom.randomInt(0,1000000000)/1000000000*total;
+ for(const item of items){ticket-=getWeight(item);if(ticket<0)return item;}
+ return items[items.length-1];
+}
+function rollSecurePack(type){
+ const weights=PACK_WEIGHTS[type],poolModels=Object.keys(HERO_RARITIES).filter(m=>weights[HERO_RARITIES[m]]>0);
+ const used={common:0,uncommon:0,rare:0,epic:0,legendary:0},cards=[];
+ for(let i=0;i<5;i++){
+  const allowed=Object.keys(weights).filter(r=>weights[r]>0&&used[r]<PACK_RARITY_LIMIT[r]&&poolModels.some(m=>HERO_RARITIES[m]===r));
+  const rarity=pickWeighted(allowed,r=>weights[r]),options=poolModels.filter(m=>HERO_RARITIES[m]===rarity);
+  const model=options[packRandom.randomInt(options.length)];
+  poolModels.splice(poolModels.indexOf(model),1);used[rarity]++;
+  cards.push({model,rarity,count:1});
+ }
+ for(let i=5;i<(type==='premium'?15:5);i++)pickWeighted(cards,c=>weights[c.rarity]).count++;
+ return cards;
+}
+app.post('/api/packs/coin/open',async(req,res)=>{
+ let client;
+ try{
+  const accountId=await heroAccount(req,res);if(!accountId)return;
+  client=await pool.connect();await client.query('BEGIN');
+  const wallet=await client.query('UPDATE echo_wallets SET coins=coins-50 WHERE profile_id=$1 AND coins>=50 RETURNING coins',[String(accountId)]);
+  if(!wallet.rowCount){await client.query('ROLLBACK');return res.status(409).json({error:'Insufficient ECHO Coin'});}
+  const cards=rollSecurePack('coin');
+  for(const card of cards)await client.query(
+   'INSERT INTO echo_hero_collection(account_id,model,fragments) VALUES($1,$2,$3) ON CONFLICT(account_id,model) DO UPDATE SET fragments=echo_hero_collection.fragments+EXCLUDED.fragments',
+   [String(accountId),card.model,card.count]);
+  await client.query('COMMIT');
+  res.json({cards,balance:Number(wallet.rows[0].coins)});
+ }catch(error){if(client)await client.query('ROLLBACK').catch(()=>{});console.error('[packs] purchase failed',error);res.status(500).json({error:'Pack purchase failed'});}
+ finally{client?.release();}
+});
+
 // Server-authoritative character collection. Demo pack openings never grant fragments.
 const HERO_RARITIES = Object.freeze({
  'character-female-a.glb':'common','character-female-b.glb':'common',
