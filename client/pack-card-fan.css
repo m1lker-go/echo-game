@@ -115,3 +115,34 @@
 #echo-pack-3d .echo-fan-card .echo-fan-portrait{z-index:1}
 #echo-pack-3d .echo-fan-card .echo-fan-rarity,
 #echo-pack-3d .echo-fan-card .echo-fan-name{z-index:2}
+
+/* Rarity label: one consistent hexagonal plate over every rarity texture. */
+#echo-pack-3d .echo-fan-card .echo-fan-rarity{
+ position:absolute;
+ top:71%;
+ left:17%;
+ width:66%;
+ height:10%;
+ padding:1px 9%;
+ box-sizing:border-box;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ background:color-mix(in srgb,var(--rarity) 78%,#11121b 22%);
+ color:#fff;
+ border:0;
+ clip-path:polygon(14% 0,86% 0,100% 50%,86% 100%,14% 100%,0 50%);
+ text-shadow:0 1px 3px #000b;
+ font-size:clamp(7px,.95vw,11px);
+ font-weight:800;
+ letter-spacing:.02em;
+ line-height:1;
+ white-space:nowrap;
+ z-index:3;
+}
+@media(max-width:620px){
+ #echo-pack-3d .echo-fan-card .echo-fan-rarity{
+  font-size:clamp(6px,1.85vw,9px);
+  padding:1px 8%;
+ }
+}
