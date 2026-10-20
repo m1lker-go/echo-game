@@ -201,6 +201,8 @@ async function reveal(event){
  fan.setAttribute('role','button');fan.setAttribute('tabindex','0');
  fan.setAttribute('aria-label',locale()==='en'?'Revealing character cards':'Открытие карточек героев');
  await portraits().catch(err=>console.warn('[ECHO cards] portraits unavailable',err));
+ // A previous preparation may have finished while this new pack was queued.
+ if(rarities.some(r=>!portraitCache.has(r.model)))await portraits().catch(err=>console.warn('[ECHO cards] More portraits unavailable',err));
  if(id!==session||root.hidden)return;
  canAdvance=true;launchNext();
 }
