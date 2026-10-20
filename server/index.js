@@ -125,6 +125,58 @@ async function addDailyPlaySeconds(profileId, seconds, dateKey) {
 }
 
 
+// Server-authoritative character collection. Demo pack openings never grant fragments.
+const HERO_RARITIES = Object.freeze({
+ 'character-female-a.glb':'common','character-female-b.glb':'common',
+ 'character-female-c.glb':'common','character-female-d.glb':'uncommon',
+ 'character-female-e.glb':'common','character-female-f.glb':'common',
+ 'character-male-a.glb':'common','character-male-b.glb':'uncommon',
+ 'character-male-c.glb':'rare','character-male-d.glb':'rare',
+ 'character-male-e.glb':'uncommon','character-male-f.glb':'uncommon',
+ 'character-ghost.glb':'legendary','character-keeper.glb':'rare',
+ 'character-skeleton.glb':'legendary','character-zombie.glb':'epic',
+ 'character-human.glb':'rare','character-orc.glb':'epic',
+});
+const HERO_REQUIREMENTS=Object.freeze({common:25,uncommon:30,rare:40,epic:50,legendary:60});
+async function heroAccount(req,res){
+ const user=await echoAuth.sessionUser(req);
+ if(!user){res.status(401).json({error:'Unauthorized'});return null;}
+ return user.id;
+}
+async function heroCollection(accountId, db=pool){
+ const result=await db.query('SELECT model,fragments,claimed FROM echo_hero_collection WHERE account_id=$1',[accountId]);
+ return Object.fromEntries(result.rows.map(row=>[row.model,{fragments:Number(row.fragments),claimed:row.claimed}]));
+}
+app.get('/api/heroes',async(req,res)=>{
+ try{
+  const id=await heroAccount(req,res);if(!id)return;
+  res.json({heroes:await heroCollection(id)});
+ }catch(error){console.error('[heroes] read failed',error);res.status(500).json({error:'Collection unavailable'});}
+});
+app.post('/api/heroes/claim',async(req,res)=>{
+ let client;
+ try{
+  const id=await heroAccount(req,res);if(!id)return;
+  const model=req.body?.model,rarity=HERO_RARITIES[model];
+  if(!rarity)return res.status(400).json({error:'Unknown hero'});
+  client=await pool.connect();
+  await client.query('BEGIN');
+  const row=await client.query('SELECT fragments,claimed FROM echo_hero_collection WHERE account_id=$1 AND model=$2 FOR UPDATE',[id,model]);
+  const entry=row.rows[0];
+  if(!entry||entry.claimed||Number(entry.fragments)<HERO_REQUIREMENTS[rarity]){
+   await client.query('ROLLBACK');
+   return res.status(409).json({error:'Not enough fragments or already claimed'});
+  }
+  await client.query('UPDATE echo_hero_collection SET claimed=TRUE WHERE account_id=$1 AND model=$2',[id,model]);
+  await client.query('COMMIT');
+  res.json({model,claimed:true,fragments:Number(entry.fragments)});
+ }catch(error){
+  if(client)await client.query('ROLLBACK').catch(()=>{});
+  console.error('[heroes] claim failed',error);
+  res.status(500).json({error:'Claim unavailable'});
+ }finally{client?.release();}
+});
+
 // Account-bound daily quests. Targets accumulate throughout the Moscow day.
 const DAILY_QUESTS = Object.freeze([
   { id: 'play', column: 'play_seconds', targets: [300,600,1800,2700,3600] },
@@ -253,7 +305,7 @@ const STARTER_SKINS = new Set(['character-female-b.glb','character-male-a.glb','
 const GUEST_SKINS = new Set(['character-female-a.glb','character-female-b.glb','character-female-c.glb','character-female-e.glb','character-female-f.glb','character-male-a.glb']);
 function allowedPlayerSkin(socket,skin){
  return ALLOWED_SKINS.has(skin) &&
-   (socket.data.verifiedAccountId ? STARTER_SKINS.has(skin) : GUEST_SKINS.has(skin));
+   (socket.data.verifiedAccountId ? (STARTER_SKINS.has(skin)||socket.data.claimedHeroes?.has(skin)) : GUEST_SKINS.has(skin));
 }
 function defaultPlayerSkin(socket){
  return socket.data.verifiedAccountId?'character-female-b.glb':'character-female-a.glb';
@@ -934,6 +986,7 @@ setInterval(() => {
 io.use(async (socket, next) => {
   socket.data.verifiedNickname = null;
   socket.data.verifiedAccountId = null;
+  socket.data.claimedHeroes=new Set();
   const token = socket.handshake.auth?.accountToken;
   if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) return next();
   try {
@@ -941,6 +994,7 @@ io.use(async (socket, next) => {
     if (user) {
       socket.data.verifiedNickname = user.nickname;
       socket.data.verifiedAccountId = user.id;
+      socket.data.claimedHeroes=new Set(Object.entries(await heroCollection(user.id)).filter(([,entry])=>entry.claimed).map(([model])=>model));
     }
   } catch (error) {
     console.error('[socket] account verification unavailable:', error.message);
@@ -1170,6 +1224,7 @@ server.listen(port, '0.0.0.0', async () => {
   try {
     await checkDatabase();
     await ensureDailyActivitySchema();
+    await pool.query('CREATE TABLE IF NOT EXISTS echo_hero_collection (account_id TEXT NOT NULL, model TEXT NOT NULL, fragments INTEGER NOT NULL DEFAULT 0 CHECK (fragments >= 0), claimed BOOLEAN NOT NULL DEFAULT FALSE, PRIMARY KEY (account_id,model))');
     await pool.query('CREATE TABLE IF NOT EXISTS echo_daily_quest_claims (profile_id TEXT NOT NULL, quest_date DATE NOT NULL, quest_id TEXT NOT NULL, claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (profile_id, quest_date, quest_id))');
     await roundRewards.initialize(pool);
     await echoAuth.initialize();
