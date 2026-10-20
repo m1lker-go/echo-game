@@ -85,3 +85,13 @@
   gap:10px!important;
  }
 }
+
+/* Echo Coin price is displayed with the in-game currency icon. */
+#main-menu .echo-shop-pack .echo-pack-price-coin{
+  display:block;
+  width:clamp(22px,3.4vw,30px);
+  height:clamp(22px,3.4vw,30px);
+  object-fit:contain;
+  flex:none;
+}
+#main-menu .echo-shop-pack [data-echo-preview-pack="coin"]{gap:7px}
