@@ -191,3 +191,11 @@
 #game:not(.echo-in-battle):not(.echo-menu-subpage) > #echo-fullscreen-toggle{
  right:var(--echo-nav-right);
 }
+
+/* Secondary menu screens use the shared side back arrow only. */
+#menu-character #character-back,
+#menu-settings-screen #settings-back,
+#menu-shop-screen #shop-back,
+#menu-quests-screen #quests-back {
+  display: none !important;
+}
