@@ -54,14 +54,15 @@ function showScreen(screen) {
 
 function openMenu() {
   menu.classList.remove('is-hidden');
+  document.getElementById('game')?.classList.remove('echo-in-battle');
   showScreen('main');
 }
 
 function startGame() {
   window.ECHO_SELECTED_MODEL = selectedModel;
-  const url = new URL(window.location.href);
-  url.searchParams.set('play', '1');
-  window.location.href = url.toString();
+  menu.classList.add('is-hidden');
+  document.getElementById('game')?.classList.add('echo-in-battle');
+  document.dispatchEvent(new Event('echo:game-started'));
 }
 
 function openPlaceholder(title) {
@@ -452,6 +453,7 @@ requestAnimationFrame(drawFood);
 const params = new URLSearchParams(window.location.search);
 if (params.get('play') === '1') {
   menu.classList.add('is-hidden');
+  document.getElementById('game')?.classList.add('echo-in-battle');
   // Only remove auto-start; later modules still need debugWater/noReflections.
   const cleanedUrl = new URL(window.location.href);
   cleanedUrl.searchParams.delete('play');
