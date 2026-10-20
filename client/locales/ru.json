@@ -138,7 +138,13 @@
     "pack_init_failed": "Анимированный WebP не удалось открыть покадрово.",
     "hero_active": "Активный",
     "hero_claim": "Получить",
-    "hero_claim_error": "Не удалось получить персонажа"
+    "hero_claim_error": "Не удалось получить персонажа",
+    "pack_buy_coin": "50 ECHO Coin",
+    "pack_buy_premium": "250 ₽ / 40 голосов VK",
+    "pack_payment_pending": "Оплата элитных паков пока не подключена",
+    "pack_login_required": "Для покупки пака войдите в аккаунт",
+    "pack_not_enough_coins": "Недостаточно ECHO Coin",
+    "pack_buy_failed": "Не удалось купить пак"
   },
   "game": {
     "map_short": "КАРТА",
