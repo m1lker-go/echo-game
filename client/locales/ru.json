@@ -144,7 +144,14 @@
     "pack_payment_pending": "Оплата элитных паков пока не подключена",
     "pack_login_required": "Для покупки пака войдите в аккаунт",
     "pack_not_enough_coins": "Недостаточно ECHO Coin",
-    "pack_buy_failed": "Не удалось купить пак"
+    "pack_buy_failed": "Не удалось купить пак",
+    "pack_repeat_title": "Покупка пака",
+    "pack_repeat_confirm": "Вы уверены, что хотите приобрести {pack} за {price}?",
+    "pack_name_coin": "обычный пак",
+    "pack_name_premium": "элитный пак",
+    "pack_price_coin": "50 ECHO Coin",
+    "pack_price_rubles": "250 ₽",
+    "pack_price_votes": "40 голосов VK"
   },
   "game": {
     "map_short": "КАРТА",
