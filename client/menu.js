@@ -156,7 +156,7 @@ function openSettings() {
 }
 
 startButton.addEventListener('click', startGame);
-characterButton.addEventListener('click', () => showScreen('character'));
+characterButton.addEventListener('click', () => {showScreen('character');void loadHeroCollection();});
 settingsButton.addEventListener('click', openSettings);
 shopButton.addEventListener('click', () => showScreen('shop'));
 document.querySelector('#shop-back')?.addEventListener('click', openMenu);
