@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="./pack-preview.css?v=echo-ribbon-v6" />
   <link rel="stylesheet" href="./pack-shop-3d.css?v=echo-square-close-1" />
   <link rel="stylesheet" href="./pack-card-fan.css?v=10" />
-  <link rel="stylesheet" href="./shop.css?v=echo-cards-portrait-4" />
+  <link rel="stylesheet" href="./shop.css?v=echo-platform-price-1" />
   <link rel="stylesheet" href="./daily-quests.css?v=7" />
   <link rel="stylesheet" href="./auth.css?v=2" />
   <link rel="stylesheet" href="./toast.css?v=2" />
@@ -109,11 +109,11 @@
   <div class="echo-shop-packs">
     <article class="echo-shop-pack" aria-label="Обычный пак Echo" data-i18n-aria-label="menu:pack_basic_label">
       <div class="echo-shop-pack-art"><img src="./assets/packs/basiccardpic.webp" alt="ECHO CARDS — обычная колода" data-i18n-alt="menu:pack_basic_alt"></div>
-      <button class="menu-button" type="button" data-echo-preview-pack="coin" data-i18n="menu:pack_buy_coin">50 ECHO Coin</button>
+      <button class="menu-button" type="button" data-echo-preview-pack="coin" aria-label="50 ECHO Coin"><span>50</span><img class="echo-pack-price-coin" src="./assets/icons/coin.webp" alt="ECHO Coin"></button>
     </article>
     <article class="echo-shop-pack" aria-label="Специальный пак Echo" data-i18n-aria-label="menu:pack_special_label">
       <div class="echo-shop-pack-art"><img src="./assets/packs/specialcardpic.webp" alt="ECHO CARDS — Special Edition" data-i18n-alt="menu:pack_special_alt"></div>
-      <button class="menu-button" type="button" data-echo-preview-pack="premium" data-i18n="menu:pack_buy_premium">250 ₽ / 40 голосов VK</button>
+      <button class="menu-button" type="button" data-echo-preview-pack="premium"><span id="echo-premium-price">250 ₽</span></button>
     </article>
   </div>
   <button id="shop-back" class="menu-back" type="button" data-i18n="menu:back">Назад</button>
@@ -144,7 +144,7 @@
   <script type="module" src="./toast.js?v=2"></script>
   <script type="module" src="./auth-ui.js?v=echo-starter-locks-1"></script>
   <script type="module" src="./daily-quests.js?v=12"></script>
-  <script type="module" src="./shop-balance.js?v=echo-real-coin-1"></script>
+  <script type="module" src="./shop-balance.js?v=echo-platform-price-1"></script>
   <script type="module" src="./pack-animation.js?v=echo-real-coin-1"></script>
   <script type="module" src="./pack-card-fan.js?v=echo-real-coin-1"></script>
   <script type="module" src="./music-manager.js?v=echo-volume-controls-1"></script>
