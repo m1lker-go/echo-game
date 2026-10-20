@@ -135,7 +135,10 @@
     "pack_loading": "Loading pack frames…",
     "pack_decoder_unsupported": "Frame-by-frame opening requires an ImageDecoder-compatible browser (such as Chrome).",
     "pack_decode_failed": "Could not decode a WebP frame. Check the animation and refresh.",
-    "pack_init_failed": "Could not open the animated WebP frame by frame."
+    "pack_init_failed": "Could not open the animated WebP frame by frame.",
+    "hero_active": "Active",
+    "hero_claim": "Claim",
+    "hero_claim_error": "Could not claim character"
   },
   "game": {
     "map_short": "MAP",
