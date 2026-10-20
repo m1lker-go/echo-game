@@ -10,6 +10,8 @@ const rarities=[
  {key:'legendary',ru:'ЛЕГЕНДАРНАЯ',en:'LEGENDARY',color:'#ffe098',model:'character-female-f.glb',count:1}
 ];
 let session=0,timers=[],portraitCache=new Map(),portraitPromise=null,nextIndex=0,canAdvance=false,live=null,settleTimer=null,currentCard=null;
+const cardArtBase='./assets/packs/';
+const faceNames={common:'card_common.webp',uncommon:'card_uncommon.webp',rare:'card_rare.webp',epic:'card_epic.webp',legendary:'card_legend.webp'};
 const locale=()=>document.documentElement.lang?.startsWith('en')?'en':'ru';
 function stopLive(){
  if(!live)return;
@@ -59,13 +61,16 @@ async function portraits(){
 }
 function makeCard(r,i){
  const card=document.createElement('div');card.className='echo-fan-card';card.style.setProperty('--rarity',r.color);
+ card.style.setProperty('--face-art',`url("${cardArtBase}${faceNames[r.key]}")`);
  card.style.setProperty('--index',i);
  card.style.setProperty('--angle',(-40+i*20)+'deg');
  card.style.setProperty('--spread',(-2+i)*49+'%');
  card.style.setProperty('--rise',(Math.abs(i-2)*10)+'px');
  const label=locale()==='en'?r.en:r.ru;
  const name=r.model.replace('character-','').replace('.glb','').toUpperCase().replaceAll('-',' ');
- card.innerHTML='<div class="echo-fan-inner"><div class="echo-fan-back"><b>ECHO</b><small>CARDS</small></div><div class="echo-fan-front"><div class="echo-fan-glow"></div><div class="echo-fan-portrait"></div><div class="echo-fan-rarity"></div><div class="echo-fan-name"></div><div class="echo-fan-count"></div></div></div>';
+ card.innerHTML='<div class="echo-fan-inner"><div class="echo-fan-back"><img class="echo-fan-back-animated" src="./assets/packs/card_rubashkaa.webp" alt="" draggable="false"></div><div class="echo-fan-front"><div class="echo-fan-glow"></div><div class="echo-fan-portrait"></div><div class="echo-fan-rarity"></div><div class="echo-fan-name"></div><div class="echo-fan-count"></div></div></div>';
+ const backImage=card.querySelector('.echo-fan-back-animated');
+ backImage.addEventListener('error',()=>{backImage.remove();},{once:true});
  card.querySelector('.echo-fan-rarity').textContent=label;
  card.querySelector('.echo-fan-name').textContent=name;
  card.querySelector('.echo-fan-count').textContent='+'+r.count;
