@@ -173,3 +173,21 @@
  padding-top:calc(var(--echo-nav-size) + 7px);
 }
 #game.echo-in-battle .status-stack .echo-game-top-actions{display:none}
+
+/* Unified edge offsets: every page mirrors the battle toolbar alignment. */
+#game{
+ --echo-nav-map-width:calc(var(--echo-minimap-width,190px) * var(--echo-ui-scale,1));
+ --echo-nav-map-right:max(calc(var(--echo-minimap-right,22px) * var(--echo-ui-scale,1)),env(safe-area-inset-right,0px));
+ --echo-nav-right:calc(var(--echo-nav-map-right) + (var(--echo-nav-map-width) - 2 * var(--echo-nav-size) - var(--echo-nav-gap)) / 2);
+}
+#game > #echo-fullscreen-toggle,
+#game > #game-exit{
+ top:max(5px,env(safe-area-inset-top,0px));
+}
+#game > #game-exit{right:var(--echo-nav-right)}
+#game > #echo-fullscreen-toggle{
+ right:calc(var(--echo-nav-right) + var(--echo-nav-size) + var(--echo-nav-gap));
+}
+#game:not(.echo-in-battle):not(.echo-menu-subpage) > #echo-fullscreen-toggle{
+ right:var(--echo-nav-right);
+}
