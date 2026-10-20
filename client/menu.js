@@ -5,6 +5,18 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createCharacterLoaderSelector } from './character-textures.js?v=echo-isolated-character-atlas-1';
 import { getCharacterRarity } from './character-rarity.js';
 
+const RARITY_CARDS = {
+  common: { art: 'card_common.webp', ru: 'ОБЫЧНЫЙ', en: 'COMMON' },
+  uncommon: { art: 'card_uncommon.webp', ru: 'НЕОБЫЧНЫЙ', en: 'UNCOMMON' },
+  rare: { art: 'card_rare.webp', ru: 'РЕДКИЙ', en: 'RARE' },
+  epic: { art: 'card_epic.webp', ru: 'ЭПИЧЕСКИЙ', en: 'EPIC' },
+  legendary: { art: 'card_legend.webp', ru: 'ЛЕГЕНДАРНЫЙ', en: 'LEGENDARY' },
+};
+function rarityLabel(rarity) {
+  const item = RARITY_CARDS[rarity] || RARITY_CARDS.common;
+  return document.documentElement.lang?.startsWith('en') ? item.en : item.ru;
+}
+
 const characters = [
   ['character-female-a.glb', 'Костыль'],
   ['character-female-b.glb', 'Девчонка'],
@@ -202,7 +214,17 @@ function createCharacterCard(file, label) {
   button.type = 'button';
   button.className = 'character-card';
   button.dataset.model = file;
-  button.dataset.rarity = getCharacterRarity(file) || 'common';
+  const rarity = getCharacterRarity(file) || 'common';
+  button.dataset.rarity = rarity;
+  const art = document.createElement('img');
+  art.className = 'character-card-art';
+  art.src = './assets/packs/' + RARITY_CARDS[rarity].art;
+  art.alt = '';
+  art.draggable = false;
+  art.setAttribute('aria-hidden', 'true');
+  const rarityText = document.createElement('span');
+  rarityText.className = 'character-card-rarity';
+  rarityText.textContent = rarityLabel(rarity);
   const labelKey = file.replace('character-', '').replace('.glb', '').replaceAll('-', '_');
   button.setAttribute('aria-label', label);
 
@@ -214,7 +236,7 @@ function createCharacterCard(file, label) {
   caption.className = 'character-card-name';
   caption.textContent = label;
 
-  button.append(canvas, caption);
+  button.append(art, canvas, rarityText, caption);
   button.addEventListener('click', () => {
     selectedModel = file;
     localStorage.setItem(storageKey, selectedModel);
@@ -375,6 +397,8 @@ function refreshLocalizedUI() {
     for (const card of characterGrid.children) {
       const model = card.dataset.model || '';
       const labelKey = model.replace('character-', '').replace('.glb', '').replaceAll('-', '_');
+      const rarity = card.querySelector('.character-card-rarity');
+      if (rarity) rarity.textContent = rarityLabel(card.dataset.rarity);
       const caption = card.querySelector('.character-card-name');
       if (caption) caption.textContent = window.$t('menu:' + labelKey, caption?.textContent || '');
       card.setAttribute('aria-label', window.$t('menu:' + labelKey, caption?.textContent || ''));
