@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" href="./assets/icons/favicon.png" />
   <link rel="stylesheet" href="./style.css?v=echo-language-selector-3" />
   <link rel="stylesheet" href="./ui-layout.css?v=echo-hud-text-2" />
-  <link rel="stylesheet" href="./world-minimap.css?v=echo-map-close-right-1" />
+  <link rel="stylesheet" href="./world-minimap.css?v=echo-map-center-close-1" />
   <link rel="stylesheet" href="./room-leaderboard.css?v=3" />
   <link rel="stylesheet" href="./round-results.css?v=2" />
   <link rel="stylesheet" href="./pack-preview.css?v=echo-ribbon-v6" />
@@ -24,7 +24,7 @@
   <link rel="stylesheet" href="./settings-refresh.css?v=8" />
   <link rel="stylesheet" href="./landscape-menu-layout.css?v=3" />
   <link rel="stylesheet" href="./orientation.css?v=4" />
-  <link rel="stylesheet" href="./fullscreen.css?v=5" />
+  <link rel="stylesheet" href="./fullscreen.css?v=6" />
 </head>
 <body>
   <main id="game" aria-label="ECHO game" data-i18n-aria-label="menu:game_aria_label">
@@ -76,8 +76,9 @@
       <canvas id="echo-minimap-full" class="echo-minimap-full" aria-hidden="true"></canvas>
       <div class="echo-minimap-header">
         <span data-i18n="game:map_title">КАРТА МИРА</span>
-        <button id="echo-minimap-close" class="echo-minimap-close" type="button" aria-label="Закрыть карту" data-i18n-aria-label="game:map_close">×</button>
+        
       </div>
+      <button id="echo-minimap-close" class="echo-minimap-close" type="button" aria-label="Закрыть карту" data-i18n-aria-label="game:map_close">×</button>
       <div class="echo-minimap-legend">
         <span><i class="echo-map-dot echo-map-dot-local"></i><span data-i18n="game:map_you">Вы</span></span>
         <span><i class="echo-map-dot echo-map-dot-remote"></i><span data-i18n="game:map_players">Другие игроки</span> <span id="echo-minimap-player-count">0</span></span>
