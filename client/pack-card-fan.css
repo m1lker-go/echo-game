@@ -99,3 +99,19 @@
  #echo-pack-3d .echo-fan-card .echo-fan-rarity{font-size:7px}
  #echo-pack-3d .echo-fan-card .echo-fan-name{font-size:8px}
 }
+
+/* Texture must cover the complete card, independent of card content and CSS variables. */
+#echo-pack-3d .echo-fan-card .echo-fan-inner{width:100%;height:100%}
+#echo-pack-3d .echo-fan-card .echo-fan-front{background-image:none!important}
+#echo-pack-3d .echo-fan-card .echo-fan-face-texture,
+#echo-pack-3d .echo-fan-card .echo-fan-back-animated{
+ position:absolute!important;top:0!important;left:0!important;
+ width:100%!important;height:100%!important;
+ max-width:none!important;max-height:none!important;
+ object-fit:fill!important;display:block!important;
+ margin:0!important;padding:0!important;border:0!important;
+}
+#echo-pack-3d .echo-fan-card .echo-fan-face-texture{z-index:0;pointer-events:none}
+#echo-pack-3d .echo-fan-card .echo-fan-portrait{z-index:1}
+#echo-pack-3d .echo-fan-card .echo-fan-rarity,
+#echo-pack-3d .echo-fan-card .echo-fan-name{z-index:2}
