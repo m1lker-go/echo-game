@@ -116,3 +116,14 @@
 #game:has(#echo-minimap-overlay:not([hidden])) .mobile-controls {
   z-index: 13;
 }
+
+/* Close full map from the same right-hand area occupied by the miniature map. */
+#game .echo-minimap-header{
+ right:max(calc(var(--echo-minimap-right,22px) * var(--echo-ui-scale,1)),env(safe-area-inset-right,0px));
+}
+#game .echo-minimap-close{
+ width:clamp(34px,calc(42px * var(--echo-ui-scale,1)),64px);
+ height:clamp(34px,calc(42px * var(--echo-ui-scale,1)),64px);
+ min-width:0;min-height:0;flex:none;
+ border-radius:10px;
+}
