@@ -84,3 +84,29 @@
 #game #main-menu .character-card.is-locked .character-card-preview{
   filter:grayscale(1) brightness(.64);
 }
+
+/* Identical status plates for active, fragment progress and ready-to-claim cards. */
+#game #main-menu .character-card-status{
+ position:absolute;z-index:6;left:5px;top:5px;
+ min-width:clamp(68px,8vw,103px);height:clamp(22px,2.6vw,30px);
+ box-sizing:border-box;padding:2px 6px;
+ display:flex;align-items:center;justify-content:center;gap:4px;
+ border:1px solid #fff;border-radius:7px;
+ background:#08090bec;color:#fff;
+ font-size:clamp(9px,1.12vw,13px);font-weight:750;
+ white-space:nowrap;text-shadow:0 1px 2px #000;
+}
+#game #main-menu .character-card-status[hidden]{display:none}
+#game #main-menu .character-card-status img{
+ width:clamp(13px,1.8vw,20px);height:clamp(17px,2.3vw,24px);
+ object-fit:contain;flex:0 0 auto;
+}
+#game #main-menu .character-card.is-locked .character-card-status{
+ filter:none;
+}
+#game #main-menu .character-card.is-locked .character-card-status.is-progress img{
+ filter:none;
+}
+#game #main-menu .character-card-status.is-claim{cursor:pointer}
+#game #main-menu .character-card.is-locked:has(.character-card-status.is-claim){cursor:pointer}
+#game #main-menu .character-card.is-locked::after{display:none}
