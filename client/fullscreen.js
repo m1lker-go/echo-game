@@ -1,6 +1,7 @@
 // Browser fullscreen toggle, triggered by a direct user gesture.
 const button=document.getElementById('echo-fullscreen-toggle');
 const game=document.getElementById('game');
+const preferenceKey='echo.fullscreenWanted';
 const t=(key,fallback)=>window.$t?.('game:'+key,fallback)||fallback;
 function sync(){
  const active=Boolean(document.fullscreenElement||document.webkitFullscreenElement);
@@ -13,11 +14,13 @@ button?.addEventListener('click',async()=>{
   if(document.fullscreenElement||document.webkitFullscreenElement){
    const exit=document.exitFullscreen||document.webkitExitFullscreen;
    if(!exit)throw new Error('Unsupported fullscreen exit');
+   sessionStorage.setItem(preferenceKey,'0');
    await exit.call(document);
   }else{
    const enter=game.requestFullscreen||game.webkitRequestFullscreen;
    if(!enter)throw new Error('Unsupported fullscreen request');
    await enter.call(game);
+   sessionStorage.setItem(preferenceKey,'1');
   }
  }catch(error){
   console.warn('[echo fullscreen]',error);
@@ -28,3 +31,18 @@ button?.addEventListener('click',async()=>{
 document.addEventListener('fullscreenchange',sync);
 document.addEventListener('webkitfullscreenchange',sync);
 sync();
+
+// Reloading the document exits browser fullscreen by design. Browsers require
+// a fresh user activation to enter it again; reuse the first battle gesture.
+if(sessionStorage.getItem(preferenceKey)==='1'){
+ const restore=(event)=>{
+  if(!game?.classList.contains('echo-in-battle'))return;
+  if(document.fullscreenElement||document.webkitFullscreenElement)return;
+  const enter=game.requestFullscreen||game.webkitRequestFullscreen;
+  if(!enter)return;
+  try{Promise.resolve(enter.call(game)).catch(error=>console.warn('[echo fullscreen restore]',error));}
+  catch(error){console.warn('[echo fullscreen restore]',error);}
+ };
+ game?.addEventListener('pointerdown',restore,{once:true,capture:true});
+ game?.addEventListener('keydown',restore,{once:true,capture:true});
+}
