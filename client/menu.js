@@ -60,9 +60,9 @@ function openMenu() {
 
 function startGame() {
   window.ECHO_SELECTED_MODEL = selectedModel;
-  menu.classList.add('is-hidden');
-  document.getElementById('game')?.classList.add('echo-in-battle');
-  document.dispatchEvent(new Event('echo:game-started'));
+  const url=new URL(window.location.href);
+  url.searchParams.set('play','1');
+  window.location.href=url.toString();
 }
 
 function openPlaceholder(title) {
