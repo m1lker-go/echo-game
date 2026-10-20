@@ -94,7 +94,7 @@
  text-align:center;color:#fff;text-shadow:0 1px 4px #000;
  font-size:clamp(7px,.85vw,11px);font-weight:750;
 }
-#echo-pack-3d .echo-fan-card .echo-fan-count{z-index:4;top:6px;right:6px}
+#echo-pack-3d .echo-fan-card .echo-fan-count{z-index:4;top:6px;left:6px;right:auto;color:var(--rarity);text-shadow:0 1px 3px #000}
 @media (max-width:620px){
  #echo-pack-3d .echo-fan-card .echo-fan-rarity{font-size:7px}
  #echo-pack-3d .echo-fan-card .echo-fan-name{font-size:8px}
