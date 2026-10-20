@@ -6,13 +6,13 @@
  justify-items:center!important;
  align-items:start!important;
  gap:clamp(10px,2.5vw,24px)!important;
- width:min(100%,calc(2 * min(28.5dvh,220px) + 30px))!important;
+ width:min(100%,calc(2 * min(34dvh,260px) + 30px))!important;
  max-width:none!important;
  margin:12px auto 18px!important;
 }
 #main-menu .echo-shop-pack{
  width:100%!important;
- max-width:220px!important;
+ max-width:260px!important;
  min-width:0!important;
  padding:0!important;
  margin:0!important;
@@ -81,7 +81,7 @@
 #main-menu .echo-shop-screen .menu-back{margin:0 auto;}
 @media (orientation:portrait){
  #main-menu .echo-shop-packs{
-  width:min(100%,calc(2 * min(42vw,210px) + 12px))!important;
+  width:min(100%,calc(2 * min(44vw,240px) + 12px))!important;
   gap:10px!important;
  }
 }
