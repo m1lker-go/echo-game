@@ -13,17 +13,17 @@ export function createCharacterLoaderSelector(THREE, GLTFLoader, defaultLoader) 
   const loaders = new Map();
   return (file) => {
     const texture = TEXTURE_BY_MODEL[file];
-    if (!texture) return defaultLoader;
-    if (!loaders.has(texture)) {
+    const atlas = texture || 'colormap.png';
+    if (!loaders.has(atlas)) {
       const manager = new THREE.LoadingManager();
       manager.setURLModifier((url) => {
         if (/\/Textures\/colormap\.png(?:[?#]|$)/i.test(url)) {
-          return new URL(`./assets/textures/${texture}`, document.baseURI).href;
+          return new URL(`./assets/textures/${atlas}`, document.baseURI).href;
         }
         return url;
       });
-      loaders.set(texture, new GLTFLoader(manager));
+      loaders.set(atlas, new GLTFLoader(manager));
     }
-    return loaders.get(texture);
+    return loaders.get(atlas);
   };
 }
