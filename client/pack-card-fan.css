@@ -63,3 +63,39 @@
   transform:translate(-50%,-100%) rotate(var(--angle)) translateY(-14px) rotateY(720deg) scale(1)!important;
  }
 }
+
+/* Real artwork supplied for Echo's five rarities; the CSS card keeps the 2:3 crop. */
+#echo-pack-3d .echo-fan-card .echo-fan-front,
+#echo-pack-3d .echo-fan-card .echo-fan-back{
+ box-sizing:border-box;padding:0;border:0!important;border-radius:9px;
+ background-position:center;background-repeat:no-repeat;background-size:100% 100%;
+ box-shadow:0 0 12px color-mix(in srgb,var(--rarity) 60%,transparent)!important;
+}
+#echo-pack-3d .echo-fan-card .echo-fan-front{background-image:var(--face-art);overflow:hidden}
+#echo-pack-3d .echo-fan-card .echo-fan-back{background-image:url('./assets/packs/card_rubashka.webp');overflow:hidden}
+#echo-pack-3d .echo-fan-card .echo-fan-back-animated{
+ display:block;position:absolute;inset:0;width:100%;height:100%;
+ object-fit:fill;pointer-events:none;user-select:none;
+}
+#echo-pack-3d .echo-fan-card .echo-fan-glow{display:none}
+#echo-pack-3d .echo-fan-card .echo-fan-portrait{
+ position:absolute;left:7%;top:5%;width:86%;height:67%;
+ background:transparent;font-size:40px;
+}
+#echo-pack-3d .echo-fan-card .echo-fan-rarity{
+ position:absolute;left:23%;width:54%;top:72%;height:6%;
+ display:flex;align-items:center;justify-content:center;
+ color:#fff;text-shadow:0 1px 4px #000;
+ font-size:clamp(6px,.8vw,10px);line-height:1.05;
+}
+#echo-pack-3d .echo-fan-card .echo-fan-name{
+ position:absolute;left:8%;width:84%;top:81%;height:11%;
+ display:flex;align-items:center;justify-content:center;
+ text-align:center;color:#fff;text-shadow:0 1px 4px #000;
+ font-size:clamp(7px,.85vw,11px);font-weight:750;
+}
+#echo-pack-3d .echo-fan-card .echo-fan-count{z-index:4;top:6px;right:6px}
+@media (max-width:620px){
+ #echo-pack-3d .echo-fan-card .echo-fan-rarity{font-size:7px}
+ #echo-pack-3d .echo-fan-card .echo-fan-name{font-size:8px}
+}
