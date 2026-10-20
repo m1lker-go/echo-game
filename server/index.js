@@ -248,6 +248,17 @@ const ALLOWED_SKINS = new Set([
   'character-orc.glb',
 ]);
 
+
+const STARTER_SKINS = new Set(['character-female-b.glb','character-male-a.glb','character-female-c.glb']);
+const GUEST_SKINS = new Set(['character-female-a.glb','character-female-b.glb','character-female-c.glb','character-female-e.glb','character-female-f.glb','character-male-a.glb']);
+function allowedPlayerSkin(socket,skin){
+ return ALLOWED_SKINS.has(skin) &&
+   (socket.data.verifiedAccountId ? STARTER_SKINS.has(skin) : GUEST_SKINS.has(skin));
+}
+function defaultPlayerSkin(socket){
+ return socket.data.verifiedAccountId?'character-female-b.glb':'character-female-a.glb';
+}
+
 const FOOD_COUNT = 1000;
 const FOOD_COLLECT_RADIUS = 60;
 const FOOD_RESPAWN_MIN_MS = 10_000;
@@ -1055,7 +1066,7 @@ io.on('connection', (socket) => {
     energy: 0,
     inWater: false,
     lastWaterDamageAt: 0,
-    skin: ALLOWED_SKINS.has(requestedSkin) ? requestedSkin : 'character-female-a.glb',
+    skin: allowedPlayerSkin(socket,requestedSkin) ? requestedSkin : defaultPlayerSkin(socket),
     fightingWith: null,
     fightId: null,
     defeated: false,
@@ -1071,7 +1082,7 @@ io.on('connection', (socket) => {
     if (helloProfileId && !activityProfileId) receiveActivityPing({ activityProfileId: helloProfileId });
     const requestedSkin = payload?.skin;
     const current = players.get(socket.id);
-    if (current && ALLOWED_SKINS.has(requestedSkin)) current.skin = requestedSkin;
+    if (current && allowedPlayerSkin(socket,requestedSkin)) current.skin = requestedSkin;
     if (current) current.name = socket.data.verifiedNickname || normalizePlayerName(null, activityProfileId || socket.id);
 
     socket.emit('echo:world', createWorldSnapshot());
@@ -1126,7 +1137,7 @@ io.on('connection', (socket) => {
     }
 
     const requestedSkin = payload.skin;
-    if (ALLOWED_SKINS.has(requestedSkin)) current.skin = requestedSkin;
+    if (allowedPlayerSkin(socket,requestedSkin)) current.skin = requestedSkin;
 
     checkForFights(current);
     broadcastPlayers(current);
