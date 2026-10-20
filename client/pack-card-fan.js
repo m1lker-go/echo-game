@@ -36,8 +36,8 @@ function loadModel(model){
  }
  return modelPromises.get(model);
 }
-function prepareRoll(type){
- rarities=rollPack(type==='premium'?'premium':'coin').sort((a,b)=>['common','uncommon','rare','epic','legendary'].indexOf(a.rarity)-['common','uncommon','rare','epic','legendary'].indexOf(b.rarity));
+function prepareRoll(type,cards){
+ rarities=(cards||rollPack(type==='premium'?'premium':'coin')).sort((a,b)=>['common','uncommon','rare','epic','legendary'].indexOf(a.rarity)-['common','uncommon','rare','epic','legendary'].indexOf(b.rarity));
  prepared=true;
  // Start decoding the chosen models immediately, before the user tears the pack.
  for(const {model} of rarities)void loadModel(model).catch(err=>console.warn('[ECHO cards] Preload unavailable:',model,err));
@@ -208,7 +208,7 @@ async function reveal(event){
 }
 fan?.addEventListener('click',launchNext);
 fan?.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();launchNext();}});
-window.addEventListener('echo:pack-prepare',event=>prepareRoll(event.detail?.type));
+window.addEventListener('echo:pack-prepare',event=>prepareRoll(event.detail?.type,event.detail?.cards));
 window.addEventListener('echo:pack-opened',reveal);
 window.addEventListener('echo:pack-reset',clear);
 window.addEventListener('echo:pack-closed',()=>{clear();prepared=false;});
