@@ -2,7 +2,7 @@
 // Character selection is persisted locally and passed to the game through localStorage.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { createCharacterLoaderSelector } from './character-textures.js';
+import { createCharacterLoaderSelector } from './character-textures.js?v=echo-isolated-character-atlas-1';
 
 const characters = [
   ['character-female-a.glb', 'Девушка A'],
