@@ -68,7 +68,8 @@
 /* Locked characters remain visible as collection goals, but cannot be selected. */
 #game #main-menu .character-card.is-locked{
   cursor:not-allowed;
-  filter:grayscale(.72) brightness(.58);
+  filter:none;
+  background:#121212;
 }
 #game #main-menu .character-card.is-locked::after{
   content:'🔒';
@@ -77,3 +78,9 @@
   pointer-events:none;
 }
 #game #main-menu .character-card.is-locked:hover{border-color:transparent}
+
+/* Monochrome artwork and character, while keeping rarity label readable. */
+#game #main-menu .character-card.is-locked .character-card-art,
+#game #main-menu .character-card.is-locked .character-card-preview{
+  filter:grayscale(1) brightness(.64);
+}
