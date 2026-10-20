@@ -199,18 +199,3 @@
 #menu-quests-screen #quests-back {
   display: none !important;
 }
-
-/* Shop navigation: same circular close control as the pack opening dialog. */
-#game > #game-exit.is-menu-back.is-shop-close{
-  border-radius:50%;
-  border:1px solid #ffffff99;
-  background:#080a0ddd;
-}
-#game > #game-exit.is-menu-back.is-shop-close::before{
-  content:'✕';
-  font:22px system-ui;
-  transform:none;
-  width:auto;height:auto;
-  border:0;
-  display:block;
-}
