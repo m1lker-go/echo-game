@@ -27,6 +27,23 @@ const labelFor=model=>{
  return modelNames[key]?.[locale()==='en'?1:0]||key;
 };
 let rarities=[];
+const modelPromises=new Map();
+let prepared=false;
+function loadModel(model){
+ if(!modelPromises.has(model)){
+  const promise=characterLoader(model).loadAsync('./assets/models/'+model).catch(error=>{modelPromises.delete(model);throw error;});
+  modelPromises.set(model,promise);
+ }
+ return modelPromises.get(model);
+}
+function prepareRoll(type){
+ rarities=rollPack(type==='premium'?'premium':'coin').sort((a,b)=>['common','uncommon','rare','epic','legendary'].indexOf(a.rarity)-['common','uncommon','rare','epic','legendary'].indexOf(b.rarity));
+ prepared=true;
+ // Start decoding the chosen models immediately, before the user tears the pack.
+ for(const {model} of rarities)void loadModel(model).catch(err=>console.warn('[ECHO cards] Preload unavailable:',model,err));
+ void portraits().catch(err=>console.warn('[ECHO cards] Portrait preload unavailable:',err));
+}
+
 const baseLoader=new GLTFLoader();
 const characterLoader=createCharacterLoaderSelector(THREE,GLTFLoader,baseLoader);
 let session=0,timers=[],portraitCache=new Map(),portraitPromise=null,nextIndex=0,canAdvance=false,live=null,settleTimer=null,currentCard=null;
@@ -54,29 +71,34 @@ function clear(){if(settleTimer){clearTimeout(settleTimer);settleTimer=null;}ses
 function schedule(fn,ms){timers.push(setTimeout(fn,ms));}
 async function portraits(){
  if(portraitPromise)return portraitPromise;
+ const pending=rarities.filter(r=>!portraitCache.has(r.model));
+ if(!pending.length)return portraitCache;
  portraitPromise=(async()=>{
   const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,preserveDrawingBuffer:true,powerPreference:'low-power'});
   renderer.setSize(256,330);renderer.setPixelRatio(1);renderer.outputColorSpace=THREE.SRGBColorSpace;
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(32,256/330,.1,100);
   scene.add(new THREE.HemisphereLight(0xffffff,0x34465f,3));
   const lamp=new THREE.DirectionalLight(0xffffff,2.7);lamp.position.set(-3,5,7);scene.add(lamp);
+  try{
+   for(const r of pending){
     try{
-   for(const r of rarities){
-    try{
-     const gltf=await characterLoader(r.model).loadAsync('./assets/models/'+r.model);
+     const gltf=await loadModel(r.model);
      const model=gltf.scene;scene.add(model);
-     const bounds=new THREE.Box3().setFromObject(model),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());
-     model.position.sub(center);
-     const maxDim=Math.max(size.y,size.x*1.45,size.z*1.6,.1);
-     const distance=maxDim/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov/2)))*1.22;
-     camera.position.set(0,0,distance);camera.lookAt(0,0,0);
-     renderer.render(scene,camera);portraitCache.set(r.model,renderer.domElement.toDataURL('image/png'));
-     scene.remove(model);
+     try{
+      const bounds=new THREE.Box3().setFromObject(model),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());
+      model.position.sub(center);
+      const maxDim=Math.max(size.y,size.x*1.45,size.z*1.6,.1);
+      const distance=maxDim/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov/2)))*1.22;
+      camera.position.set(0,0,distance);camera.lookAt(0,0,0);
+      renderer.render(scene,camera);
+      portraitCache.set(r.model,renderer.domElement.toDataURL('image/png'));
+     }finally{scene.remove(model);model.position.set(0,0,0);}
     }catch(err){console.warn('[ECHO cards] Character portrait:',r.model,err);}
    }
   }finally{renderer.dispose();renderer.forceContextLoss();}
   return portraitCache;
- })();return portraitPromise;
+ })();
+ try{return await portraitPromise;}finally{portraitPromise=null;}
 }
 function makeCard(r,i){
  const card=document.createElement('div');card.className='echo-fan-card';card.style.setProperty('--rarity',rarityInfo[r.rarity].color);
@@ -108,7 +130,7 @@ async function animateHero(r,card,id){
  if(!slot||!card.isConnected)return;
  let renderer;
  try{
-  const gltf=await characterLoader(r.model).loadAsync('./assets/models/'+r.model);
+  const gltf=await loadModel(r.model);
   if(id!==session||root.hidden||!card.isConnected||currentCard!==card)return;
   const canvas=document.createElement('canvas');canvas.className='echo-fan-live';
   slot.append(canvas);slot.classList.add('is-live');
@@ -175,7 +197,7 @@ function launchNext(){
 }
 async function reveal(event){
  if(!fan||root.hidden)return;
- clear();rarities=rollPack(event?.detail?.type==='premium'?'premium':'coin').sort((a,b)=>['common','uncommon','rare','epic','legendary'].indexOf(a.rarity)-['common','uncommon','rare','epic','legendary'].indexOf(b.rarity));const id=session;fan.classList.add('is-visible');
+ clear();if(!prepared)prepareRoll(event?.detail?.type);const id=session;fan.classList.add('is-visible');
  fan.setAttribute('role','button');fan.setAttribute('tabindex','0');
  fan.setAttribute('aria-label',locale()==='en'?'Revealing character cards':'Открытие карточек героев');
  await portraits().catch(err=>console.warn('[ECHO cards] portraits unavailable',err));
@@ -184,9 +206,10 @@ async function reveal(event){
 }
 fan?.addEventListener('click',launchNext);
 fan?.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();launchNext();}});
+window.addEventListener('echo:pack-prepare',event=>prepareRoll(event.detail?.type));
 window.addEventListener('echo:pack-opened',reveal);
 window.addEventListener('echo:pack-reset',clear);
-window.addEventListener('echo:pack-closed',clear);
+window.addEventListener('echo:pack-closed',()=>{clear();prepared=false;});
 document.addEventListener('echo:language-changed',()=>{
  fan?.querySelectorAll('.echo-fan-card').forEach((card,i)=>card.querySelector('.echo-fan-rarity').textContent=locale()==='en'?rarityInfo[rarities[i].rarity].en:rarityInfo[rarities[i].rarity].ru);
  fan?.querySelectorAll('.echo-fan-card').forEach((card,i)=>card.querySelector('.echo-fan-name').textContent=labelFor(rarities[i].model));
