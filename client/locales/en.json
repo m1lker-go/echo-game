@@ -138,7 +138,13 @@
     "pack_init_failed": "Could not open the animated WebP frame by frame.",
     "hero_active": "Active",
     "hero_claim": "Claim",
-    "hero_claim_error": "Could not claim character"
+    "hero_claim_error": "Could not claim character",
+    "pack_buy_coin": "50 ECHO Coin",
+    "pack_buy_premium": "250 ₽ / 40 VK votes",
+    "pack_payment_pending": "Elite pack payments are not available yet",
+    "pack_login_required": "Sign in to buy a pack",
+    "pack_not_enough_coins": "Not enough ECHO Coin",
+    "pack_buy_failed": "Could not purchase pack"
   },
   "game": {
     "map_short": "MAP",
