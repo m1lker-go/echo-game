@@ -416,6 +416,7 @@ function renderCharacterState() {
 
 for (const [file, label] of characters) createCharacterCard(file, label);
 renderCharacterState();
+window.addEventListener('echo:hero-collection-refresh',()=>{void loadHeroCollection();});
 document.addEventListener('echo:auth-changed',event=>{
  accessRegistered=Boolean(event.detail?.authenticated);
  ensureUnlockedSelection();
