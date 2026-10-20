@@ -144,7 +144,14 @@
     "pack_payment_pending": "Elite pack payments are not available yet",
     "pack_login_required": "Sign in to buy a pack",
     "pack_not_enough_coins": "Not enough ECHO Coin",
-    "pack_buy_failed": "Could not purchase pack"
+    "pack_buy_failed": "Could not purchase pack",
+    "pack_repeat_title": "Pack purchase",
+    "pack_repeat_confirm": "Are you sure you want to buy {pack} for {price}?",
+    "pack_name_coin": "a standard pack",
+    "pack_name_premium": "an elite pack",
+    "pack_price_coin": "50 ECHO Coin",
+    "pack_price_rubles": "250 ₽",
+    "pack_price_votes": "40 VK votes"
   },
   "game": {
     "map_short": "MAP",
