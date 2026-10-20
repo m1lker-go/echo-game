@@ -5,7 +5,7 @@ if(root){
  const tip=root.querySelector('#echo-pack-3d-hint'),bar=root.querySelector('#echo-pack-3d-bar');
  const closeButton=root.querySelector('#echo-pack-3d-close'),resetButton=root.querySelector('#echo-pack-3d-reset');
  const handle=root.querySelector('#echo-pack-tear-handle');
- let hintTimer=null,toastTimer=null,hintIndex=0;
+ let hintTimer=null,toastTimer=null,hintIndex=0,packType='coin';
  const tr=(key,fallback)=>window.$t?.('menu:'+key,fallback)??fallback;
  const hints=['pack_hint_0','pack_hint_1','pack_hint_2','pack_hint_3','pack_hint_4'];
  function showHint(message){clearTimeout(toastTimer);tip.textContent=message;tip.classList.remove('is-left','is-right');tip.classList.add(hintIndex%2===0?'is-left':'is-right');tip.classList.add('is-visible');toastTimer=setTimeout(()=>tip.classList.remove('is-visible'),2600);}
@@ -33,7 +33,7 @@ if(root){
   bar.style.width=(progress*100).toFixed(1)+'%';
   handle.style.left=(13+progress*74)+'%';
   handle.hidden=progress>=1;
-  if(progress>=1){resetButton.hidden=false;clearInterval(hintTimer);if(!fanTriggered){fanTriggered=true;showHint(tr('pack_hint_done','Пак открыт! 🎉'));window.dispatchEvent(new Event('echo:pack-opened'));}}
+  if(progress>=1){resetButton.hidden=false;clearInterval(hintTimer);if(!fanTriggered){fanTriggered=true;showHint(tr('pack_hint_done','Пак открыт! 🎉'));window.dispatchEvent(new CustomEvent('echo:pack-opened',{detail:{type:packType}}));}}
  }
  function requestFrame(){
   if(!active||!decoder)return;
@@ -86,9 +86,9 @@ if(root){
   }catch(err){console.warn('[Echo Pack] Animation init failed',err);info(tr('pack_init_failed','Анимированный WebP не удалось открыть покадрово.'));}
  }
  function reset(){window.dispatchEvent(new Event('echo:pack-reset'));fanTriggered=false;progress=0;down=false;shown=cache.has(0)?0:-1;resetButton.hidden=true;updateUI();requestFrame();beginHints();}
- function open(){root.hidden=false;reset();resize();prepare();}
+ function open(type='coin'){packType=type==='premium'?'premium':'coin';root.hidden=false;reset();resize();prepare();}
  function close(){window.dispatchEvent(new Event('echo:pack-closed'));root.hidden=true;down=false;active=false;clearInterval(hintTimer);clearTimeout(toastTimer);}
- document.querySelectorAll('[data-echo-preview-pack]').forEach(b=>b.addEventListener('click',open));
+ document.querySelectorAll('[data-echo-preview-pack]').forEach(b=>b.addEventListener('click',()=>open(b.dataset.echoPreviewPack)));
  closeButton.addEventListener('click',close);
  resetButton.addEventListener('click',reset);
  window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!root.hidden)close()});
