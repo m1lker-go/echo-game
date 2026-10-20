@@ -5,7 +5,7 @@ if(root){
  const tip=root.querySelector('#echo-pack-3d-hint'),bar=root.querySelector('#echo-pack-3d-bar');
  const closeButton=root.querySelector('#echo-pack-3d-close'),resetButton=root.querySelector('#echo-pack-3d-reset');
  const handle=root.querySelector('#echo-pack-tear-handle');
- let hintTimer=null,toastTimer=null,hintIndex=0,packType='coin';
+ let hintTimer=null,toastTimer=null,hintIndex=0,packType='coin',awardedCards=null,purchaseBusy=false;
  const tr=(key,fallback)=>window.$t?.('menu:'+key,fallback)??fallback;
  const hints=['pack_hint_0','pack_hint_1','pack_hint_2','pack_hint_3','pack_hint_4'];
  function showHint(message){clearTimeout(toastTimer);tip.textContent=message;tip.classList.remove('is-left','is-right');tip.classList.add(hintIndex%2===0?'is-left':'is-right');tip.classList.add('is-visible');toastTimer=setTimeout(()=>tip.classList.remove('is-visible'),2600);}
@@ -85,9 +85,33 @@ if(root){
    decoder=next;frames=track.frameCount;active=true;requestFrame();updateUI();
   }catch(err){console.warn('[Echo Pack] Animation init failed',err);info(tr('pack_init_failed','Анимированный WebP не удалось открыть покадрово.'));}
  }
- function reset(){window.dispatchEvent(new Event('echo:pack-reset'));fanTriggered=false;progress=0;down=false;shown=cache.has(0)?0:-1;resetButton.hidden=true;window.dispatchEvent(new CustomEvent('echo:pack-prepare',{detail:{type:packType}}));updateUI();requestFrame();beginHints();}
- function open(type='coin'){packType=type==='premium'?'premium':'coin';root.hidden=false;reset();resize();prepare();}
- function close(){window.dispatchEvent(new Event('echo:pack-closed'));root.hidden=true;down=false;active=false;clearInterval(hintTimer);clearTimeout(toastTimer);}
+ function reset(){window.dispatchEvent(new Event('echo:pack-reset'));fanTriggered=false;progress=0;down=false;shown=cache.has(0)?0:-1;resetButton.hidden=true;window.dispatchEvent(new CustomEvent('echo:pack-prepare',{detail:{type:packType,cards:awardedCards}}));updateUI();requestFrame();beginHints();}
+ async function open(type='coin'){
+  if(purchaseBusy)return;
+  if(type==='premium'){
+    window.ECHOToast?.show(tr('pack_payment_pending','Оплата элитных паков пока не подключена'));
+    return;
+  }
+  const token=localStorage.getItem('echo.authToken');
+  if(!token){window.ECHOToast?.show(tr('pack_login_required','Для покупки пака войдите в аккаунт'));return;}
+  purchaseBusy=true;
+  const button=document.querySelector('[data-echo-preview-pack="coin"]');
+  if(button)button.disabled=true;
+  try{
+    const response=await fetch('/echo/api/packs/coin/open',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(response.status===409?'coins':response.status===401?'auth':'server');
+    if(!Array.isArray(data.cards)||data.cards.length!==5)throw new Error('server');
+    awardedCards=data.cards;
+    packType='coin';root.hidden=false;reset();resize();prepare();
+    window.dispatchEvent(new Event('echo:shop-balance-refresh'));
+    window.dispatchEvent(new Event('echo:hero-collection-refresh'));
+  }catch(error){
+    console.warn('[ECHO packs] Purchase unavailable:',error);
+    window.ECHOToast?.show(error.message==='coins'?tr('pack_not_enough_coins','Недостаточно ECHO Coin'):error.message==='auth'?tr('pack_login_required','Для покупки пака войдите в аккаунт'):tr('pack_buy_failed','Не удалось купить пак'));
+  }finally{purchaseBusy=false;if(button)button.disabled=false;}
+ }
+ function close(){window.dispatchEvent(new Event('echo:pack-closed'));awardedCards=null;root.hidden=true;down=false;active=false;clearInterval(hintTimer);clearTimeout(toastTimer);}
  document.querySelectorAll('[data-echo-preview-pack]').forEach(b=>b.addEventListener('click',()=>open(b.dataset.echoPreviewPack)));
  closeButton.addEventListener('click',close);
  resetButton.addEventListener('click',reset);
