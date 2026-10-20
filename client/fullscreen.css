@@ -24,3 +24,43 @@
 #game:has(#echo-pack-3d:not([hidden])) > #echo-fullscreen-toggle{
  right:calc(max(10px,env(safe-area-inset-right)) + 55px);
 }
+
+/* Battle-only right corner: fullscreen + exit, then connection, then minimap. */
+#game.echo-in-battle{
+ --echo-battle-button:clamp(34px,calc(42px * var(--echo-ui-scale,1)),64px);
+ --echo-battle-gap:clamp(8px,calc(10px * var(--echo-ui-scale,1)),16px);
+ --echo-battle-right:max(12px,env(safe-area-inset-right));
+ --echo-battle-top:max(12px,env(safe-area-inset-top));
+}
+#game.echo-in-battle > #echo-fullscreen-toggle{
+ top:var(--echo-battle-top);
+ right:calc(var(--echo-battle-right) + var(--echo-battle-button) + var(--echo-battle-gap));
+ width:var(--echo-battle-button);height:var(--echo-battle-button);
+}
+#game.echo-in-battle .hud{z-index:21;pointer-events:none}
+#game.echo-in-battle .status-stack{
+ width:auto;padding-top:0;gap:clamp(7px,1.5vh,12px);
+ align-items:flex-end;
+}
+#game.echo-in-battle .echo-game-top-actions{
+ order:0;width:var(--echo-battle-button);height:var(--echo-battle-button);
+ justify-content:flex-end;
+}
+#game.echo-in-battle .echo-game-top-actions .game-exit{
+ width:var(--echo-battle-button);height:var(--echo-battle-button);
+ min-width:0;flex:0 0 var(--echo-battle-button);
+ padding:8px;transform:none;
+ display:grid;place-items:center;
+ border:1px solid rgba(255,255,255,.7);border-radius:10px;
+ background:#000;color:#fff;cursor:pointer;
+}
+#game.echo-in-battle .game-exit svg{width:100%;height:100%}
+#game.echo-in-battle .status-stack .status{
+ order:1;justify-content:flex-end;transform:none;
+ max-width:calc(2 * var(--echo-battle-button) + var(--echo-battle-gap));
+}
+#game.echo-in-battle #echo-minimap-open{
+ top:calc(var(--echo-battle-top) + var(--echo-battle-button) + clamp(7px,1.5vh,12px) + calc(var(--echo-status-font) * var(--echo-ui-scale,1)) + 14px);
+ right:var(--echo-battle-right);
+ transform:none;
+}
