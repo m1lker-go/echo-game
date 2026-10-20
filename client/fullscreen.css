@@ -99,7 +99,7 @@
  width:var(--echo-battle-button)!important;
  height:var(--echo-battle-button)!important;
  position:relative;
- left:calc((var(--echo-battle-width) - (2 * var(--echo-battle-button) + var(--echo-battle-gap))) / -2 + (var(--echo-battle-button) + var(--echo-battle-gap)) / 2);
+ left:calc((var(--echo-battle-button) + var(--echo-battle-gap)) / 2);
  align-self:center;
 }
 #game.echo-in-battle > #echo-fullscreen-toggle{
