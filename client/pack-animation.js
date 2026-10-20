@@ -114,7 +114,26 @@ if(root){
  function close(){window.dispatchEvent(new Event('echo:pack-closed'));awardedCards=null;root.hidden=true;down=false;active=false;clearInterval(hintTimer);clearTimeout(toastTimer);}
  document.querySelectorAll('[data-echo-preview-pack]').forEach(b=>b.addEventListener('click',()=>open(b.dataset.echoPreviewPack)));
  closeButton.addEventListener('click',close);
- resetButton.addEventListener('click',reset);
+ let repeatConfirming=false;
+ resetButton.addEventListener('click',async()=>{
+  if(repeatConfirming||purchaseBusy||root.hidden)return;
+  repeatConfirming=true;
+  try{
+   const vkParams=new URLSearchParams(location.search);
+   const isVk=Boolean(vkParams.get('vk_app_id')&&vkParams.get('vk_platform'));
+   const premiumPrice=isVk?tr('pack_price_votes','40 голосов VK'):tr('pack_price_rubles','250 ₽');
+   const packName=packType==='premium'?tr('pack_name_premium','элитный пак'):tr('pack_name_coin','обычный пак');
+   const price=packType==='premium'?premiumPrice:tr('pack_price_coin','50 ECHO Coin');
+   const approved=await window.ECHOModal?.confirm({
+    title:tr('pack_repeat_title','Покупка пака'),
+    text:tr('pack_repeat_confirm','Вы уверены, что хотите приобрести {pack} за {price}?').replace('{pack}',packName).replace('{price}',price),
+    cancelText:tr('no','Нет'),confirmText:tr('yes','Да')
+   });
+   if(!approved||root.hidden)return;
+   // Every accepted repeat starts a NEW verified purchase, never replays old rewards.
+   await open(packType);
+  }finally{repeatConfirming=false;}
+ });
  window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!root.hidden)close()});
  // Tear can start only on the blue handle, not anywhere on the canvas.
  handle.addEventListener('pointerdown',e=>{
