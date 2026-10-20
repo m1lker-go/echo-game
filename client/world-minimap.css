@@ -140,3 +140,20 @@
  box-shadow:0 3px 15px #000b;
 }
 @media(max-width:600px){#game #echo-minimap-overlay #echo-minimap-close{width:42px;height:42px}}
+
+/* The expanded map must not steal input from the joystick or abilities. */
+#game:has(#echo-minimap-overlay:not([hidden])) .mobile-controls{
+ z-index:45;
+ pointer-events:none;
+}
+#game:has(#echo-minimap-overlay:not([hidden])) .joystick,
+#game:has(#echo-minimap-overlay:not([hidden])) #stick,
+#game:has(#echo-minimap-overlay:not([hidden])) .ability,
+#game:has(#echo-minimap-overlay:not([hidden])) .ability-stack{
+ pointer-events:auto;
+}
+/* Align close control with the right-hand edge of the small map. */
+#game #echo-minimap-overlay #echo-minimap-close{
+ right:max(calc(var(--echo-minimap-right,22px) * var(--echo-ui-scale,1)),env(safe-area-inset-right,0px));
+ transform:translateY(-50%);
+}
