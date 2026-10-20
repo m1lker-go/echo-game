@@ -50,3 +50,17 @@
  #echo-pack-3d .echo-pack-toast.is-left{left:1px!important;right:auto!important;transform:rotate(-7deg)}
  #echo-pack-3d .echo-pack-toast.is-right{right:1px!important;left:auto!important;transform:rotate(7deg)}
 }
+
+/* Pack close replaces the shared menu Back button while this dialog is open. */
+#game:has(#echo-pack-3d:not([hidden])) > #game-exit{visibility:hidden!important;pointer-events:none!important}
+#game #echo-pack-3d #echo-pack-3d-close{
+  position:fixed;
+  top:max(5px,env(safe-area-inset-top,0px));
+  right:var(--echo-nav-right,max(10px,env(safe-area-inset-right,0px)));
+  width:var(--echo-nav-size,44px);
+  height:var(--echo-nav-size,44px);
+  border-radius:9px;
+  display:grid;
+  place-items:center;
+  padding:0;
+}
