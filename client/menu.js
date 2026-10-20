@@ -41,6 +41,7 @@ const characterBack = document.querySelector('#character-back');
 const placeholderBack = document.querySelector('#placeholder-back');
 const settingsBack = document.querySelector('#settings-back');
 const languageButtons = document.querySelectorAll('.language-option');
+const sharedBack=document.getElementById('game-exit');
 const i18nReady = window.ECHO_I18N_READY || Promise.resolve(false);
 
 function showScreen(screen) {
@@ -50,12 +51,36 @@ function showScreen(screen) {
   if (shopScreen) shopScreen.hidden = screen !== 'shop';
   if (questsScreen) questsScreen.hidden = screen !== 'quests';
   if (settingsScreen) settingsScreen.hidden = screen !== 'settings';
+  syncSharedNav();
 }
+
+
+function syncSharedNav(){
+ const inBattle=menu.classList.contains('is-hidden');
+ const mainVisible=!mainScreen.hidden;
+ document.getElementById('game')?.classList.toggle('echo-menu-subpage',!inBattle&&!mainVisible);
+ sharedBack.hidden=!inBattle&&mainVisible;
+ sharedBack.classList.toggle('is-menu-back',!inBattle);
+ sharedBack.setAttribute('aria-label',inBattle?'Покинуть игру':'Назад');
+ sharedBack.setAttribute('title',inBattle?'Покинуть игру':'Назад');
+}
+sharedBack?.addEventListener('click',event=>{
+ if(menu.classList.contains('is-hidden'))return;
+ event.stopImmediatePropagation();
+ if(!mainScreen.hidden)return;
+ const active=[
+  ['character',characterBack],['quests',document.getElementById('quests-back')],
+  ['shop',document.getElementById('shop-back')],['placeholder',placeholderBack],
+  ['settings',settingsBack]
+ ].find(([screen])=>!document.getElementById(screen==='shop'?'menu-shop-screen':screen==='quests'?'menu-quests-screen':screen==='settings'?'menu-settings-screen':screen==='placeholder'?'menu-placeholder':'menu-character')?.hidden);
+ if(active?.[1])active[1].click();else openMenu();
+});
 
 function openMenu() {
   menu.classList.remove('is-hidden');
   document.getElementById('game')?.classList.remove('echo-in-battle');
   showScreen('main');
+  syncSharedNav();
 }
 
 function startGame() {
@@ -459,3 +484,5 @@ if (params.get('play') === '1') {
   cleanedUrl.searchParams.delete('play');
   window.history.replaceState({}, document.title, cleanedUrl.pathname + cleanedUrl.search + cleanedUrl.hash);
 }
+
+syncSharedNav();
