@@ -2,6 +2,7 @@
 // Character selection is persisted locally and passed to the game through localStorage.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createCharacterLoaderSelector } from './character-textures.js';
 
 const characters = [
   ['character-female-a.glb', 'Девушка A'],
@@ -16,6 +17,12 @@ const characters = [
   ['character-male-d.glb', 'Парень D'],
   ['character-male-e.glb', 'Парень E'],
   ['character-male-f.glb', 'Парень F'],
+  ['character-ghost.glb', 'Призрак'],
+  ['character-keeper.glb', 'Фермер'],
+  ['character-skeleton.glb', 'Скелет'],
+  ['character-zombie.glb', 'Зомби'],
+  ['character-human.glb', 'Воин'],
+  ['character-orc.glb', 'Орк'],
 ];
 
 const storageKey = 'echo.selectedModel';
@@ -112,6 +119,7 @@ placeholderBack.addEventListener('click', openMenu);
 settingsBack?.addEventListener('click', openMenu);
 
 const loader = new GLTFLoader();
+const characterLoader = createCharacterLoaderSelector(THREE, GLTFLoader, loader);
 const cardViews = new Map();
 
 // Keep a single WebGL context for all character previews. Mobile browsers limit
@@ -259,7 +267,7 @@ function createCharacterCard(file, label) {
     }
   }
 
-  loader.load(`./assets/models/${file}`, (gltf) => {
+  characterLoader(file).load(`./assets/models/${file}`, (gltf) => {
     const current = cardViews.get(file);
     if (!current || current !== view) {
       disposeScene(gltf.scene);
