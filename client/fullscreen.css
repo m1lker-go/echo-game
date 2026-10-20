@@ -121,3 +121,49 @@
 #game.echo-in-battle > #echo-fullscreen-toggle{
  top:var(--echo-battle-top);
 }
+
+/* Shared top-right navigation: equal squares across all ECHO screens. */
+#game{--echo-nav-size:44px;--echo-nav-gap:10px}
+@media(max-width:600px){#game{--echo-nav-size:42px}}
+#game > #echo-fullscreen-toggle,
+#game > #game-exit{
+ position:fixed;
+ top:max(5px,env(safe-area-inset-top,0px));
+ width:var(--echo-nav-size)!important;
+ height:var(--echo-nav-size)!important;
+ z-index:2100;
+ box-sizing:border-box;
+ padding:7px;
+ border:1px solid rgba(255,255,255,.7);
+ border-radius:10px;
+ background:#000;
+ color:white;
+ display:grid;place-items:center;
+ min-width:0;
+ cursor:pointer;
+ touch-action:manipulation;
+ transform:none;
+}
+#game > #echo-fullscreen-toggle{right:calc(max(10px,env(safe-area-inset-right,0px)) + var(--echo-nav-size) + var(--echo-nav-gap))}
+#game > #game-exit{right:max(10px,env(safe-area-inset-right,0px))}
+#game > #game-exit[hidden]{display:none!important}
+#game > #game-exit svg{width:100%;height:100%}
+#game > #game-exit.is-menu-back svg{display:none}
+#game > #game-exit.is-menu-back::before{
+ content:'';width:14px;height:14px;
+ border-left:3px solid currentColor;border-bottom:3px solid currentColor;
+ transform:translateX(3px) rotate(45deg);
+ border-radius:1px;
+}
+#game:not(.echo-in-battle):not(.echo-menu-subpage) > #echo-fullscreen-toggle{
+ right:max(10px,env(safe-area-inset-right,0px));
+}
+#game.echo-in-battle > #game-exit{
+ right:calc(var(--echo-battle-right) + (var(--echo-battle-width) - (2 * var(--echo-nav-size) + var(--echo-nav-gap)))/2);
+ top:var(--echo-battle-top);
+}
+#game.echo-in-battle > #echo-fullscreen-toggle{
+ width:var(--echo-nav-size)!important;height:var(--echo-nav-size)!important;
+ right:calc(var(--echo-battle-right) + (var(--echo-battle-width) - (2 * var(--echo-nav-size) + var(--echo-nav-gap)))/2 + var(--echo-nav-size) + var(--echo-nav-gap))!important;
+ top:var(--echo-battle-top);
+}
