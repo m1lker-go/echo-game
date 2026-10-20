@@ -43,3 +43,36 @@
 #game .echo-quest-hud-description{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.85em;line-height:1.1;color:#b7cad9;font-weight:400}
 #game .echo-quest-hud .echo-quest-levels{flex:0 0 auto}
 @media(max-width:600px){#game:has(.echo-quest-hud:not([hidden])) #coords{top:max(74px,calc(env(safe-area-inset-top) + 74px))}}
+
+/* Compact two-line quest HUD: title + levels above a single description line. */
+#game .echo-quest-hud{height:44px}
+#game .echo-quest-hud-name{
+ display:flex;flex-direction:column;align-items:stretch;justify-content:center;
+ gap:2px;padding:3px 7px;
+}
+#game .echo-quest-hud-heading{
+ display:flex;flex:0 0 auto;align-items:center;justify-content:center;
+ gap:7px;min-width:0;max-width:100%;white-space:nowrap;
+}
+#game .echo-quest-hud-title{
+ overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto;
+}
+#game .echo-quest-hud-heading .echo-quest-levels{
+ display:inline-flex;flex:0 0 auto;gap:3px;
+}
+#game .echo-quest-hud-description{
+ display:block;flex:0 0 auto;text-align:center;
+ overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+#game .echo-quest-hud-action{padding-top:2px;padding-bottom:2px}
+#game:has(.echo-quest-hud:not([hidden])) #coords{
+ top:max(58px,calc(env(safe-area-inset-top) + 58px))
+}
+@media(max-width:600px){
+ #game .echo-quest-hud{height:42px}
+ #game .echo-quest-hud-name{padding:2px 5px}
+ #game .echo-quest-hud-heading{gap:4px}
+ #game:has(.echo-quest-hud:not([hidden])) #coords{
+  top:max(56px,calc(env(safe-area-inset-top) + 56px))
+ }
+}
