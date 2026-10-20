@@ -1,6 +1,8 @@
 /* Character selection uses the same rarity artwork as revealed pack cards. */
 #game #main-menu .character-grid{
   grid-template-columns:repeat(4,minmax(0,1fr));
+  width:min(820px,calc(100% - 12px));
+  gap:clamp(6px,1vw,12px);
   align-items:start;
 }
 #game #main-menu .character-card{
