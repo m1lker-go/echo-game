@@ -37,11 +37,13 @@ async function request(path,options={}){
  return response.json();
 }
 function showGuest(message){
+ document.dispatchEvent(new CustomEvent('echo:auth-changed',{detail:{authenticated:false}}));
  current=null;guest.hidden=false;panel.hidden=true;
  status.textContent=message||'';
  status.hidden=!message;
 }
 function showUser(data){
+ document.dispatchEvent(new CustomEvent('echo:auth-changed',{detail:{authenticated:true}}));
  current=data;guest.hidden=true;panel.hidden=false;
  document.querySelector('#echo-account-name').textContent=data.nickname;
  status.textContent='';
