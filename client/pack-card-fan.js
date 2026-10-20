@@ -94,7 +94,7 @@ function makeCard(r,i){
  backImage.addEventListener('error',()=>{backImage.remove();},{once:true});
  card.querySelector('.echo-fan-rarity').textContent=label;
  card.querySelector('.echo-fan-name').textContent=name;
- card.querySelector('.echo-fan-count').textContent='+'+r.count;
+ card.querySelector('.echo-fan-count').textContent='×'+r.count;
  const pic=portraitCache.get(r.model);
  if(pic){const img=document.createElement('img');img.src=pic;img.alt='';card.querySelector('.echo-fan-portrait').append(img);}
  else{card.querySelector('.echo-fan-portrait').textContent='✦';}
