@@ -112,3 +112,12 @@
 }
 #game.echo-in-battle .status-stack .status{justify-content:center}
 @media(max-width:600px){#game.echo-in-battle{--echo-battle-button:42px}}
+
+/* Align battle controls with the quest HUD's top edge, including safe area. */
+#game.echo-in-battle{--echo-battle-top:max(5px,env(safe-area-inset-top,0px))}
+#game.echo-in-battle .hud{
+ top:var(--echo-battle-top);
+}
+#game.echo-in-battle > #echo-fullscreen-toggle{
+ top:var(--echo-battle-top);
+}
