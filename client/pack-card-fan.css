@@ -119,7 +119,7 @@
 /* Rarity label: one consistent hexagonal plate over every rarity texture. */
 #echo-pack-3d .echo-fan-card .echo-fan-rarity{
  position:absolute;
- top:71%;
+ top:calc(71% - 2px);
  left:17%;
  width:66%;
  height:10%;
