@@ -17,3 +17,17 @@ async function updateShopBalance(){
 }
 document.getElementById('menu-shop')?.addEventListener('click',updateShopBalance);
 window.addEventListener('echo:shop-balance-refresh',updateShopBalance);
+
+const premiumPrice=document.getElementById('echo-premium-price');
+function updatePremiumPrice(){
+  // VK launch parameters are supplied by the VK Mini Apps container, not by ECHO login.
+  const params=new URLSearchParams(window.location.search);
+  const vkAppId=params.get('vk_app_id');
+  const vkPlatform=params.get('vk_platform');
+  const inVKMiniApp=Boolean(vkAppId&&vkPlatform);
+  const price=inVKMiniApp?'40 '+(document.documentElement.lang?.startsWith('en')?'VK votes':'голосов VK'):'250 ₽';
+  if(premiumPrice)premiumPrice.textContent=price;
+}
+updatePremiumPrice();
+document.addEventListener('echo:language-changed',updatePremiumPrice);
+window.addEventListener('echo:language-changed',updatePremiumPrice);
