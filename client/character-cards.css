@@ -1,7 +1,9 @@
 /* Character selection uses the same rarity artwork as revealed pack cards. */
-#game #main-menu .character-grid{
+#game #main-menu .character-screen .character-grid{
   grid-template-columns:repeat(4,minmax(0,1fr));
-  width:min(820px,calc(100% - 12px));
+  width:min(640px,76%,calc(100% - 24px))!important;
+  max-width:640px;
+  margin-inline:auto;
   gap:clamp(6px,1vw,12px);
   align-items:start;
 }
@@ -58,7 +60,7 @@
 }
 #game #main-menu .character-card:hover{border-color:#e3f3ff}
 @media(max-width:580px){
-  #game #main-menu .character-grid{gap:6px}
+  #game #main-menu .character-screen .character-grid{gap:6px;width:76%!important}
   #game #main-menu .character-card-name{font-size:clamp(8px,2vw,12px)}
   #game #main-menu .character-card-rarity{font-size:clamp(6px,1.6vw,9px)}
 }
