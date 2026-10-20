@@ -240,6 +240,12 @@ const ALLOWED_SKINS = new Set([
   'character-female-d.glb', 'character-female-e.glb', 'character-female-f.glb',
   'character-male-a.glb', 'character-male-b.glb', 'character-male-c.glb',
   'character-male-d.glb', 'character-male-e.glb', 'character-male-f.glb',
+  'character-ghost.glb',
+  'character-keeper.glb',
+  'character-skeleton.glb',
+  'character-zombie.glb',
+  'character-human.glb',
+  'character-orc.glb',
 ]);
 
 const FOOD_COUNT = 1000;
