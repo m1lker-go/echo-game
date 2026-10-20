@@ -41,8 +41,30 @@ const characters = [
 const STARTER_HEROES = new Set(['character-female-b.glb','character-male-a.glb','character-female-c.glb']);
 const GUEST_HEROES = new Set(characters.filter(([file])=>getCharacterRarity(file)==='common').map(([file])=>file));
 let accessRegistered = Boolean(localStorage.getItem('echo.authToken'));
+let heroCollection = {};
+const HERO_REQUIREMENTS = {common:25,uncommon:30,rare:40,epic:50,legendary:60};
+const heroText=(key,ru,en)=>window.$t?.('menu:'+key,document.documentElement.lang?.startsWith('en')?en:ru) || (document.documentElement.lang?.startsWith('en')?en:ru);
+const heroCount=file=>Math.max(0,Number(heroCollection[file]?.fragments)||0);
+async function loadHeroCollection(){
+ if(!accessRegistered){heroCollection={};renderCharacterState();return;}
+ try{
+  const response=await fetch('/echo/api/heroes',{headers:{Authorization:'Bearer '+localStorage.getItem('echo.authToken')},cache:'no-store'});
+  if(!response.ok)throw new Error('HTTP '+response.status);
+  heroCollection=(await response.json()).heroes||{};
+  ensureUnlockedSelection();renderCharacterState();
+ }catch(err){console.warn('[echo heroes] Collection unavailable',err);heroCollection={};renderCharacterState();}
+}
+async function claimHero(file){
+ if(!accessRegistered||heroUnlocked(file)||heroCount(file)<HERO_REQUIREMENTS[getCharacterRarity(file)])return;
+ try{
+  const response=await fetch('/echo/api/heroes/claim',{method:'POST',headers:{Authorization:'Bearer '+localStorage.getItem('echo.authToken'),'Content-Type':'application/json'},body:JSON.stringify({model:file})});
+  if(!response.ok)throw new Error('HTTP '+response.status);
+  const data=await response.json();
+  if(data.claimed){heroCollection[file]={fragments:data.fragments,claimed:true};renderCharacterState();}
+ }catch(err){console.warn('[echo heroes] Claim failed',err);window.ECHOToast?.show(heroText('hero_claim_error','Не удалось получить персонажа','Could not claim character'));await loadHeroCollection();}
+}
 function heroUnlocked(file) {
-  return accessRegistered ? STARTER_HEROES.has(file) : GUEST_HEROES.has(file);
+  return accessRegistered ? (STARTER_HEROES.has(file)||Boolean(heroCollection[file]?.claimed)) : GUEST_HEROES.has(file);
 }
 function ensureUnlockedSelection() {
   if(heroUnlocked(selectedModel))return;
@@ -249,9 +271,15 @@ function createCharacterCard(file, label) {
   caption.className = 'character-card-name';
   caption.textContent = label;
 
-  button.append(art, canvas, rarityText, caption);
+  const status=document.createElement('span');
+  status.className='character-card-status';
+  status.setAttribute('aria-hidden','true');
+  button.append(art, canvas, rarityText, caption, status);
   button.addEventListener('click', () => {
-    if(!heroUnlocked(file))return;
+    if(!heroUnlocked(file)){
+      if(accessRegistered&&heroCount(file)>=HERO_REQUIREMENTS[rarity])void claimHero(file);
+      return;
+    }
     selectedModel = file;
     localStorage.setItem(storageKey, selectedModel);
     window.ECHO_SELECTED_MODEL = selectedModel;
@@ -353,6 +381,25 @@ function renderCharacterState() {
     card.classList.toggle('is-locked',!unlocked);
     card.setAttribute('aria-disabled',String(!unlocked));
     card.title=unlocked?'':(document.documentElement.lang?.startsWith('en')?'Locked — collect character fragments':'Заблокирован — собирай фрагменты персонажа');
+    const status=card.querySelector('.character-card-status');
+    if(status){
+      const selected=card.dataset.model===selectedModel;
+      const required=HERO_REQUIREMENTS[card.dataset.rarity];
+      const ready=accessRegistered&&heroCount(card.dataset.model)>=required;
+      status.classList.toggle('is-progress',!unlocked&&!ready);
+      status.classList.toggle('is-claim',!unlocked&&ready);
+      status.classList.toggle('is-active',selected);
+      status.hidden=unlocked&&!selected;
+      status.replaceChildren();
+      if(selected)status.textContent=heroText('hero_active','Активный','Active');
+      else if(!unlocked){
+        if(ready)status.textContent=heroText('hero_claim','Получить','Claim');
+        else{
+          const image=document.createElement('img');image.src='./assets/packs/card_rubashkaa.webp';image.alt='';
+          status.append(image,document.createTextNode(heroCount(card.dataset.model)+'/'+required));
+        }
+      }
+    }
   }
   // Active hero first; unlocked heroes rarest first, locked heroes commonest first.
   // Stable sort retains the original character order within equal rarities.
@@ -373,6 +420,7 @@ document.addEventListener('echo:auth-changed',event=>{
  accessRegistered=Boolean(event.detail?.authenticated);
  ensureUnlockedSelection();
  renderCharacterState();
+ void loadHeroCollection();
 });
 
 
@@ -411,6 +459,7 @@ function updateLanguageButtons() {
 
 function refreshLocalizedUI() {
   applyStaticTranslations();
+  renderCharacterState();
   updateLanguageButtons();
   const placeholderTitle = document.querySelector('#placeholder-title');
   if (placeholderTitle) {
