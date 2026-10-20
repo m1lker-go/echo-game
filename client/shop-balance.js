@@ -16,3 +16,4 @@ async function updateShopBalance(){
  }
 }
 document.getElementById('menu-shop')?.addEventListener('click',updateShopBalance);
+window.addEventListener('echo:shop-balance-refresh',updateShopBalance);
