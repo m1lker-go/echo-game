@@ -167,3 +167,9 @@
  right:calc(var(--echo-battle-right) + (var(--echo-battle-width) - (2 * var(--echo-nav-size) + var(--echo-nav-gap)))/2 + var(--echo-nav-size) + var(--echo-nav-gap))!important;
  top:var(--echo-battle-top);
 }
+
+/* Reserve the top button row before showing connection information. */
+#game.echo-in-battle .status-stack{
+ padding-top:calc(var(--echo-nav-size) + 7px);
+}
+#game.echo-in-battle .status-stack .echo-game-top-actions{display:none}
