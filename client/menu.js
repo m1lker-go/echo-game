@@ -38,10 +38,23 @@ const characters = [
   ['character-orc.glb', 'Орк'],
 ];
 
+const STARTER_HEROES = new Set(['character-female-b.glb','character-male-a.glb','character-female-c.glb']);
+const GUEST_HEROES = new Set(characters.filter(([file])=>getCharacterRarity(file)==='common').map(([file])=>file));
+let accessRegistered = Boolean(localStorage.getItem('echo.authToken'));
+function heroUnlocked(file) {
+  return accessRegistered ? STARTER_HEROES.has(file) : GUEST_HEROES.has(file);
+}
+function ensureUnlockedSelection() {
+  if(heroUnlocked(selectedModel))return;
+  selectedModel = accessRegistered ? 'character-female-b.glb' : 'character-female-a.glb';
+  localStorage.setItem(storageKey,selectedModel);
+  window.ECHO_SELECTED_MODEL=selectedModel;
+}
 const storageKey = 'echo.selectedModel';
 const defaultModel = characters[0][0];
 let selectedModel = localStorage.getItem(storageKey) || defaultModel;
 window.ECHO_SELECTED_MODEL = selectedModel;
+ensureUnlockedSelection();
 
 const menu = document.querySelector('#main-menu');
 const mainScreen = document.querySelector('#menu-main');
@@ -238,6 +251,7 @@ function createCharacterCard(file, label) {
 
   button.append(art, canvas, rarityText, caption);
   button.addEventListener('click', () => {
+    if(!heroUnlocked(file))return;
     selectedModel = file;
     localStorage.setItem(storageKey, selectedModel);
     window.ECHO_SELECTED_MODEL = selectedModel;
@@ -333,11 +347,21 @@ function createCharacterCard(file, label) {
 function renderCharacterState() {
   for (const card of characterGrid.children) {
     card.classList.toggle('selected', card.dataset.model === selectedModel);
+    const unlocked=heroUnlocked(card.dataset.model);
+    card.classList.toggle('is-locked',!unlocked);
+    card.setAttribute('aria-disabled',String(!unlocked));
+    card.title=unlocked?'':(document.documentElement.lang?.startsWith('en')?'Locked — collect character fragments':'Заблокирован — собирай фрагменты персонажа');
+
   }
 }
 
 for (const [file, label] of characters) createCharacterCard(file, label);
 renderCharacterState();
+document.addEventListener('echo:auth-changed',event=>{
+ accessRegistered=Boolean(event.detail?.authenticated);
+ ensureUnlockedSelection();
+ renderCharacterState();
+});
 
 
 function applyStaticTranslations() {
