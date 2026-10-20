@@ -85,7 +85,7 @@ if(root){
    decoder=next;frames=track.frameCount;active=true;requestFrame();updateUI();
   }catch(err){console.warn('[Echo Pack] Animation init failed',err);info(tr('pack_init_failed','Анимированный WebP не удалось открыть покадрово.'));}
  }
- function reset(){window.dispatchEvent(new Event('echo:pack-reset'));fanTriggered=false;progress=0;down=false;shown=cache.has(0)?0:-1;resetButton.hidden=true;updateUI();requestFrame();beginHints();}
+ function reset(){window.dispatchEvent(new Event('echo:pack-reset'));fanTriggered=false;progress=0;down=false;shown=cache.has(0)?0:-1;resetButton.hidden=true;window.dispatchEvent(new CustomEvent('echo:pack-prepare',{detail:{type:packType}}));updateUI();requestFrame();beginHints();}
  function open(type='coin'){packType=type==='premium'?'premium':'coin';root.hidden=false;reset();resize();prepare();}
  function close(){window.dispatchEvent(new Event('echo:pack-closed'));root.hidden=true;down=false;active=false;clearInterval(hintTimer);clearTimeout(toastTimer);}
  document.querySelectorAll('[data-echo-preview-pack]').forEach(b=>b.addEventListener('click',()=>open(b.dataset.echoPreviewPack)));
