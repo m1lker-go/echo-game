@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createCharacterLoaderSelector } from './character-textures.js?v=echo-isolated-character-atlas-1';
+import { getCharacterRarity } from './character-rarity.js';
 
 const characters = [
   ['character-female-a.glb', 'Костыль'],
@@ -201,6 +202,7 @@ function createCharacterCard(file, label) {
   button.type = 'button';
   button.className = 'character-card';
   button.dataset.model = file;
+  button.dataset.rarity = getCharacterRarity(file) || 'common';
   const labelKey = file.replace('character-', '').replace('.glb', '').replaceAll('-', '_');
   button.setAttribute('aria-label', label);
 
