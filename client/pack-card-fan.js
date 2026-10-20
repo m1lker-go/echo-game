@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import { rollPack } from './pack-balance.js';
+import { rollPack } from './pack-balance.js?v=echo-rarity-limits-1';
 import { createCharacterLoaderSelector } from './character-textures.js?v=echo-isolated-character-atlas-1';
 // Visual preview only: no purchase, fragment inventory or real rewards yet.
 const root=document.querySelector('#echo-pack-3d'),fan=root?.querySelector('#echo-pack-card-fan');
