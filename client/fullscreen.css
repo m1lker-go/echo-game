@@ -64,3 +64,26 @@
  right:var(--echo-battle-right);
  transform:none;
 }
+
+/* The buttons and server row have exactly the minimap's scaled width. */
+#game.echo-in-battle{
+ --echo-battle-width:calc(var(--echo-minimap-width) * var(--echo-ui-scale,1));
+ --echo-battle-button:calc((var(--echo-battle-width) - var(--echo-battle-gap))/2);
+ --echo-battle-right:max(calc(var(--echo-minimap-right) * var(--echo-ui-scale,1)),env(safe-area-inset-right,0px));
+}
+#game.echo-in-battle .hud{right:var(--echo-battle-right)}
+#game.echo-in-battle .status-stack{
+ width:var(--echo-battle-width);
+ align-items:stretch;
+}
+#game.echo-in-battle .echo-game-top-actions{
+ width:100%;
+ justify-content:flex-end;
+}
+#game.echo-in-battle .status-stack .status{
+ width:100%;max-width:none;justify-content:center;
+ white-space:nowrap;
+}
+#game.echo-in-battle > #echo-fullscreen-toggle{
+ right:calc(var(--echo-battle-right) + var(--echo-battle-button) + var(--echo-battle-gap));
+}
