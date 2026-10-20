@@ -87,3 +87,28 @@
 #game.echo-in-battle > #echo-fullscreen-toggle{
  right:calc(var(--echo-battle-right) + var(--echo-battle-button) + var(--echo-battle-gap));
 }
+
+/* Compact battle toolbar: buttons match the quest HUD height and center over map. */
+#game.echo-in-battle{
+ --echo-battle-button:44px;
+ --echo-battle-gap:10px;
+ --echo-battle-width:calc(var(--echo-minimap-width) * var(--echo-ui-scale,1));
+ --echo-battle-right:max(calc(var(--echo-minimap-right) * var(--echo-ui-scale,1)),env(safe-area-inset-right,0px));
+}
+#game.echo-in-battle .status-stack .echo-game-top-actions{
+ width:var(--echo-battle-button)!important;
+ height:var(--echo-battle-button)!important;
+ position:relative;
+ left:calc((var(--echo-battle-width) - (2 * var(--echo-battle-button) + var(--echo-battle-gap))) / -2 + (var(--echo-battle-button) + var(--echo-battle-gap)) / 2);
+ align-self:center;
+}
+#game.echo-in-battle > #echo-fullscreen-toggle{
+ width:var(--echo-battle-button)!important;height:var(--echo-battle-button)!important;
+ right:calc(var(--echo-battle-right) + (var(--echo-battle-width) - (2 * var(--echo-battle-button) + var(--echo-battle-gap))) / 2 + var(--echo-battle-button) + var(--echo-battle-gap))!important;
+}
+#game.echo-in-battle .echo-game-top-actions .game-exit{
+ width:var(--echo-battle-button)!important;height:var(--echo-battle-button)!important;
+ flex-basis:var(--echo-battle-button)!important;
+}
+#game.echo-in-battle .status-stack .status{justify-content:center}
+@media(max-width:600px){#game.echo-in-battle{--echo-battle-button:42px}}
