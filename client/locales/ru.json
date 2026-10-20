@@ -135,7 +135,10 @@
     "pack_loading": "Загружаем кадры упаковки…",
     "pack_decoder_unsupported": "Для покадрового открытия нужен браузер с поддержкой ImageDecoder (например, Chrome).",
     "pack_decode_failed": "Не удалось прочитать кадр WebP. Проверь анимацию и обнови страницу.",
-    "pack_init_failed": "Анимированный WebP не удалось открыть покадрово."
+    "pack_init_failed": "Анимированный WebP не удалось открыть покадрово.",
+    "hero_active": "Активный",
+    "hero_claim": "Получить",
+    "hero_claim_error": "Не удалось получить персонажа"
   },
   "game": {
     "map_short": "КАРТА",
