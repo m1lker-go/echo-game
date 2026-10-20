@@ -344,15 +344,27 @@ function createCharacterCard(file, label) {
   window.addEventListener('resize', resize, { passive: true });
 }
 
+const RARITY_ORDER = ['common','uncommon','rare','epic','legendary'];
 function renderCharacterState() {
-  for (const card of characterGrid.children) {
-    card.classList.toggle('selected', card.dataset.model === selectedModel);
+  const cards=Array.from(characterGrid.children);
+  for (const card of cards) {
     const unlocked=heroUnlocked(card.dataset.model);
+    card.classList.toggle('selected',card.dataset.model===selectedModel);
     card.classList.toggle('is-locked',!unlocked);
     card.setAttribute('aria-disabled',String(!unlocked));
     card.title=unlocked?'':(document.documentElement.lang?.startsWith('en')?'Locked — collect character fragments':'Заблокирован — собирай фрагменты персонажа');
-
   }
+  // Active hero first; unlocked heroes rarest first, locked heroes commonest first.
+  // Stable sort retains the original character order within equal rarities.
+  cards.sort((a,b)=>{
+    const selectedA=a.dataset.model===selectedModel,selectedB=b.dataset.model===selectedModel;
+    if(selectedA!==selectedB)return selectedA?-1:1;
+    const openA=heroUnlocked(a.dataset.model),openB=heroUnlocked(b.dataset.model);
+    if(openA!==openB)return openA?-1:1;
+    const rarityA=RARITY_ORDER.indexOf(a.dataset.rarity),rarityB=RARITY_ORDER.indexOf(b.dataset.rarity);
+    return openA ? rarityB-rarityA : rarityA-rarityB;
+  });
+  characterGrid.append(...cards);
 }
 
 for (const [file, label] of characters) createCharacterCard(file, label);
