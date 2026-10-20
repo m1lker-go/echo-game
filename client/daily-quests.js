@@ -63,7 +63,9 @@ function displayQuestHud(){
  const target=q.id==='play'?Math.floor(q.target/60):q.target;
  const name=document.createElement('span');name.className='echo-quest-hud-title';name.textContent=t(info.title,q.id);
  const details=document.createElement('span');details.className='echo-quest-hud-description';details.textContent=t(info.desc,'').replaceAll('{count}',String(target));
- questHudName.replaceChildren(name,questDots(q),details);
+ const titleLine=document.createElement('span');titleLine.className='echo-quest-hud-heading';
+ titleLine.append(name,questDots(q));
+ questHudName.replaceChildren(titleLine,details);
  const ready=q.progress>=q.target;
  // Estimate only time that has passed since the latest server response; the API stays authoritative.
  const elapsed=q.id==='play'&&!document.hidden?Math.min(5,Math.max(0,Math.floor((Date.now()-hudFetchedAt)/1000))):0;
