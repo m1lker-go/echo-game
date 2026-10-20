@@ -81,6 +81,7 @@ function syncSharedNav(){
  document.getElementById('game')?.classList.toggle('echo-menu-subpage',!inBattle&&!mainVisible);
  sharedBack.hidden=!inBattle&&mainVisible;
  sharedBack.classList.toggle('is-menu-back',!inBattle);
+ sharedBack.classList.toggle('is-shop-close',!inBattle&&!shopScreen?.hidden);
  sharedBack.setAttribute('aria-label',inBattle?'Покинуть игру':'Назад');
  sharedBack.setAttribute('title',inBattle?'Покинуть игру':'Назад');
 }
