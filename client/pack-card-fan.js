@@ -61,14 +61,15 @@ async function portraits(){
 }
 function makeCard(r,i){
  const card=document.createElement('div');card.className='echo-fan-card';card.style.setProperty('--rarity',r.color);
- card.style.setProperty('--face-art',`url("${cardArtBase}${faceNames[r.key]}")`);
+ 
  card.style.setProperty('--index',i);
  card.style.setProperty('--angle',(-40+i*20)+'deg');
  card.style.setProperty('--spread',(-2+i)*49+'%');
  card.style.setProperty('--rise',(Math.abs(i-2)*10)+'px');
  const label=locale()==='en'?r.en:r.ru;
  const name=r.model.replace('character-','').replace('.glb','').toUpperCase().replaceAll('-',' ');
- card.innerHTML='<div class="echo-fan-inner"><div class="echo-fan-back"><img class="echo-fan-back-animated" src="./assets/packs/card_rubashkaa.webp" alt="" draggable="false"></div><div class="echo-fan-front"><div class="echo-fan-glow"></div><div class="echo-fan-portrait"></div><div class="echo-fan-rarity"></div><div class="echo-fan-name"></div><div class="echo-fan-count"></div></div></div>';
+ card.innerHTML='<div class="echo-fan-inner"><div class="echo-fan-back"><img class="echo-fan-back-animated" src="./assets/packs/card_rubashkaa.webp" alt="" draggable="false"></div><div class="echo-fan-front"><img class="echo-fan-face-texture" alt="" draggable="false"><div class="echo-fan-glow"></div><div class="echo-fan-portrait"></div><div class="echo-fan-rarity"></div><div class="echo-fan-name"></div><div class="echo-fan-count"></div></div></div>';
+ card.querySelector('.echo-fan-face-texture').src=cardArtBase+faceNames[r.key];
  const backImage=card.querySelector('.echo-fan-back-animated');
  backImage.addEventListener('error',()=>{backImage.remove();},{once:true});
  card.querySelector('.echo-fan-rarity').textContent=label;
