@@ -175,7 +175,7 @@ function launchNext(){
 }
 async function reveal(event){
  if(!fan||root.hidden)return;
- clear();rarities=rollPack(event?.detail?.type==='premium'?'premium':'coin');const id=session;fan.classList.add('is-visible');
+ clear();rarities=rollPack(event?.detail?.type==='premium'?'premium':'coin').sort((a,b)=>['common','uncommon','rare','epic','legendary'].indexOf(a.rarity)-['common','uncommon','rare','epic','legendary'].indexOf(b.rarity));const id=session;fan.classList.add('is-visible');
  fan.setAttribute('role','button');fan.setAttribute('tabindex','0');
  fan.setAttribute('aria-label',locale()==='en'?'Revealing character cards':'Открытие карточек героев');
  await portraits().catch(err=>console.warn('[ECHO cards] portraits unavailable',err));
