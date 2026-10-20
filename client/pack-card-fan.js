@@ -1,14 +1,34 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-// Demo only: five mock fragment drops, ordered by rarity; no server rewards.
+import { rollPack } from './pack-balance.js';
+import { createCharacterLoaderSelector } from './character-textures.js?v=echo-isolated-character-atlas-1';
+// Visual preview only: no purchase, fragment inventory or real rewards yet.
 const root=document.querySelector('#echo-pack-3d'),fan=root?.querySelector('#echo-pack-card-fan');
-const rarities=[
- {key:'common',ru:'ОБЫЧНАЯ',en:'COMMON',color:'#c4cbd4',model:'character-female-a.glb',count:3},
- {key:'uncommon',ru:'НЕОБЫЧНАЯ',en:'UNCOMMON',color:'#79e6a6',model:'character-male-b.glb',count:2},
- {key:'rare',ru:'РЕДКАЯ',en:'RARE',color:'#66c8ff',model:'character-female-c.glb',count:3},
- {key:'epic',ru:'ЭПИЧЕСКАЯ',en:'EPIC',color:'#c19aff',model:'character-male-d.glb',count:1},
- {key:'legendary',ru:'ЛЕГЕНДАРНАЯ',en:'LEGENDARY',color:'#ffe098',model:'character-female-f.glb',count:1}
-];
+const rarityInfo={
+ common:{ru:'ОБЫЧНАЯ',en:'COMMON',color:'#c4cbd4'},
+ uncommon:{ru:'НЕОБЫЧНАЯ',en:'UNCOMMON',color:'#79e6a6'},
+ rare:{ru:'РЕДКАЯ',en:'RARE',color:'#66c8ff'},
+ epic:{ru:'ЭПИЧЕСКАЯ',en:'EPIC',color:'#c19aff'},
+ legendary:{ru:'ЛЕГЕНДАРНАЯ',en:'LEGENDARY',color:'#ffe098'}
+};
+const modelNames={
+ 'female-a':['Костыль','Crutch'],'female-b':['Девчонка','Girl'],
+ 'female-c':['Бабуся','Granny'],'female-d':['Бизнес леди','Business Lady'],
+ 'female-e':['Медсестра','Nurse'],'female-f':['Хвостики','Pigtails'],
+ 'male-a':['Зоркий','Eagle Eye'],'male-b':['Дедок','Grandpa'],
+ 'male-c':['Полицай','Cop'],'male-d':['Бизнесмен','Businessman'],
+ 'male-e':['Учёный','Scientist'],'male-f':['Злюка','Grump'],
+ ghost:['Призрак','Ghost'],keeper:['Фермер','Farmer'],
+ skeleton:['Скелет','Skeleton'],zombie:['Зомби','Zombie'],
+ human:['Воин','Warrior'],orc:['Орк','Orc']
+};
+const labelFor=model=>{
+ const key=model.replace(/^character-/,'').replace(/\.glb$/,'');
+ return modelNames[key]?.[locale()==='en'?1:0]||key;
+};
+let rarities=[];
+const baseLoader=new GLTFLoader();
+const characterLoader=createCharacterLoaderSelector(THREE,GLTFLoader,baseLoader);
 let session=0,timers=[],portraitCache=new Map(),portraitPromise=null,nextIndex=0,canAdvance=false,live=null,settleTimer=null,currentCard=null;
 const cardArtBase='./assets/packs/';
 const faceNames={common:'card_common.webp',uncommon:'card_uncommon.webp',rare:'card_rare.webp',epic:'card_epic.webp',legendary:'card_legend.webp'};
@@ -40,18 +60,17 @@ async function portraits(){
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(32,256/330,.1,100);
   scene.add(new THREE.HemisphereLight(0xffffff,0x34465f,3));
   const lamp=new THREE.DirectionalLight(0xffffff,2.7);lamp.position.set(-3,5,7);scene.add(lamp);
-  const loader=new GLTFLoader();
-  try{
+    try{
    for(const r of rarities){
     try{
-     const gltf=await loader.loadAsync('./assets/models/'+r.model);
+     const gltf=await characterLoader(r.model).loadAsync('./assets/models/'+r.model);
      const model=gltf.scene;scene.add(model);
      const bounds=new THREE.Box3().setFromObject(model),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());
      model.position.sub(center);
      const maxDim=Math.max(size.y,size.x*1.45,size.z*1.6,.1);
      const distance=maxDim/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov/2)))*1.22;
      camera.position.set(0,0,distance);camera.lookAt(0,0,0);
-     renderer.render(scene,camera);portraitCache.set(r.key,renderer.domElement.toDataURL('image/png'));
+     renderer.render(scene,camera);portraitCache.set(r.model,renderer.domElement.toDataURL('image/png'));
      scene.remove(model);
     }catch(err){console.warn('[ECHO cards] Character portrait:',r.model,err);}
    }
@@ -60,22 +79,23 @@ async function portraits(){
  })();return portraitPromise;
 }
 function makeCard(r,i){
- const card=document.createElement('div');card.className='echo-fan-card';card.style.setProperty('--rarity',r.color);
+ const card=document.createElement('div');card.className='echo-fan-card';card.style.setProperty('--rarity',rarityInfo[r.rarity].color);
  
  card.style.setProperty('--index',i);
  card.style.setProperty('--angle',(-40+i*20)+'deg');
  card.style.setProperty('--spread',(-2+i)*49+'%');
  card.style.setProperty('--rise',(Math.abs(i-2)*10)+'px');
- const label=locale()==='en'?r.en:r.ru;
- const name=r.model.replace('character-','').replace('.glb','').toUpperCase().replaceAll('-',' ');
+ const info=rarityInfo[r.rarity];
+ const label=locale()==='en'?info.en:info.ru;
+ const name=labelFor(r.model);
  card.innerHTML='<div class="echo-fan-inner"><div class="echo-fan-back"><img class="echo-fan-back-animated" src="./assets/packs/card_rubashkaa.webp" alt="" draggable="false"></div><div class="echo-fan-front"><img class="echo-fan-face-texture" alt="" draggable="false"><div class="echo-fan-glow"></div><div class="echo-fan-portrait"></div><div class="echo-fan-rarity"></div><div class="echo-fan-name"></div><div class="echo-fan-count"></div></div></div>';
- card.querySelector('.echo-fan-face-texture').src=cardArtBase+faceNames[r.key];
+ card.querySelector('.echo-fan-face-texture').src=cardArtBase+faceNames[r.rarity];
  const backImage=card.querySelector('.echo-fan-back-animated');
  backImage.addEventListener('error',()=>{backImage.remove();},{once:true});
  card.querySelector('.echo-fan-rarity').textContent=label;
  card.querySelector('.echo-fan-name').textContent=name;
  card.querySelector('.echo-fan-count').textContent='+'+r.count;
- const pic=portraitCache.get(r.key);
+ const pic=portraitCache.get(r.model);
  if(pic){const img=document.createElement('img');img.src=pic;img.alt='';card.querySelector('.echo-fan-portrait').append(img);}
  else{card.querySelector('.echo-fan-portrait').textContent='✦';}
  const still=document.createElement('img');still.className='echo-fan-still';still.alt='';still.hidden=true;card.querySelector('.echo-fan-portrait').append(still);
@@ -88,8 +108,7 @@ async function animateHero(r,card,id){
  if(!slot||!card.isConnected)return;
  let renderer;
  try{
-  const loader=new GLTFLoader();
-  const gltf=await loader.loadAsync('./assets/models/'+r.model);
+  const gltf=await characterLoader(r.model).loadAsync('./assets/models/'+r.model);
   if(id!==session||root.hidden||!card.isConnected||currentCard!==card)return;
   const canvas=document.createElement('canvas');canvas.className='echo-fan-live';
   slot.append(canvas);slot.classList.add('is-live');
@@ -154,9 +173,9 @@ function launchNext(){
    (locale()==='en'?'All cards revealed':'Все карточки открыты'));
  },2100);
 }
-async function reveal(){
+async function reveal(event){
  if(!fan||root.hidden)return;
- clear();const id=session;fan.classList.add('is-visible');
+ clear();rarities=rollPack(event?.detail?.type==='premium'?'premium':'coin');const id=session;fan.classList.add('is-visible');
  fan.setAttribute('role','button');fan.setAttribute('tabindex','0');
  fan.setAttribute('aria-label',locale()==='en'?'Revealing character cards':'Открытие карточек героев');
  await portraits().catch(err=>console.warn('[ECHO cards] portraits unavailable',err));
@@ -169,5 +188,6 @@ window.addEventListener('echo:pack-opened',reveal);
 window.addEventListener('echo:pack-reset',clear);
 window.addEventListener('echo:pack-closed',clear);
 document.addEventListener('echo:language-changed',()=>{
- fan?.querySelectorAll('.echo-fan-card').forEach((card,i)=>card.querySelector('.echo-fan-rarity').textContent=locale()==='en'?rarities[i].en:rarities[i].ru);
+ fan?.querySelectorAll('.echo-fan-card').forEach((card,i)=>card.querySelector('.echo-fan-rarity').textContent=locale()==='en'?rarityInfo[rarities[i].rarity].en:rarityInfo[rarities[i].rarity].ru);
+ fan?.querySelectorAll('.echo-fan-card').forEach((card,i)=>card.querySelector('.echo-fan-name').textContent=labelFor(rarities[i].model));
 });
