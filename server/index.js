@@ -10,6 +10,7 @@ const { roundWindow, createRoomManager } = require('./room-manager');
 const roundRewards = require('./round-rewards');
 const echoAuth = require('./auth');
 const { createAccountSessionRegistry } = require('./account-session-registry');
+const { roomIdentityFor, uniqueParticipants } = require('./player-identity');
 
 const app = express();
 const server = http.createServer(app);
@@ -843,26 +844,24 @@ function scoreRoomTick() {
     const scores = roundScores.get(key);
     const active = [...players.values()].filter(p => p.roomId === roomId && p.roundId === roundId && !p.defeated);
     active.sort((a,b) => b.energy-a.energy || a.id.localeCompare(b.id));
+    // One device-independent ranking row and score per verified account.
+    const identityOf=player=>io.sockets.sockets.get(player.id)?.data.roomIdentity||player.id;
+    const rankedPlayers=uniqueParticipants(active,identityOf);
     const earned=[];
-    const scoredAccountIds=new Set();
-    for (const [index, player] of active.entries()) {
-      const identity = io.sockets.sockets.get(player.id)?.data.roomIdentity || player.id;
-      const previous = scores.get(identity) || { identity, name: player.name, score: 0, reachedAt: 0 };
-      const points=SCORE_BY_PLACE(index + 1);
-      const accountId = io.sockets.sockets.get(player.id)?.data.verifiedAccountId;
-      const rewardIdentity = accountId ? 'account:' + accountId : identity;
-      if (!accountId || !scoredAccountIds.has(accountId)) {
-        earned.push({identity:rewardIdentity,name:player.name,points,reachedAt:Date.now()});
-        if (accountId) scoredAccountIds.add(accountId);
-      }
-      previous.score += points;
-      previous.reachedAt = Date.now();
-      previous.name = player.name;
-      scores.set(identity, previous);
+    for(const [index,player] of rankedPlayers.entries()){
+      const identity=identityOf(player);
+      const previous=scores.get(identity)||{identity,name:player.name,score:0,reachedAt:0};
+      const points=SCORE_BY_PLACE(index+1);
+      const reachedAt=Date.now();
+      earned.push({identity,name:player.name,points,reachedAt});
+      previous.score+=points;
+      previous.reachedAt=reachedAt;
+      previous.name=player.name;
+      scores.set(identity,previous);
     }
-    if (rewardsReady && earned.length) queueRewardWork(()=>roundRewards.writeTick(pool,roundId,roomId,earned));
-    const ranked = [...scores.values()].sort((a,b) => b.score-a.score || a.reachedAt-b.reachedAt || a.identity.localeCompare(b.identity));
-    const energyRanked = active.map(p=>({ name:p.name, energy:p.energy, identity:io.sockets.sockets.get(p.id)?.data.roomIdentity || p.id }));
+    if(rewardsReady&&earned.length)queueRewardWork(()=>roundRewards.writeTick(pool,roundId,roomId,earned));
+    const ranked=[...scores.values()].sort((a,b)=>b.score-a.score||a.reachedAt-b.reachedAt||a.identity.localeCompare(b.identity));
+    const energyRanked=rankedPlayers.map(p=>({name:p.name,energy:p.energy,identity:identityOf(p)}));
     for (const player of active) {
       const socket = io.sockets.sockets.get(player.id);
       if (!socket) continue;
@@ -871,7 +870,7 @@ function scoreRoomTick() {
         top: list.slice(0,5).map((p,i)=>({ place:i+1,name:p.name,value:p[field] })),
         me: (()=> { const i=list.findIndex(p=>p.identity===identity); return i<0 ? null : {place:i+1,name:list[i].name,value:list[i][field]}; })()
       });
-      socket.emit('echo:leaderboard', { roomId, roundId, playersOnline:active.length, rating:emitData('rating',ranked,'score'), energy:emitData('energy',energyRanked,'energy') });
+      socket.emit('echo:leaderboard', { roomId, roundId, playersOnline:rankedPlayers.length, rating:emitData('rating',ranked,'score'), energy:emitData('energy',energyRanked,'energy') });
     }
   }
 }
@@ -1157,8 +1156,13 @@ io.on('connection', (socket) => {
     if(socket.connected && results.length)socket.emit('echo:roundResults',results.map(item=>({...item,authenticated: Boolean(socket.data.verifiedAccountId)})));
   });
 
-  const identity = activityProfileId || socket.id;
-  socket.data.roomIdentity = identity;
+  // VK Mini App and website sessions use the same verified ECHO identity.
+  const identity=roomIdentityFor({
+    verifiedAccountId:socket.data.verifiedAccountId,
+    activityProfileId,
+    socketId:socket.id
+  });
+  socket.data.roomIdentity=identity;
   const assignment = roomManager.join(identity);
   if (assignment.status !== 'joined') {
     socket.emit('echo:roomFull', { roomId: assignment.roomId });

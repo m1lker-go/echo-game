@@ -26,6 +26,16 @@ async function initialize(pool) {
   await pool.query(`CREATE TABLE IF NOT EXISTS echo_round_finalized (
     round_id BIGINT NOT NULL, room_id INTEGER NOT NULL,
     PRIMARY KEY(round_id,room_id))`);
+  // Enforce one Echo Coin credit per verified account across the whole round.
+  await pool.query(`CREATE TABLE IF NOT EXISTS echo_round_account_awards (
+    round_id BIGINT NOT NULL, account_id UUID NOT NULL,
+    PRIMARY KEY(round_id,account_id))`);
+  // Honor payouts from earlier deployments without paying them twice.
+  await pool.query(`INSERT INTO echo_round_account_awards(round_id,account_id)
+    SELECT DISTINCT round_id,substring(profile_id from 9)::uuid
+    FROM echo_coin_ledger
+    WHERE coins > 0 AND profile_id ~* '^account:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    ON CONFLICT DO NOTHING`);
 }
 async function writeTick(pool,roundId,roomId,entries) {
   if (!entries.length) return;
@@ -58,10 +68,18 @@ async function finalizeRoom(pool,roundId,roomId) {
       if(!accountId || !registered.has(accountId))item.coins=0;
     }
     for(const item of ranks) {
+      const accountId=accountIdFromScore(item.profile_id);
+      if(item.coins>0&&accountId) {
+        // Concurrent finalizers serialize through this unique insert.
+        const award=await client.query(
+          'INSERT INTO echo_round_account_awards(round_id,account_id) VALUES($1,$2::uuid) ON CONFLICT DO NOTHING RETURNING account_id',
+          [roundId,accountId]);
+        if(!award.rowCount)item.coins=0;
+      }
       await client.query('INSERT INTO echo_coin_ledger(round_id,room_id,profile_id,place,score,coins) VALUES($1,$2,$3,$4,$5,$6)',
         [roundId,roomId,item.profile_id,item.place,item.score,item.coins]);
       if(item.coins>0)await client.query(`INSERT INTO echo_wallets(profile_id,coins) VALUES($1,$2)
-        ON CONFLICT(profile_id) DO UPDATE SET coins=echo_wallets.coins+EXCLUDED.coins`,[accountIdFromScore(item.profile_id),item.coins]);
+        ON CONFLICT(profile_id) DO UPDATE SET coins=echo_wallets.coins+EXCLUDED.coins`,[accountId,item.coins]);
     }
     await client.query('COMMIT');
     return ranks;
