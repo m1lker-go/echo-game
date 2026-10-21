@@ -86,14 +86,88 @@ if(root){
   }catch(err){console.warn('[Echo Pack] Animation init failed',err);info(tr('pack_init_failed','Анимированный WebP не удалось открыть покадрово.'));}
  }
  function reset(){window.dispatchEvent(new Event('echo:pack-reset'));fanTriggered=false;progress=0;down=false;shown=cache.has(0)?0:-1;resetButton.hidden=true;window.dispatchEvent(new CustomEvent('echo:pack-prepare',{detail:{type:packType,cards:awardedCards}}));updateUI();requestFrame();beginHints();}
+ function showAwardedPack(type,cards){
+  awardedCards=cards;
+  packType=type;
+  root.hidden=false;
+  reset();resize();prepare();
+  window.dispatchEvent(new Event('echo:shop-balance-refresh'));
+  window.dispatchEvent(new Event('echo:hero-collection-refresh'));
+ }
+ function isVKPurchasePlatform(){
+  return window.isVKMiniApp===true || new URLSearchParams(location.search).has('vk_app_id');
+ }
+ async function checkPaymentStatus(intentId,token){
+  const response=await fetch('/echo/api/payments/vk/intent/'+encodeURIComponent(intentId),{
+   headers:{Authorization:'Bearer '+token},cache:'no-store'
+  });
+  if(!response.ok)throw new Error(response.status===401?'auth':'payment_status');
+  return response.json();
+ }
+ async function waitForVKPayment(intentId,token){
+  for(let attempt=0;attempt<20;attempt++){
+   const result=await checkPaymentStatus(intentId,token);
+   if(result.status==='paid' && Array.isArray(result.cards) && result.cards.length===5)
+    return result.cards;
+   if(result.status!=='pending')throw new Error('payment_status');
+   await new Promise(resolve=>setTimeout(resolve,1000));
+  }
+  return null;
+ }
+ async function buyPremiumPack(token){
+  if(!isVKPurchasePlatform()){
+   window.ECHOToast?.show(tr('pack_payment_pending','Оплата через сайт пока не подключена'));
+   return;
+  }
+  if(!window.vkBridge?.send){
+   window.ECHOToast?.show(tr('pack_vk_unavailable','VK Bridge недоступен. Перезапустите приложение.'));
+   return;
+  }
+  purchaseBusy=true;
+  const button=document.querySelector('[data-echo-preview-pack="premium"]');
+  if(button)button.disabled=true;
+  let intentId=null;
+  try{
+   const response=await fetch('/echo/api/payments/vk/intent',{
+    method:'POST',
+    headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}
+   });
+   if(!response.ok)throw new Error(response.status===401?'auth':response.status===503?'not_configured':'server');
+   const intent=await response.json();
+   if(!intent.intentId || !intent.item)throw new Error('server');
+   intentId=intent.intentId;
+   // VK's native vote purchase UI. Only the signed server callback grants cards.
+   const result=await window.vkBridge.send('VKWebAppShowOrderBox',{type:'item',item:intent.item});
+   if(result?.status && result.status!=='success' && result.status!=='paid'){
+    window.ECHOToast?.show(tr('pack_payment_cancelled','Покупка отменена'));
+    return;
+   }
+   window.ECHOToast?.show(tr('pack_payment_verifying','Проверяем оплату VK…'));
+   const cards=await waitForVKPayment(intentId,token);
+   if(!cards){
+    window.ECHOToast?.show(tr('pack_payment_waiting','Оплата обрабатывается. Карточки будут зачислены после подтверждения VK.'));
+    return;
+   }
+   showAwardedPack('premium',cards);
+  }catch(error){
+   console.warn('[ECHO VK purchase] unavailable:',error);
+   if(intentId && error?.error_type?.includes?.('CANCEL')){
+    window.ECHOToast?.show(tr('pack_payment_cancelled','Покупка отменена'));
+   }else{
+    window.ECHOToast?.show(error.message==='auth'?tr('pack_login_required','Для покупки пака войдите в аккаунт'):
+     error.message==='not_configured'?tr('pack_payment_pending','Оплата VK пока не настроена'):
+     tr('pack_payment_error','Не удалось подтвердить оплату. Если голоса списались, проверьте коллекцию персонажей.'));
+   }
+  }finally{
+   purchaseBusy=false;
+   if(button)button.disabled=false;
+  }
+ }
  async function open(type='coin'){
   if(purchaseBusy)return;
-  if(type==='premium'){
-    window.ECHOToast?.show(tr('pack_payment_pending','Оплата элитных паков пока не подключена'));
-    return;
-  }
   const token=localStorage.getItem('echo.authToken');
   if(!token){window.ECHOToast?.show(tr('pack_login_required','Для покупки пака войдите в аккаунт'));return;}
+  if(type==='premium'){await buyPremiumPack(token);return;}
   purchaseBusy=true;
   const button=document.querySelector('[data-echo-preview-pack="coin"]');
   if(button)button.disabled=true;
@@ -102,10 +176,7 @@ if(root){
     const data=await response.json().catch(()=>({}));
     if(!response.ok)throw new Error(response.status===409?'coins':response.status===401?'auth':'server');
     if(!Array.isArray(data.cards)||data.cards.length!==5)throw new Error('server');
-    awardedCards=data.cards;
-    packType='coin';root.hidden=false;reset();resize();prepare();
-    window.dispatchEvent(new Event('echo:shop-balance-refresh'));
-    window.dispatchEvent(new Event('echo:hero-collection-refresh'));
+    showAwardedPack('coin',data.cards);
   }catch(error){
     console.warn('[ECHO packs] Purchase unavailable:',error);
     window.ECHOToast?.show(error.message==='coins'?tr('pack_not_enough_coins','Недостаточно ECHO Coin'):error.message==='auth'?tr('pack_login_required','Для покупки пака войдите в аккаунт'):tr('pack_buy_failed','Не удалось купить пак'));
@@ -119,8 +190,7 @@ if(root){
   if(repeatConfirming||purchaseBusy||root.hidden)return;
   repeatConfirming=true;
   try{
-   const vkParams=new URLSearchParams(location.search);
-   const isVk=Boolean(vkParams.get('vk_app_id')&&vkParams.get('vk_platform'));
+   const isVk=isVKPurchasePlatform();
    const premiumPrice=isVk?tr('pack_price_votes','40 голосов VK'):tr('pack_price_rubles','250 ₽');
    const packName=packType==='premium'?tr('pack_name_premium','элитный пак'):tr('pack_name_coin','обычный пак');
    const price=packType==='premium'?premiumPrice:tr('pack_price_coin','50 ECHO Coin');
