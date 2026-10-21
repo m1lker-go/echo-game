@@ -79,16 +79,37 @@ function displayQuestHud(){
 async function refreshQuestHud(){
  if(!inGame()||document.hidden){if(questHud)questHud.hidden=true;return;}
  if(hudLoading||loading)return;
+ const authToken=token();
  hudLoading=true;
  try{
-  const response=await fetch(endpoint('/api/daily-quests'),{headers:{Authorization:'Bearer '+token()},cache:'no-store'});
+  const response=await fetch(endpoint('/api/daily-quests'),{headers:{Authorization:'Bearer '+authToken},cache:'no-store'});
+  if(authToken!==token())return;
   if(!response.ok){hudSnapshot=null;displayQuestHud();return;}
-  hudSnapshot=await response.json();hudFetchedAt=Date.now();displayQuestHud();
+  const snapshot=await response.json();
+  if(authToken!==token())return;
+  hudSnapshot=snapshot;hudFetchedAt=Date.now();displayQuestHud();
  }catch(error){console.warn('[echo quests] HUD refresh failed',error)}
- finally{hudLoading=false}
+ finally{
+  hudLoading=false;
+  // A VK session can change while a request is in flight.
+  if(authToken!==token()&&inGame())queueMicrotask(refreshQuestHud);
+ }
 }
 questHudAction?.addEventListener('click',()=>{const q=hudCandidate();if(q&&q.progress>=q.target&&!loading)claim(q.id)});
-if(inGame()){refreshQuestHud();setInterval(refreshQuestHud,5000);setInterval(displayQuestHud,1000);}
+// VK Mini Apps replaces the session asynchronously after scripts have started.
+// Keep polling installed even if the initial screen is the menu or VK login is pending.
+setInterval(refreshQuestHud,5000);
+setInterval(displayQuestHud,1000);
+if(inGame())refreshQuestHud();
+document.addEventListener('echo:auth-changed',()=>{
+ hudSnapshot=null;hudFetchedAt=0;
+ if(questHud)questHud.hidden=true;
+ refreshQuestHud();
+});
+document.addEventListener('echo:game-started',refreshQuestHud);
+document.addEventListener('echo:returned-to-menu',()=>{
+ if(questHud)questHud.hidden=true;
+});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshQuestHud();else if(questHud)questHud.hidden=true});
 window.addEventListener('echo:language-changed',displayQuestHud);
 function render(){
