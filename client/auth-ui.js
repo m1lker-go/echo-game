@@ -9,7 +9,7 @@ let loginError=null;
 // Detect this separately from the ordinary browser VK ID login.
 const vkLaunchParams=(()=>{
  const search=new URLSearchParams(location.search);
- const hash=new URLSearchParams(location.hash.replace(/^#\\??/,''));
+ const hash=new URLSearchParams(location.hash.slice(1).replace(/^\?/,''));
  const params=search.has('vk_app_id')?search:hash;
  return Object.fromEntries([...params.entries()].filter(([name])=>name==='sign'||name.startsWith('vk_')));
 })();
