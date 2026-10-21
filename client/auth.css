@@ -14,3 +14,8 @@
 .echo-nickname-modal-input:focus-visible{outline:2px solid #fff;outline-offset:2px}
 .echo-nickname-help{margin:2px 0;font-size:13px;opacity:.8}
 @media(max-width:520px){#main-menu .settings-screen .echo-auth-panel{padding:12px 10px}}
+
+/* VK Mini Apps uses mandatory automatic VK authentication, never manual login/logout. */
+.echo-vk-mini-app #echo-open-login,
+.echo-vk-mini-app #echo-logout,
+.echo-vk-mini-app #echo-auth-guest{display:none!important}
