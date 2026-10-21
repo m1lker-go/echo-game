@@ -9,7 +9,8 @@ let loginError=null;
 // still be verified by ECHO on the server; VK Bridge alone is not authentication.
 function readVKLaunchFromURL(){
  const params=new URLSearchParams(location.search);
- const fragment=new URLSearchParams(location.hash.slice(1).replace(/^\\?/,''));
+ const hash=location.hash.slice(1);
+ const fragment=new URLSearchParams(hash.startsWith('?')?hash.slice(1):hash);
  for(const [name,value] of fragment){
   if(!params.has(name))params.set(name,value);
  }
@@ -19,8 +20,9 @@ const vkURLLaunch=readVKLaunchFromURL();
 const isVKContainer=(()=>{
  let framedByVK=false;
  try{
-  framedByVK=window.self!==window.top &&
-   /^https?:\\/\\/([a-z0-9-]+\\.)*(vk\\.com|vk\\.ru|vkontakte\\.ru)(?::\\d+)?\\//i.test(document.referrer);
+  const refHost=new URL(document.referrer).hostname.toLowerCase();
+  framedByVK=window.self!==window.top&&
+   ['vk.com','vk.ru','vkontakte.ru'].some(host=>refHost===host||refHost.endsWith('.'+host));
  }catch(_error){}
  return framedByVK||/VkAndroidApp|VKMobile|VKontakte|VKCOM|VKMessenger/i.test(navigator.userAgent);
 })();
