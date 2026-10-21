@@ -1,6 +1,5 @@
 'use strict';
 const crypto = require('node:crypto');
-const express = require('express');
 
 const PREMIUM_PREFIX = 'echo_premium_pack_';
 const PREMIUM_PRICE = 40;
@@ -33,6 +32,8 @@ const vkError = (res, code, message, critical = true) =>
   res.json({ error: { error_code: code, error_msg: message, critical } });
 
 function createVKPayments({ pool, sessionUser, rollSecurePack }) {
+  // CI runs the pure signature tests without installing server dependencies.
+  const express = require('express');
   const router = express.Router();
 
   async function initialize() {
