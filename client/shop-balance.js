@@ -24,7 +24,7 @@ function updatePremiumPrice(){
   const params=new URLSearchParams(window.location.search);
   const vkAppId=params.get('vk_app_id');
   const vkPlatform=params.get('vk_platform');
-  const inVKMiniApp=Boolean(vkAppId&&vkPlatform);
+  const inVKMiniApp=window.isVKMiniApp===true||Boolean(vkAppId&&vkPlatform);
   const price=inVKMiniApp?'40 '+(document.documentElement.lang?.startsWith('en')?'VK votes':'голосов VK'):'250 ₽';
   if(premiumPrice)premiumPrice.textContent=price;
 }
