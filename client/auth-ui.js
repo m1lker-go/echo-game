@@ -94,6 +94,9 @@ async function loginVKMiniApp(){
   await refresh();
  }catch(error){
   console.error('[echo vk mini] login failed',error);
+  // Never reuse a previous browser/VK session if this Mini App launch is not verified.
+  token=null;
+  localStorage.removeItem(key);
   showGuest(t('auth_failed','Ошибка авторизации VK. Попробуйте войти снова.'));
  }finally{
   vkMiniLoginInProgress=false;
