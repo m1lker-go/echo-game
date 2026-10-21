@@ -67,7 +67,7 @@ test('VK delayed login initializes quest HUD after the game already started',asy
   assert.equal(h.requests.length,1);
   assert.equal(h.requests[0].auth,'Bearer vk-authorized-token');
   assert.equal(h.elements.get('#echo-quest-hud').hidden,false);
-  assert.match(h.elements.get('#echo-quest-hud-name').children[0].children[0].textContent,/quests_play|play/);
+  assert.equal(h.elements.get('#echo-quest-hud-name').children[0].children[0].textContent,'food');
   assert.match(h.elements.get('#echo-quest-hud-action').textContent,/Осталось:/);
 });
 
