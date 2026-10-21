@@ -126,17 +126,19 @@ async function request(path,options={}){
  return response.json();
 }
 function showGuest(message){
- document.dispatchEvent(new CustomEvent('echo:auth-changed',{detail:{authenticated:false}}));
  current=null;guest.hidden=isVKMiniApp;panel.hidden=true;
  status.textContent=message||'';
  status.hidden=!message;
+ document.dispatchEvent(new CustomEvent('echo:auth-changed',{detail:{authenticated:false}}));
 }
-function showUser(data){
- document.dispatchEvent(new CustomEvent('echo:auth-changed',{detail:{authenticated:true}}));
+function showUser(data,{nicknameChanged=false}={}){
  current=data;guest.hidden=true;panel.hidden=false;
  document.querySelector('#echo-account-name').textContent=data.nickname;
  status.textContent='';
  status.hidden=true;
+ document.dispatchEvent(new CustomEvent('echo:auth-changed',{detail:{
+  authenticated:true,nickname:data.nickname,accountId:data.accountId,nicknameChanged
+ }}));
 }
 async function refresh(){
  if(!token){showGuest();return;}
@@ -265,7 +267,7 @@ document.querySelector('#echo-edit-name')?.addEventListener('click',()=>{
      if(!confirmed)return;
      try{
       const data=await request('nickname',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nickname:value})});
-      showUser({...current,nickname:data.nickname});
+      showUser({...current,nickname:data.nickname},{nicknameChanged:true});
       window.ECHOToast?.show(t('nickname_saved','Имя успешно изменено'));
      }catch(error){window.ECHOToast?.show(error.code==='forbidden'?t('nickname_forbidden','Имя содержит запрещённые слова'):error.status===409?t('nickname_taken','Имя занято'):error.status===400?t('nickname_invalid','Имя: 3–20 букв, цифр, _ или -'):t('auth_failed','Ошибка авторизации'));}
     },0);
@@ -283,7 +285,7 @@ document.querySelector('#echo-logout')?.addEventListener('click',async()=>{
  token=null;localStorage.removeItem(key);showGuest();
 });
 // Share the existing authenticated API with the shop; never infer balance from local storage.
-window.ECHOAuth = Object.freeze({getMe:()=>token?request('me'):Promise.resolve(null)});
+window.ECHOAuth = Object.freeze({getMe:()=>token?request('me'):Promise.resolve(null),getCurrent:()=>current&&{accountId:current.accountId,nickname:current.nickname}});
 if(isVKMiniApp){
  // Previous browser session must never identify the VK Mini App player.
  token=null;
