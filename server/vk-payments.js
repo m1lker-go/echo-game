@@ -154,7 +154,7 @@ function createVKPayments({ pool, sessionUser, rollSecurePack }) {
         `SELECT i.id, i.account_id, i.status, a.provider_id
          FROM echo_vk_payment_intents i
          JOIN echo_accounts a ON a.id=i.account_id
-         WHERE i.id=$1 AND i.expires_at>NOW() FOR UPDATE OF i`,
+         WHERE i.id=$1 AND (i.expires_at>NOW() OR i.status='paid') FOR UPDATE OF i`,
         [intentId]
       );
       const intent = found.rows[0];
