@@ -147,15 +147,15 @@
  }
 }
 
-/* Pack-relative sizing: the foil, cards and labels now respond to the same
-   .echo-pack-view width (defined in pack-shop-3d.css), not to viewport vw/vh.
-   Keep these last: they replace legacy fixed caps and small-screen overrides. */
+/* The shared .echo-pack-stage encloses foil, fan and reset button, so all
+   percentages and cqw units resolve against the actual foil width.
+   These overrides deliberately follow the legacy mobile media queries. */
 #echo-pack-3d .echo-pack-card-fan{
   left:0;top:0;width:100%;height:100%;
   transform:none;perspective:140cqw;
 }
 #echo-pack-3d .echo-fan-card{
-  width:27%;top:65%!important;
+  width:22%;top:65%!important;
   transform:translate(-50%,-100%) rotate(0deg) translateY(12cqw) rotateY(0deg) scale(.3)!important;
 }
 #echo-pack-3d .echo-fan-card.is-launched{
@@ -169,14 +169,14 @@
   font-size:max(22px,8cqw);
 }
 #echo-pack-3d .echo-fan-card .echo-fan-rarity{
-  font-size:max(6px,1.85cqw);
+  font-size:clamp(7px,1.5cqw,13px);
 }
 #echo-pack-3d .echo-fan-card .echo-fan-name{
-  font-size:max(7px,1.75cqw);
+  font-size:clamp(7px,1.45cqw,12px);
 }
 #echo-pack-3d .echo-fan-card .echo-fan-count{
   top:1.25cqw;left:1.25cqw;
   padding:.25cqw .65cqw;
   border-radius:max(3px,.8cqw);
-  font-size:max(8px,1.95cqw);
+  font-size:clamp(9px,1.7cqw,14px);
 }
