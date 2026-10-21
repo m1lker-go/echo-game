@@ -23,6 +23,27 @@ function verifyNotification(body, appId = VK_APP_ID, secret = VK_SECRET) {
 const validVKUser = value => /^[1-9]\d{0,19}$/.test(String(value || ''));
 const validOrder = value => /^[1-9]\d{0,19}$/.test(String(value || '')) &&
   Number.isSafeInteger(Number(value));
+// VK's order_status_change item_id is optional. If VK sends it, it must
+// match the product ID returned by our get_item callback. The actual signed
+// price is mandatory and must still equal 40 votes (including "40.00").
+function checkVKOrderProduct(body) {
+  const rawId = body?.item_id;
+  const hasItemId = rawId !== undefined && rawId !== null &&
+    String(rawId).trim() !== '';
+  const itemIdMatches = !hasItemId || String(rawId).trim() === PRODUCT_ID;
+  const rawPrice = body?.item_price;
+  const priceText = typeof rawPrice === 'string' ? rawPrice.trim() :
+    typeof rawPrice === 'number' ? String(rawPrice) : '';
+  const priceMatches = /^\d+(?:\.\d+)?$/.test(priceText) &&
+    Number(priceText) === PREMIUM_PRICE;
+  return {
+    ok: itemIdMatches && priceMatches,
+    hasItemId,
+    itemIdMatches,
+    hasPrice: priceText.length > 0,
+    priceMatches,
+  };
+}
 const productFromItem = value => {
   const match = typeof value === 'string' &&
     /^echo_premium_pack_([0-9a-f]{32})$/.exec(value);
@@ -162,10 +183,18 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
       trace(type, 'unsupported_payment_status');
       return vkError(res, 1, 'Unsupported payment status');
     }
-    // Check the product and actual VK price, not just a success flag.
-    if (String(body.item_id || '') !== PRODUCT_ID ||
-        String(body.item_price || '') !== String(PREMIUM_PRICE)) {
+    // A valid signed VK charge callback may omit item_id. The price is
+    // mandatory; reject wrong prices and any mismatched *supplied* item_id.
+    const productCheck = checkVKOrderProduct(body);
+    if (!productCheck.ok) {
       trace(type, 'unexpected_item_id_or_price');
+      // Log only field presence and comparisons, never payment tokens/IDs.
+      console.warn('[echo vk payment] product validation', {
+        itemIdPresent: productCheck.hasItemId,
+        itemIdMatches: productCheck.itemIdMatches,
+        pricePresent: productCheck.hasPrice,
+        priceMatches: productCheck.priceMatches,
+      });
       return vkError(res, 20, 'Unexpected product or price');
     }
 
@@ -242,4 +271,4 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
 
   return { router, initialize };
 }
-module.exports = { createVKPayments, verifyNotification, PREMIUM_PRICE };
+module.exports = { createVKPayments, verifyNotification, checkVKOrderProduct, PREMIUM_PRICE };
