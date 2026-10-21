@@ -45,10 +45,15 @@ async function createVKAccountSession(uid) {
       const id = crypto.randomUUID();
       const nickname = 'Echo_' + id.replace(/-/g,'').slice(0,10);
       const created = await client.query(
-        'INSERT INTO echo_accounts(id,provider,provider_id,nickname) VALUES($1,$2,$3,$4) RETURNING id,nickname',
+        'INSERT INTO echo_accounts(id,provider,provider_id,nickname) VALUES($1,$2,$3,$4) ON CONFLICT(provider,provider_id) DO NOTHING RETURNING id,nickname',
         [id, 'vkid', String(uid), nickname]
       );
-      account = created.rows[0];
+      // Simultaneous app opens must resolve to one existing VK account.
+      account = created.rows[0] || (await client.query(
+        'SELECT id,nickname FROM echo_accounts WHERE provider=$1 AND provider_id=$2',
+        ['vkid', String(uid)]
+      )).rows[0];
+      if (!account) throw new Error('VK account lookup failed');
     }
     const session = crypto.randomBytes(32).toString('hex');
     await client.query(
