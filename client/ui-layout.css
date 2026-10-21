@@ -102,7 +102,8 @@
   --echo-coords-dx: 0px;
   --echo-coords-dy: 0px;
   --echo-controls-hint-bottom: 28px;
-  --echo-controls-hint-font: 9px;
+  /* Base size at 700px game height; scales proportionally with the HUD. */
+  --echo-controls-hint-font: 17px;
   --echo-controls-hint-dx: 0px;
   --echo-controls-hint-dy: 0px;
 
@@ -307,6 +308,10 @@
 }
 #game .controls-hint {
   font-size: calc(var(--echo-controls-hint-font) * var(--echo-ui-scale));
+  line-height: 1.2;
+  max-width: calc(100% - 32px);
+  text-align: center;
+  white-space: normal;
   bottom: max(calc(var(--echo-controls-hint-bottom) * var(--echo-ui-scale)), env(safe-area-inset-bottom, 0px));
   transform: translate(
     calc(-50% + var(--echo-controls-hint-dx) * var(--echo-ui-scale)),
