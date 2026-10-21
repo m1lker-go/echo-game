@@ -9,6 +9,7 @@ const { normalizePlayerName } = require('./player-name');
 const { roundWindow, createRoomManager } = require('./room-manager');
 const roundRewards = require('./round-rewards');
 const echoAuth = require('./auth');
+const { createAccountSessionRegistry } = require('./account-session-registry');
 
 const app = express();
 const server = http.createServer(app);
@@ -26,6 +27,7 @@ const io = new Server(server, {
     methods: ['GET', 'POST'],
   },
 });
+const accountSessions = createAccountSessionRegistry();
 
 // The clock is intentionally informational until room gameplay is integrated.
 function currentRoundClock(now = Date.now()) {
@@ -1049,10 +1051,20 @@ io.use(async (socket, next) => {
   } catch (error) {
     console.error('[socket] account verification unavailable:', error.message);
   }
+  // A verified account must have exactly one online game session.
+  // Claim only after async authentication completes, before admitting the
+  // socket to a room. No nickname, profile ID, or client flag is trusted.
+  if (socket.data.verifiedAccountId &&
+      !accountSessions.claim(socket.data.verifiedAccountId, socket.id)) {
+    const error = new Error('Account already playing');
+    error.data = { code: 'ACCOUNT_ALREADY_PLAYING' };
+    return next(error);
+  }
   next();
 });
 
 io.on('connection', (socket) => {
+  accountSessions.activate(socket.id);
   let activityProfileId = normalizeActivityProfileId(socket.handshake.auth?.activityProfileId);
   if (activityProfileId) claimActivityProfileSocket(socket, activityProfileId);
   let lastPingAt = 0;
@@ -1253,6 +1265,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', (reason) => {
+    accountSessions.release(socket.id);
     collectElapsedTime();
     clearInterval(activityInterval);
     dailyActivityProfileIds.delete(socket.id);
