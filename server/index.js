@@ -1191,6 +1191,10 @@ io.on('connection', (socket) => {
 
     socket.emit('echo:world', createWorldSnapshot());
     if (current) {
+      // A client widget may attach after a delayed VK Mini Apps login. Resend
+      // the room and clock on hello so it does not stay stuck on "Room —".
+      socket.emit('echo:room', { roomId: current.roomId, round: roundWindow(), occupancy: roomPlayers(current).length });
+      socket.emit('echo:roundClock', currentRoundClock());
       socket.emit('echo:players', roomPlayers(current).map(player => ({ ...player })));
       broadcastFood(current);
       broadcastPlayers(current);
