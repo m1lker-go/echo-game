@@ -134,10 +134,10 @@ if(root){
    });
    if(!response.ok)throw new Error(response.status===401?'auth':response.status===503?'not_configured':'server');
    const intent=await response.json();
-   if(!intent.intentId || !intent.item)throw new Error('server');
+   if(!intent.intentId || intent.item!=='1')throw new Error('server');
    intentId=intent.intentId;
    // VK's native vote purchase UI. Only the signed server callback grants cards.
-   const result=await window.vkBridge.send('VKWebAppShowOrderBox',{type:'item',item:intent.item});
+   const result=await window.vkBridge.send('VKWebAppShowOrderBox',{type:'item',item:'1'});
    if(result?.status && result.status!=='success' && result.status!=='paid'){
     window.ECHOToast?.show(tr('pack_payment_cancelled','Покупка отменена'));
     return;

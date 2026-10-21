@@ -1,7 +1,6 @@
 'use strict';
 const crypto = require('node:crypto');
 
-const PREMIUM_PREFIX = 'echo_premium_pack_';
 const PREMIUM_PRICE = 40;
 const PRODUCT_ID = '1';
 const VK_APP_ID = String(process.env.VK_MINI_APP_ID || '');
@@ -37,18 +36,13 @@ function checkVKOrderProduct(body) {
   const priceMatches = /^\d+(?:\.\d+)?$/.test(priceText) &&
     Number(priceText) === PREMIUM_PRICE;
   return {
-    ok: itemIdMatches && priceMatches,
+    ok: String(body?.item) === PRODUCT_ID && itemIdMatches && priceMatches,
     hasItemId,
     itemIdMatches,
     hasPrice: priceText.length > 0,
     priceMatches,
   };
 }
-const productFromItem = value => {
-  const match = typeof value === 'string' &&
-    /^echo_premium_pack_([0-9a-f]{32})$/.exec(value);
-  return match ? match[1] : null;
-};
 const vkError = (res, code, message, critical = true) =>
   res.json({ error: { error_code: code, error_msg: message, critical } });
 
@@ -71,7 +65,7 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
       app_order_id BIGSERIAL PRIMARY KEY,
       order_id TEXT NOT NULL,
       is_test BOOLEAN NOT NULL,
-      intent_id TEXT NOT NULL UNIQUE REFERENCES echo_vk_payment_intents(id),
+      intent_id TEXT UNIQUE REFERENCES echo_vk_payment_intents(id),
       account_id UUID NOT NULL REFERENCES echo_accounts(id),
       price INTEGER NOT NULL,
       cards JSONB NOT NULL,
@@ -79,6 +73,9 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (order_id, is_test)
     )`);
+    // Preserve existing purchases, and allow a valid VK callback even when
+    // its browser-side animation intent has been lost.
+    await pool.query('ALTER TABLE echo_vk_payments ALTER COLUMN intent_id DROP NOT NULL');
     schemaReady = true;
   }
 
@@ -86,8 +83,8 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
     ok: true, service: 'echo-vk-payments', enabled: enabled(), schemaReady
   }));
 
-  // Each opening of the VK order dialog gets its own server-side purchase ID.
-  // An old paid order cannot be mistaken for a new purchase.
+  // Animation tracker only: the VK product uses Cat Fighting's static SKU "1".
+  // VK never receives or needs the random internal intent ID.
   router.post('/intent', async (req, res) => {
     if (!enabled()) return res.status(503).json({ error: 'VK purchases unavailable' });
     try {
@@ -102,7 +99,7 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
       const id = crypto.randomBytes(16).toString('hex');
       await pool.query('INSERT INTO echo_vk_payment_intents (id, account_id) VALUES ($1,$2)',
         [id, user.id]);
-      return res.json({ intentId: id, item: PREMIUM_PREFIX + id, price: PREMIUM_PRICE });
+      return res.json({ intentId: id, item: PRODUCT_ID, price: PREMIUM_PRICE });
     } catch (error) {
       console.error('[echo vk payment] intent failed:', error.message);
       return res.status(500).json({ error: 'Cannot prepare VK purchase' });
@@ -146,42 +143,37 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
     const isTest = type === 'get_item_test' || type === 'order_status_change_test';
     if (!['get_item','get_item_test','order_status_change','order_status_change_test'].includes(type))
       return vkError(res, 1, 'Unsupported notification');
-    const intentId = productFromItem(body.item);
-    if (!intentId || !validVKUser(body.user_id)) {
-      trace(type, 'invalid_item_or_user');
-      return vkError(res, 20, 'Invalid item or user');
+    if (!validVKUser(body.user_id)) {
+      trace(type, 'invalid_user');
+      return vkError(res, 22, 'Invalid VK user');
     }
+    if (String(body.item) !== PRODUCT_ID) {
+      trace(type, 'unknown_item');
+      return vkError(res, 20, 'Item not found');
+    }
+    // Exactly the Cat Fighting catalog flow: a constant item_id and price.
     if (type === 'get_item' || type === 'get_item_test') {
-      try {
-        const result = await pool.query(
-          `SELECT a.provider_id FROM echo_vk_payment_intents i
-           JOIN echo_accounts a ON a.id=i.account_id
-           WHERE i.id=$1 AND i.expires_at>NOW() AND i.status='pending'`,
-          [intentId]
-        );
-        if (!result.rowCount || result.rows[0].provider_id !== String(body.user_id)) {
-          trace(type, 'no_matching_pending_intent');
-          return vkError(res, 20, 'Item not found for this user');
-        }
-        trace(type, 'item_found');
-        return res.json({ response: {
-          item_id: PRODUCT_ID, title: 'ECHO — элитный пак',
-          photo_url: 'https://cat-fight.ru/echo/assets/packs/specialcardpic.webp',
-          price: PREMIUM_PRICE, expiration: 0
-        } });
-      } catch (error) {
-        trace(type, 'database_error');
-        console.error('[echo vk payment] get_item failed:', error.message);
-        return vkError(res, 2, 'Temporarily unavailable', false);
-      }
+      trace(type, 'item_found');
+      return res.json({ response: {
+        item_id: PRODUCT_ID, title: 'ECHO — элитный пак',
+        photo_url: 'https://cat-fight.ru/echo/assets/packs/specialcardpic.webp',
+        price: PREMIUM_PRICE, expiration: 3600
+      } });
     }
     if (!validOrder(body.order_id)) {
       trace(type, 'invalid_order_id');
       return vkError(res, 1, 'Invalid order ID');
     }
+    // Cat Fighting acknowledges refunds/cancellations without granting an item.
+    if (['refund','refunded','cancelled'].includes(body.status)) {
+      trace(type, 'refund_or_cancel_acknowledged');
+      return res.json({response:{
+        order_id:Number(body.order_id),app_order_id:Number(body.order_id)
+      }});
+    }
     if (body.status !== 'chargeable') {
       trace(type, 'unsupported_payment_status');
-      return vkError(res, 1, 'Unsupported payment status');
+      return vkError(res, 11, 'Unsupported payment status');
     }
     // A valid signed VK charge callback may omit item_id. The price is
     // mandatory; reject wrong prices and any mismatched *supplied* item_id.
@@ -202,27 +194,26 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
     try {
       client = await pool.connect();
       await client.query('BEGIN');
+
+      // As in Cat Fighting, the signed user_id identifies who receives the
+      // product. The account is the same for ECHO website and VK Mini Apps.
       const found = await client.query(
-        `SELECT i.id, i.account_id, i.status, a.provider_id
-         FROM echo_vk_payment_intents i
-         JOIN echo_accounts a ON a.id=i.account_id
-         WHERE i.id=$1 AND (i.expires_at>NOW() OR i.status='paid') FOR UPDATE OF i`,
-        [intentId]
+        "SELECT id::text AS id FROM echo_accounts WHERE provider='vkid' AND provider_id=$1 LIMIT 1",
+        [String(body.user_id)]
       );
-      const intent = found.rows[0];
-      if (!intent || intent.provider_id !== String(body.user_id)) {
+      const accountId = found.rows[0]?.id;
+      if (!accountId) {
         await client.query('ROLLBACK');
-        trace(type, 'intent_missing_or_user_mismatch');
-        return vkError(res, 22, 'Payment user not found');
+        trace(type, 'vk_account_not_found');
+        return vkError(res, 22, 'VK user not registered');
       }
       const previous = await client.query(
-        'SELECT app_order_id,intent_id,account_id FROM echo_vk_payments WHERE order_id=$1 AND is_test=$2',
+        'SELECT app_order_id,account_id FROM echo_vk_payments WHERE order_id=$1 AND is_test=$2',
         [String(body.order_id), isTest]
       );
       if (previous.rowCount) {
         await client.query('ROLLBACK');
-        if (previous.rows[0].intent_id !== intentId ||
-            previous.rows[0].account_id !== intent.account_id) {
+        if (String(previous.rows[0].account_id) !== String(accountId)) {
           trace(type, 'order_id_conflict');
           return vkError(res, 1, 'Order conflict');
         }
@@ -231,31 +222,53 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
           order_id: Number(body.order_id), app_order_id: Number(previous.rows[0].app_order_id)
         } });
       }
-      if (intent.status !== 'pending') {
-        await client.query('ROLLBACK');
-        trace(type, 'intent_already_used');
-        return vkError(res, 1, 'Order already used');
-      }
+
+      // Only for ECHO's animated reveal; payment must never depend on this
+      // extra record because the VK SKU is a fixed "1".
+      const pending = await client.query(
+        `SELECT id FROM echo_vk_payment_intents
+         WHERE account_id=$1 AND status='pending' AND expires_at>NOW()
+           AND created_at>NOW()-INTERVAL '15 minutes'
+         ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE`,
+        [accountId]
+      );
+      const intentId = pending.rows[0]?.id || null;
       const cards = rollSecurePack('premium');
       const added = await client.query(
         `INSERT INTO echo_vk_payments
          (order_id,is_test,intent_id,account_id,price,cards)
-         VALUES ($1,$2,$3,$4,$5,$6::jsonb) RETURNING app_order_id`,
-        [String(body.order_id), isTest, intentId, intent.account_id, PREMIUM_PRICE, JSON.stringify(cards)]
+         VALUES ($1,$2,$3,$4,$5,$6::jsonb)
+         ON CONFLICT (order_id,is_test) DO NOTHING RETURNING app_order_id`,
+        [String(body.order_id), isTest, intentId, accountId, PREMIUM_PRICE, JSON.stringify(cards)]
       );
+      if (!added.rowCount) {
+        // Another simultaneous callback has already processed this order.
+        const duplicate = await client.query(
+          'SELECT app_order_id,account_id FROM echo_vk_payments WHERE order_id=$1 AND is_test=$2',
+          [String(body.order_id), isTest]
+        );
+        await client.query('ROLLBACK');
+        if (!duplicate.rowCount || String(duplicate.rows[0].account_id) !== String(accountId))
+          return vkError(res, 1, 'Order conflict');
+        trace(type, 'duplicate_order_acknowledged');
+        return res.json({ response: {
+          order_id: Number(body.order_id), app_order_id: Number(duplicate.rows[0].app_order_id)
+        } });
+      }
       for (const card of cards) {
         await client.query(
           `INSERT INTO echo_hero_collection(account_id,model,fragments) VALUES ($1,$2,$3)
            ON CONFLICT(account_id,model)
            DO UPDATE SET fragments=echo_hero_collection.fragments+EXCLUDED.fragments`,
-          [String(intent.account_id), card.model, card.count]
+          [accountId, card.model, card.count]
         );
       }
-      await client.query(
-        "UPDATE echo_vk_payment_intents SET status='paid' WHERE id=$1", [intentId]);
+      if (intentId) await client.query(
+        "UPDATE echo_vk_payment_intents SET status='paid' WHERE id=$1", [intentId]
+      );
       await client.query('COMMIT');
       trace(type, 'reward_issued');
-      console.log('[echo vk payment] fulfilled', { intentId, isTest });
+      console.log('[echo vk payment] fulfilled', { isTest, hasIntent: Boolean(intentId) });
       return res.json({ response: {
         order_id: Number(body.order_id), app_order_id: Number(added.rows[0].app_order_id)
       } });

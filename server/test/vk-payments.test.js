@@ -1,179 +1,169 @@
 'use strict';
-const assert = require('node:assert/strict');
-const test = require('node:test');
-const crypto = require('node:crypto');
-const secret = 'this-is-a-fake-protected-test-key';
-const appId = '54838920';
-process.env.VK_MINI_APP_ID = appId;
-process.env.VK_MINI_APP_SECRET = secret;
-const { verifyNotification, PREMIUM_PRICE, createVKPayments, checkVKOrderProduct } = require('../vk-payments');
-function signedNotification(fields = {}) {
-  const data = {
-    notification_type: 'get_item_test',
-    app_id: appId,
-    user_id: '12345',
-    item: 'echo_premium_pack_' + 'a'.repeat(32),
-    ...fields,
-  };
-  const signed = Object.keys(data).sort().map(k => k + '=' + data[k]).join('');
-  return { ...data, sig: crypto.createHash('md5').update(signed + secret).digest('hex') };
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const crypto=require('node:crypto');
+process.env.VK_MINI_APP_ID='54838920';
+process.env.VK_MINI_APP_SECRET='this-is-a-fake-protected-test-key';
+const {createVKPayments,verifyNotification,checkVKOrderProduct,PREMIUM_PRICE}=require('../vk-payments');
+const accountId='123e4567-e89b-42d3-a456-426614174000';
+function sign(fields={}) {
+ const body={notification_type:'get_item_test',app_id:'54838920',user_id:'12345',item:'1',...fields};
+ const payload=Object.keys(body).sort().map(k=>k+'='+body[k]).join('');
+ return {...body,sig:crypto.createHash('md5').update(payload+process.env.VK_MINI_APP_SECRET).digest('hex')};
 }
-
-test('VK callback signature accepts an authentic get_item notification', () => {
-  assert.equal(verifyNotification(signedNotification(), appId, secret), true);
-});
-test('VK callback signature accepts valid chargeable notification', () => {
-  assert.equal(verifyNotification(signedNotification({
-    notification_type: 'order_status_change',
-    order_id: '9876', status: 'chargeable', item_id: '1', item_price: 40,
-  }), appId, secret), true);
-});
-test('VK callback rejects other app IDs and modified callback fields', () => {
-  const data = signedNotification();
-  assert.equal(verifyNotification(data, '54832804', secret), false);
-  assert.equal(verifyNotification({ ...data, user_id: '56789' }, appId, secret), false);
-  assert.equal(verifyNotification({ ...data, item_price: 1 }, appId, secret), false);
-  assert.equal(verifyNotification(data, appId, 'wrong-secret'), false);
-});
-test('VK callback rejects missing or forged signatures and nonscalar data', () => {
-  const data = signedNotification();
-  assert.equal(verifyNotification({ ...data, sig: '' }, appId, secret), false);
-  assert.equal(verifyNotification({ ...data, sig: 'f'.repeat(32) }, appId, secret), false);
-  assert.equal(verifyNotification({ ...data, sig: undefined }, appId, secret), false);
-  assert.equal(verifyNotification({ ...data, user_id: { id: '12345' } }, appId, secret), false);
-  assert.equal(verifyNotification(null, appId, secret), false);
-});
-test('ECHO premium pack is priced at 40 VK votes', () => {
-  assert.equal(PREMIUM_PRICE, 40);
-});
-
-
-function mockVKCallback(providerId = '12345') {
-  const routes = {};
-  const pool = {
-    async query(sql, params) {
-      if (!sql.includes('FROM echo_vk_payment_intents')) throw new Error('unexpected SQL');
-      assert.deepEqual(params, ['a'.repeat(32)]);
-      return { rowCount: providerId ? 1 : 0, rows: providerId ? [{provider_id: providerId}] : [] };
+function harness() {
+ const routes={};
+ const paid=new Map();
+ const intents=new Map();
+ let grants=0;
+ let connectionCount=0;
+ const sql=[];
+ const pool={
+  async query(query,params=[]) {
+   sql.push(query);
+   if(query.startsWith('CREATE TABLE')||query.startsWith('ALTER TABLE'))return {rowCount:0,rows:[]};
+   if(query.startsWith('SELECT provider_id FROM echo_accounts'))return {rowCount:1,rows:[{provider_id:'12345'}]};
+   if(query.startsWith('INSERT INTO echo_vk_payment_intents')) {
+     intents.set(params[0],{status:'pending',cards:null});
+     return {rowCount:1,rows:[]};
+   }
+   if(query.startsWith('SELECT i.status, p.cards FROM echo_vk_payment_intents')) {
+     const i=intents.get(params[0]);
+     return i?{rowCount:1,rows:[i]}:{rowCount:0,rows:[]};
+   }
+   throw Error('Unexpected pool query '+query.slice(0,90));
+  },
+  async connect() {
+   connectionCount++;
+   return {release(){},async query(query,params=[]) {
+    sql.push(query);
+    if(['BEGIN','COMMIT','ROLLBACK'].includes(query))return {rowCount:0,rows:[]};
+    if(query.startsWith('SELECT id::text AS id FROM echo_accounts'))
+      return {rowCount:params[0]==='12345'?1:0,rows:params[0]==='12345'?[{id:accountId}]:[]};
+    if(query.startsWith('SELECT app_order_id,account_id FROM echo_vk_payments')) {
+      const order=paid.get(params[0]+':'+params[1]);
+      return order?{rowCount:1,rows:[order]}:{rowCount:0,rows:[]};
     }
-  };
-  createVKPayments({
-    pool, sessionUser: async () => null, rollSecurePack: () => [],
-    createRouter: () => ({
-      get: () => {},
-      post(path, handler) { routes[path] = handler; },
-    })
-  });
-  return routes['/'];
-}
-
-async function callVKNotification(route, fields) {
-  const req = { body: signedNotification(fields) };
-  const res = { body: null, json(data) { this.body = data; return this; } };
-  await route(req, res);
-  return res.body;
-}
-
-test('signed VK get_item_test loads elite pack details for authenticated VK user', async () => {
-  const response = await callVKNotification(mockVKCallback(), {
-    order_id: '555', receiver_id: '12345', lang: 'ru_RU'
-  });
-  assert.equal(response.response.title, 'ECHO — элитный пак');
-  assert.equal(response.response.item_id, '1');
-  assert.equal(response.response.price, 40);
-  assert.equal(response.response.expiration, 0);
-  assert.ok(response.response.photo_url.startsWith('https://cat-fight.ru/echo/'));
-});
-
-test('signed VK get_item rejects a product intent belonging to another user', async () => {
-  const response = await callVKNotification(mockVKCallback('65432'), { order_id: '555' });
-  assert.equal(response.error.error_code, 20);
-});
-
-test('VK callbacks cannot bypass verification to fetch item info', async () => {
-  const handler = mockVKCallback();
-  const req = { body: { ...signedNotification(), user_id: '98765' } };
-  const res = { json(data) { this.body = data; return this; } };
-  await handler(req, res);
-  assert.equal(res.body.error.error_code, 10);
-});
-
-test('signed VK order may omit item_id but must still have exact 40-vote price', () => {
-  for(const price of ['40', '40.0', '40.00', 40]) {
-    assert.equal(checkVKOrderProduct({item_price: price}).ok, true);
-    assert.equal(checkVKOrderProduct({item_id: '1',item_price: price}).ok, true);
-  }
-  for(const itemPrice of [undefined, '', '0', '39', '41', '40.01', '4e1', '40 RUB', 'Infinity']) {
-    assert.equal(checkVKOrderProduct({item_price:itemPrice}).ok, false);
-  }
-  assert.equal(checkVKOrderProduct({item_id:'2',item_price:40}).ok, false);
-  assert.equal(checkVKOrderProduct({item_id:'echo_premium_pack_invalid',item_price:40}).ok, false);
-});
-
-test('real VK test charge without item_id grants one pack and acknowledges retry without duplicate cards', async () => {
-  const routes={};
-  const accountId='123e4567-e89b-42d3-a456-426614174000';
-  let paid=null;
-  let inserts=0;
-  let granted=0;
-  const pool={
-    async connect() {
-      return {
-        release(){},
-        async query(sql,params=[]) {
-          if(sql==='BEGIN'||sql==='COMMIT'||sql==='ROLLBACK')return {rowCount:0,rows:[]};
-          if(sql.includes('FROM echo_vk_payment_intents i')&&sql.includes('FOR UPDATE OF i')) {
-            return {rowCount:1,rows:[{id:'a'.repeat(32),account_id:accountId,status:paid?'paid':'pending',provider_id:'12345'}]};
-          }
-          if(sql.includes('FROM echo_vk_payments WHERE order_id=')) {
-            return paid?{rowCount:1,rows:[{app_order_id:'42',intent_id:'a'.repeat(32),account_id:accountId}]}:{rowCount:0,rows:[]};
-          }
-          if(sql.includes('INSERT INTO echo_vk_payments')) {
-            inserts++;
-            paid={app_order_id:'42'};
-            return {rowCount:1,rows:[{app_order_id:'42'}]};
-          }
-          if(sql.includes('INSERT INTO echo_hero_collection')) {
-            granted++;
-            return {rowCount:1,rows:[]};
-          }
-          if(sql.includes('UPDATE echo_vk_payment_intents'))return {rowCount:1,rows:[]};
-          throw Error('Unexpected query '+sql.slice(0,100));
-        }
-      };
+    if(query.startsWith('SELECT id FROM echo_vk_payment_intents')) {
+      const last=[...intents.entries()].reverse().find(([,value])=>value.status==='pending');
+      return {rowCount:last?1:0,rows:last?[{id:last[0]}]:[]};
     }
-  };
-  const cards=Array.from({length:5},(_,i)=>({model:'character-female-a.glb',count:i+1}));
-  createVKPayments({
-    pool,sessionUser:async()=>null,rollSecurePack:()=>cards,
-    createRouter:()=>({get(){},post(path,handler){routes[path]=handler}})
-  });
-  const fields={
-    notification_type:'order_status_change_test',
-    order_id:'9876',
-    status:'chargeable',
-    item_price:'40.00',
-  };
-  const response=await callVKNotification(routes['/'],fields);
-  assert.deepEqual(response,{response:{order_id:9876,app_order_id:42}});
-  assert.equal(inserts,1);
-  assert.equal(granted,5);
-  const second=await callVKNotification(routes['/'],fields);
-  assert.deepEqual(second,response);
-  assert.equal(inserts,1);
-  assert.equal(granted,5);
+    if(query.startsWith('INSERT INTO echo_vk_payments')) {
+      const key=params[0]+':'+params[1];
+      if(paid.has(key))return {rowCount:0,rows:[]};
+      const order={app_order_id:'42',account_id:params[3]};
+      paid.set(key,order);
+      if(params[2])intents.get(params[2]).cards=JSON.parse(params[5]);
+      return {rowCount:1,rows:[order]};
+    }
+    if(query.startsWith('INSERT INTO echo_hero_collection')){grants++;return {rowCount:1,rows:[]}};
+    if(query.startsWith('UPDATE echo_vk_payment_intents')){intents.get(params[0]).status='paid';return {rowCount:1,rows:[]}};
+    throw Error('Unexpected client query '+query.slice(0,100));
+   }};
+  }
+ };
+ const controller=createVKPayments({
+  pool,sessionUser:async()=>({id:accountId}),
+  rollSecurePack:()=>Array.from({length:5},(_,i)=>({model:'character-female-a.glb',count:i+1})),
+  createRouter:()=>({get(path,handler){routes['GET '+path]=handler},post(path,handler){routes['POST '+path]=handler}})
+ });
+ async function call(type,fields={}) {
+  const req={body:sign({notification_type:type,...fields})};
+  let result;
+  const res={json(data){result=data;return this},status(){return this}};
+  await routes['POST /'](req,res);
+  return result;
+ }
+ async function intent() {
+  let result;
+  const res={json(data){result=data;return this},status(){return this}};
+  await routes['POST /intent']({body:{}},res);
+  return result;
+ }
+ return {controller,call,intent,routes,sql,intents,paid,get grants(){return grants},get connections(){return connectionCount}};
+}
+test('catalog calls mirror Cat Fighting: item 1, fixed price, 3600s expiration',async()=>{
+ const h=harness();
+ await h.controller.initialize();
+ const response=await h.call('get_item_test');
+ assert.equal(response.response.item_id,'1');
+ assert.equal(response.response.title,'ECHO — элитный пак');
+ assert.equal(response.response.price,40);
+ assert.equal(response.response.expiration,3600);
+ assert.match(response.response.photo_url,/specialcardpic\.webp$/);
+ assert.ok(h.sql.some(q=>q.includes('ALTER COLUMN intent_id DROP NOT NULL')));
+ assert.equal(h.connections,0,'catalog lookup must not depend on a pending attempt');
 });
-
-test('signed price mismatch never enters payment database',async()=>{
-  const routes={};
-  createVKPayments({
-    pool:{connect(){throw Error('Payment DB must not be accessed');}},
-    sessionUser:async()=>null,rollSecurePack:()=>[],
-    createRouter:()=>({get(){},post(path,handler){routes[path]=handler}})
-  });
-  const result=await callVKNotification(routes['/'],{
-    notification_type:'order_status_change_test',order_id:'9876',
-    status:'chargeable',item_price:'39.99'
-  });
-  assert.equal(result.error.error_code,20);
+test('both real and test catalog requests reject unknown SKUs',async()=>{
+ const h=harness();
+ assert.equal((await h.call('get_item',{item:'2'})).error.error_code,20);
+ assert.equal((await h.call('get_item_test',{item:'echo_premium_pack_old'})).error.error_code,20);
+ assert.equal(h.connections,0);
+});
+test('intent for card animation never changes the VK catalog item ID',async()=>{
+ const h=harness();
+ const i=await h.intent();
+ assert.equal(i.item,'1');
+ assert.equal(i.price,40);
+ assert.match(i.intentId,/^[a-f0-9]{32}$/);
+});
+test('chargeable order awards five cards, returns stable order ID, and ignores retries',async()=>{
+ const h=harness();
+ const i=await h.intent();
+ const fields={order_id:'9876',status:'chargeable',item_price:'40',item_id:'1'};
+ const first=await h.call('order_status_change_test',fields);
+ assert.deepEqual(first,{response:{order_id:9876,app_order_id:42}});
+ assert.equal(h.grants,5);
+ assert.equal(h.intents.get(i.intentId).status,'paid');
+ const duplicate=await h.call('order_status_change_test',fields);
+ assert.deepEqual(duplicate,first);
+ assert.equal(h.grants,5);
+ assert.equal(h.paid.size,1);
+});
+test('valid signed charges grant rewards even if browser never created an intent',async()=>{
+ const h=harness();
+ const result=await h.call('order_status_change',{status:'chargeable',order_id:'8888',item_price:'40.00'});
+ assert.equal(result.response.app_order_id,42);
+ assert.equal(h.grants,5);
+});
+test('invalid signature, product, price or status never give rewards',async()=>{
+ const h=harness();
+ const bads=[
+  {status:'chargeable',order_id:'1',item_price:'41'},
+  {status:'chargeable',order_id:'1',item_price:'40',item_id:'3'},
+  {status:'chargeable',order_id:'1',item_price:'40',item:'2'},
+  {status:'chargeable',order_id:'1'},
+  {status:'reserved',order_id:'1',item_price:'40'}
+ ];
+ for(const b of bads)assert.ok((await h.call('order_status_change_test',b)).error);
+ const forged=sign();
+ forged.user_id='54321';
+ assert.equal(verifyNotification(forged),false);
+ assert.equal(h.grants,0);
+});
+test('VK order test and live order IDs are separate and refund acknowledges without a grant',async()=>{
+ const h=harness();
+ assert.equal((await h.call('order_status_change_test',{order_id:'300',item_price:'40',status:'chargeable'})).response.order_id,300);
+ assert.equal((await h.call('order_status_change',{order_id:'300',item_price:'40',status:'chargeable'})).response.order_id,300);
+ assert.equal(h.grants,10);
+ assert.equal((await h.call('order_status_change_test',{order_id:'300',status:'refunded'})).response.order_id,300);
+ assert.equal(h.grants,10);
+});
+test('VK callback signature checks correct app ID and secret',()=>{
+ const x=sign();
+ assert.equal(verifyNotification(x),true);
+ assert.equal(verifyNotification(x,'54671077',process.env.VK_MINI_APP_SECRET),false);
+ assert.equal(verifyNotification(x,'54838920','fake-secret'),false);
+ assert.equal(verifyNotification({...x,price:1}),false);
+});
+test('item_id in callback is optional but signed price and item are mandatory',()=>{
+ for(const item_price of ['40','40.0','40.00',40])
+  assert.equal(checkVKOrderProduct({item:'1',item_price}).ok,true);
+ for(const fields of [
+  {item:'1',item_price:'39'},
+  {item:'1',item_price:'41'},
+  {item:'2',item_price:'40'},
+  {item:'1'},
+  {item:'1',item_price:'40',item_id:'2'}
+ ])assert.equal(checkVKOrderProduct(fields).ok,false);
 });
