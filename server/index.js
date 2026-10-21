@@ -151,6 +151,13 @@ function rollSecurePack(type){
  for(let i=5;i<(type==='premium'?15:5);i++)pickWeighted(cards,c=>weights[c.rarity]).count++;
  return cards;
 }
+
+// VK payment notifications are routed ONLY to ECHO. The Cat Fighting callback
+// at /vk-payment-callback remains completely separate.
+const vkPayments = require('./vk-payments').createVKPayments({
+  pool, sessionUser: echoAuth.sessionUser, rollSecurePack
+});
+app.use('/api/payments/vk', express.urlencoded({ extended: false }), vkPayments.router);
 app.post('/api/packs/coin/open',async(req,res)=>{
  let client;
  try{
@@ -1271,6 +1278,7 @@ server.listen(port, '0.0.0.0', async () => {
     await pool.query('CREATE TABLE IF NOT EXISTS echo_daily_quest_claims (profile_id TEXT NOT NULL, quest_date DATE NOT NULL, quest_id TEXT NOT NULL, claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (profile_id, quest_date, quest_id))');
     await roundRewards.initialize(pool);
     await echoAuth.initialize();
+    await vkPayments.initialize();
     rewardsReady = true;
     queueRewardWork(()=>roundRewards.finalizeOverdue(pool,Date.now()));
     console.log('[echo-server] database connection OK');
