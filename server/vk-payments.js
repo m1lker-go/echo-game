@@ -31,10 +31,12 @@ const productFromItem = value => {
 const vkError = (res, code, message, critical = true) =>
   res.json({ error: { error_code: code, error_msg: message, critical } });
 
-function createVKPayments({ pool, sessionUser, rollSecurePack }) {
-  // CI runs the pure signature tests without installing server dependencies.
-  const express = require('express');
-  const router = express.Router();
+function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = () => require('express').Router() }) {
+  // A router factory lets CI check complete VK callbacks without dependencies.
+  const router = createRouter();
+  let schemaReady = false;
+  const trace = (type, result) => console.info('[echo vk callback]', { type: String(type || 'unknown').slice(0,40), result });
+
 
   async function initialize() {
     await pool.query(`CREATE TABLE IF NOT EXISTS echo_vk_payment_intents (
@@ -56,10 +58,11 @@ function createVKPayments({ pool, sessionUser, rollSecurePack }) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (order_id, is_test)
     )`);
+    schemaReady = true;
   }
 
   router.get('/', (_req, res) => res.json({
-    ok: true, service: 'echo-vk-payments', enabled: enabled()
+    ok: true, service: 'echo-vk-payments', enabled: enabled(), schemaReady
   }));
 
   // Each opening of the VK order dialog gets its own server-side purchase ID.
@@ -109,15 +112,24 @@ function createVKPayments({ pool, sessionUser, rollSecurePack }) {
   // the compulsory signed callback is verified using ECHO's protected app key.
   router.post('/', async (req, res) => {
     const body = req.body;
-    if (!enabled()) return vkError(res, 1, 'ECHO VK payments are not configured');
-    if (!verifyNotification(body)) return vkError(res, 10, 'Invalid VK payment signature');
-    const type = body.notification_type;
+    const type = typeof body?.notification_type === 'string' ? body.notification_type : 'unknown';
+    if (!enabled()) {
+      trace(type, 'not_configured');
+      return vkError(res, 1, 'ECHO VK payments are not configured');
+    }
+    if (!verifyNotification(body)) {
+      trace(type, 'bad_signature_or_app_id');
+      return vkError(res, 10, 'Invalid VK payment signature');
+    }
+    trace(type, 'verified');
     const isTest = type === 'get_item_test' || type === 'order_status_change_test';
     if (!['get_item','get_item_test','order_status_change','order_status_change_test'].includes(type))
       return vkError(res, 1, 'Unsupported notification');
     const intentId = productFromItem(body.item);
-    if (!intentId || !validVKUser(body.user_id))
+    if (!intentId || !validVKUser(body.user_id)) {
+      trace(type, 'invalid_item_or_user');
       return vkError(res, 20, 'Invalid item or user');
+    }
     if (type === 'get_item' || type === 'get_item_test') {
       try {
         const result = await pool.query(
@@ -126,14 +138,18 @@ function createVKPayments({ pool, sessionUser, rollSecurePack }) {
            WHERE i.id=$1 AND i.expires_at>NOW() AND i.status='pending'`,
           [intentId]
         );
-        if (!result.rowCount || result.rows[0].provider_id !== String(body.user_id))
+        if (!result.rowCount || result.rows[0].provider_id !== String(body.user_id)) {
+          trace(type, 'no_matching_pending_intent');
           return vkError(res, 20, 'Item not found for this user');
+        }
+        trace(type, 'item_found');
         return res.json({ response: {
           item_id: PRODUCT_ID, title: 'ECHO — элитный пак',
           photo_url: 'https://cat-fight.ru/echo/assets/packs/specialcardpic.webp',
-          price: PREMIUM_PRICE, expiration: 3600
+          price: PREMIUM_PRICE, expiration: 0
         } });
       } catch (error) {
+        trace(type, 'database_error');
         console.error('[echo vk payment] get_item failed:', error.message);
         return vkError(res, 2, 'Temporarily unavailable', false);
       }
