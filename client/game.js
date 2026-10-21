@@ -149,28 +149,45 @@ function connectSocket(){if(!window.io){setConnection('offline','game:connection
   setConnection('offline','game:connection_pending');
  });state.socket.on('echo:fight',({fightId,playerA,playerB})=>beginCombatVisual(playerA,playerB,fightId));state.socket.on('echo:combatResult',({fightId,result,energy})=>{if(fightId!==state.combatFightId)return;state.combatUntil=0;state.combatOpponentId=null;state.combatFightId=null;if(result==='lose'){state.energy=0;showDefeat();}else{state.energy=Number.isFinite(energy)?energy:state.energy;energyText.textContent=String(state.energy);}});state.socket.on('echo:players',players=>{if(!Array.isArray(players))return;const now=performance.now(),next=new Map();for(const p of players){if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;if(p.id===state.socket.id){if(typeof p.name==='string'&&p.name.trim())playerName=p.name;if(Number.isFinite(p.energy)){state.energy=Math.max(0,Math.round(p.energy));energyText.textContent=String(state.energy);}continue;}const old=state.others.get(p.id),skin=ALLOWED_MODELS.has(p.skin)?p.skin:DEFAULT_MODEL,t={...p,skin,previousX:old?.targetX??p.x,previousY:old?.targetY??p.y,targetX:p.x,targetY:p.y,previousSnapshotAt:old?.snapshotAt??now-80,snapshotAt:now,displayX:old?.displayX??p.x,displayY:old?.displayY??p.y,vx:Number.isFinite(p.vx)?p.vx:0,vy:Number.isFinite(p.vy)?p.vy:0,combatUntil:old?.combatUntil??(p.fightingWith?now+FIGHT_DURATION:0),combatFightId:old?.combatFightId??p.fightId??null};if(!old){t.previousSnapshotAt=now-120;t.previousX=p.x;t.previousY=p.y;}next.set(p.id,t);}state.others=next;state.lastSnapshotAt=now;});}catch{setConnection('offline','game:connection_local');}}
 
-// VK Mini Apps authorize asynchronously: don't join multiplayer as a guest while
-// VK Bridge verifies the player. For web guests keep the existing connection.
-if(!window.isVKMiniApp || window.ECHOAuth?.getCurrent?.())connectSocket();
+// The multiplayer connection belongs to gameplay, not to the account menu.
+// Releasing it on exit frees the server-side one-session-per-account reservation.
+function inActiveGame(){
+ return document.querySelector('#main-menu')?.classList.contains('is-hidden')===true;
+}
+function releaseGameSocket(){
+ const socket=state.socket;
+ if(!socket)return;
+ state.socket=null;
+ if(window.echoSocket===socket)window.echoSocket=null;
+ socket.disconnect(); // Explicit disconnect disables automatic reconnect.
+ state.others.clear();
+ setConnection('offline','game:connection_offline');
+}
+// VK Mini Apps authenticate asynchronously. Only enter the world after the
+// game screen is active and a verified VK session has been established.
+if(inActiveGame()&&(!window.isVKMiniApp||window.ECHOAuth?.getCurrent?.()))connectSocket();
 document.addEventListener('echo:auth-changed',event=>{
  const detail=event.detail||{};
  const authenticated=detail.authenticated===true;
  const accountToken=authenticated?(localStorage.getItem('echo.authToken')||null):null;
  playerName=authenticated&&typeof detail.nickname==='string'&&detail.nickname.trim()
   ?detail.nickname:guestPlayerName;
+ if(!inActiveGame()||(window.isVKMiniApp&&!authenticated)){
+  releaseGameSocket();
+  return;
+ }
  if(!state.socket){
-  if(authenticated || !window.isVKMiniApp)connectSocket();
+  if(authenticated||!window.isVKMiniApp)connectSocket();
   return;
  }
  const previousToken=state.socket.auth?.accountToken||null;
- if(previousToken!==accountToken || (authenticated&&detail.nicknameChanged===true)){
-  // Socket.IO authenticates only at connection time. Refresh the handshake to
-  // use the server-verified nickname and claimed heroes instead of guest data.
+ if(previousToken!==accountToken||(authenticated&&detail.nicknameChanged===true)){
+  // Socket.IO validates the refreshed account token on the next handshake.
   state.socket.auth={...state.socket.auth,accountToken,playerName};
   state.socket.disconnect().connect();
  }
 });
-let lastDailyPing=0;function sendDailyActivityPing(now=performance.now()){if(!state.socket?.connected||document.hidden||now-lastDailyPing<15000)return;lastDailyPing=now;state.socket.emit('echo:dailyPing',{activityProfileId});}document.addEventListener('visibilitychange',()=>{if(!state.socket?.connected)return;if(document.hidden){state.socket.emit('echo:dailyPing',{activityProfileId,active:false});}else{lastDailyPing=-15000;sendDailyActivityPing();}});function returnToMenu(){document.querySelector('#main-menu')?.classList.remove('is-hidden');document.getElementById('game')?.classList.remove('echo-in-battle');document.querySelector('#menu-main')?.removeAttribute('hidden');document.dispatchEvent(new Event('echo:returned-to-menu'));}gameExitButton?.addEventListener('click',async()=>{const confirmed=await window.ECHOModal?.confirm({title:window.$t?.('game:exit_confirm_title','Выход из игры')||'Выход из игры',text:window.$t?.('game:exit_confirm_text','Вы действительно хотите покинуть игру?')||'Вы действительно хотите покинуть игру?',confirmText:window.$t?.('menu:yes','Да')||'Да',cancelText:window.$t?.('menu:no','Нет')||'Нет'});if(confirmed)returnToMenu();});if(new URLSearchParams(location.search).get('play')==='1')document.dispatchEvent(new Event('echo:game-started'));
+let lastDailyPing=0;function sendDailyActivityPing(now=performance.now()){if(!state.socket?.connected||document.hidden||now-lastDailyPing<15000)return;lastDailyPing=now;state.socket.emit('echo:dailyPing',{activityProfileId});}document.addEventListener('visibilitychange',()=>{if(!state.socket?.connected)return;if(document.hidden){state.socket.emit('echo:dailyPing',{activityProfileId,active:false});}else{lastDailyPing=-15000;sendDailyActivityPing();}});function returnToMenu(){releaseGameSocket();document.querySelector('#main-menu')?.classList.remove('is-hidden');document.getElementById('game')?.classList.remove('echo-in-battle');document.querySelector('#menu-main')?.removeAttribute('hidden');document.dispatchEvent(new Event('echo:returned-to-menu'));}gameExitButton?.addEventListener('click',async()=>{const confirmed=await window.ECHOModal?.confirm({title:window.$t?.('game:exit_confirm_title','Выход из игры')||'Выход из игры',text:window.$t?.('game:exit_confirm_text','Вы действительно хотите покинуть игру?')||'Вы действительно хотите покинуть игру?',confirmText:window.$t?.('menu:yes','Да')||'Да',cancelText:window.$t?.('menu:no','Нет')||'Нет'});if(confirmed)returnToMenu();});if(new URLSearchParams(location.search).get('play')==='1')document.dispatchEvent(new Event('echo:game-started'));
 function isoProject(x,y){return{x:(x-y)*ISO.x,y:(x+y)*ISO.y};}function drawIsoLine(a,b){const pa=isoProject(a.x-state.cameraX,a.y-state.cameraY),pb=isoProject(b.x-state.cameraX,b.y-state.cameraY);ctx.moveTo(Math.round(state.width/2+pa.x)+.5,Math.round(state.height/2+pa.y)+.5);ctx.lineTo(Math.round(state.width/2+pb.x)+.5,Math.round(state.height/2+pb.y)+.5);}function worldToScreen(x,y){const p=isoProject(x,y),c=isoProject(state.cameraX,state.cameraY);return{x:Math.round(state.width/2+p.x-c.x),y:Math.round(state.height/2+p.y-c.y)}}function worldToScreenPrecise(x,y){const p=isoProject(x,y),c=isoProject(state.cameraX,state.cameraY);return{x:state.width/2+p.x-c.x,y:state.height/2+p.y-c.y}}
 function drawGrid(time){const{width,height}=state,s=84,fade=ctx.createRadialGradient(width/2,height/2,30,width/2,height/2,Math.max(width,height)*.7);fade.addColorStop(0,'rgba(169,198,228,.15)');fade.addColorStop(.55,'rgba(115,146,181,.055)');fade.addColorStop(1,'rgba(80,105,140,.004)');const rx=Math.ceil(width/ISO.x)+s*2,ry=Math.ceil(height/ISO.y)+s*2,sx=Math.floor((state.cameraX-rx)/s)*s,ex=Math.ceil((state.cameraX+rx)/s)*s,sy=Math.floor((state.cameraY-ry)/s)*s,ey=Math.ceil((state.cameraY+ry)/s)*s;ctx.strokeStyle=fade;ctx.lineWidth=1;ctx.beginPath();for(let x=sx;x<=ex;x+=s)drawIsoLine({x,y:state.cameraY-ry},{x,y:state.cameraY+ry});for(let y=sy;y<=ey;y+=s)drawIsoLine({x:state.cameraX-rx,y},{x:state.cameraX+rx,y});ctx.stroke();ctx.fillStyle='rgba(195,222,247,.12)';for(let x=sx;x<=ex;x+=s)for(let y=sy;y<=ey;y+=s){const p=worldToScreen(x,y);if(p.x>-2&&p.x<width+2&&p.y>-2&&p.y<height+2){ctx.globalAlpha=.25+.1*Math.sin(time*.0006+(x+y)*.02);ctx.fillRect(p.x-1,p.y-1,2,2)}}ctx.globalAlpha=1;}
 function updateModel(root,a,x,y,vx,vy,time,label,other=false,fx=vx,fy=vy){if(!root)return;const p=worldToScreenPrecise(x,y);root.position.x=p.x-state.width/2;root.position.y=-(p.y-state.height/2)+Math.sin(time*.0028+x*.02)*(Math.hypot(vx||0,vy||0)>18?1.3:1.8);root.position.z=0;root.renderOrder=0;const moving=Math.hypot(vx||0,vy||0)>18;updateCharacterFacing(root,fx,fy,ISO);switchAnimation(a,moving,time);}
