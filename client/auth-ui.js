@@ -5,28 +5,91 @@ const status=document.querySelector('#echo-auth-status');
 let loginWidget=null;
 let loginError=null;
 
-// VK Mini Apps pass signed launch parameters in the opening URL.
-// Detect this separately from the ordinary browser VK ID login.
-const vkLaunchParams=(()=>{
- const search=new URLSearchParams(location.search);
- const hash=new URLSearchParams(location.hash.slice(1).replace(/^\?/,''));
- const params=search.has('vk_app_id')?search:hash;
+// VK Mini Apps uses VK Bridge on every launch. The signed parameters must
+// still be verified by ECHO on the server; VK Bridge alone is not authentication.
+function readVKLaunchFromURL(){
+ const params=new URLSearchParams(location.search);
+ const fragment=new URLSearchParams(location.hash.slice(1).replace(/^\\?/,''));
+ for(const [name,value] of fragment){
+  if(!params.has(name))params.set(name,value);
+ }
  return Object.fromEntries([...params.entries()].filter(([name])=>name==='sign'||name.startsWith('vk_')));
+}
+const vkURLLaunch=readVKLaunchFromURL();
+const isVKContainer=(()=>{
+ let framedByVK=false;
+ try{
+  framedByVK=window.self!==window.top &&
+   /^https?:\\/\\/([a-z0-9-]+\\.)*(vk\\.com|vk\\.ru|vkontakte\\.ru)(?::\\d+)?\\//i.test(document.referrer);
+ }catch(_error){}
+ return framedByVK||/VkAndroidApp|VKMobile|VKontakte|VKCOM|VKMessenger/i.test(navigator.userAgent);
 })();
-const isVKMiniAppLaunch=Boolean(vkLaunchParams.vk_app_id&&vkLaunchParams.vk_user_id&&vkLaunchParams.sign);
+const isVKMiniApp=Boolean(
+ vkURLLaunch.vk_app_id||vkURLLaunch.vk_user_id||
+ vkURLLaunch.vk_platform||vkURLLaunch.sign||isVKContainer
+);
+window.isVKMiniApp=isVKMiniApp;
 let vkMiniLoginInProgress=false;
+let vkBridgePromise=null;
 
-function initializeVKBridge(){
- if(!isVKMiniAppLaunch)return;
- const startBridge=()=>{
-  window.vkBridge?.send('VKWebAppInit').catch(error=>console.warn('[echo vk mini] bridge init',error));
- };
- if(window.vkBridge){startBridge();return;}
- const script=document.createElement('script');
- script.src='https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js';
- script.onload=startBridge;
- script.onerror=()=>console.warn('[echo vk mini] VK Bridge unavailable');
- document.head.append(script);
+function loadVKBridge(){
+ if(window.vkBridge?.send)return Promise.resolve(window.vkBridge);
+ if(vkBridgePromise)return vkBridgePromise;
+ vkBridgePromise=new Promise((resolve,reject)=>{
+  const script=document.createElement('script');
+  const timeout=setTimeout(()=>reject(new Error('VK Bridge script timed out')),10000);
+  script.src='https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js';
+  script.onload=()=>{
+   clearTimeout(timeout);
+   if(window.vkBridge?.send)resolve(window.vkBridge);
+   else reject(new Error('VK Bridge is unavailable'));
+  };
+  script.onerror=()=>{
+   clearTimeout(timeout);
+   reject(new Error('Cannot load VK Bridge'));
+  };
+  document.head.append(script);
+ });
+ return vkBridgePromise;
+}
+async function sendVKBridge(bridge,method){
+ let timer;
+ try{
+  return await Promise.race([
+   bridge.send(method),
+   new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(method+' timed out')),10000);})
+  ]);
+ }finally{clearTimeout(timer);}
+}
+function normalizedVKLaunch(value){
+ const params=value?.launch_params||value?.params||value;
+ if(!params||typeof params!=='object'||Array.isArray(params))return {};
+ return Object.fromEntries(
+  Object.entries(params)
+   .filter(([name,val])=>(name==='sign'||name.startsWith('vk_'))&&
+    (typeof val==='string'||typeof val==='number'))
+   .map(([name,val])=>[name,String(val)])
+ );
+}
+function isCompleteVKLaunch(params){
+ return Boolean(params.sign&&params.vk_user_id&&params.vk_app_id);
+}
+async function getVKMiniAppLaunch(){
+ const bridge=await loadVKBridge();
+ // Initialize Bridge even when all signed parameters are already in the URL.
+ await sendVKBridge(bridge,'VKWebAppInit');
+ let fromBridge={};
+ try{
+  fromBridge=normalizedVKLaunch(await sendVKBridge(bridge,'VKWebAppGetLaunchParams'));
+ }catch(error){
+  // Some VK clients provide launch params only in the URL.
+  console.warn('[echo vk mini] VKWebAppGetLaunchParams unavailable',error);
+ }
+ // Keep the exact signed URL strings when present. Do not mix signed fields
+ // from different sources, since that can invalidate the signature.
+ if(isCompleteVKLaunch(vkURLLaunch))return vkURLLaunch;
+ if(isCompleteVKLaunch(fromBridge))return fromBridge;
+ throw new Error('Signed VK Mini App launch parameters are missing');
 }
 
 const key='echo.authToken';
@@ -62,7 +125,7 @@ async function request(path,options={}){
 }
 function showGuest(message){
  document.dispatchEvent(new CustomEvent('echo:auth-changed',{detail:{authenticated:false}}));
- current=null;guest.hidden=false;panel.hidden=true;
+ current=null;guest.hidden=isVKMiniApp;panel.hidden=true;
  status.textContent=message||'';
  status.hidden=!message;
 }
@@ -81,23 +144,29 @@ async function refresh(){
 async function loginVKMiniApp(){
  if(vkMiniLoginInProgress)return;
  vkMiniLoginInProgress=true;
+ status.textContent=t('vk_connecting','Подключение к VK…');
+ status.hidden=false;
  try{
-  // The server checks the signature and ECHO Mini App ID before issuing a session.
+  const launchParams=await getVKMiniAppLaunch();
+  // Never reuse a browser session before confirming which VK user opened the Mini App.
+  token=null;
+  localStorage.removeItem(key);
   const account=await request('vk-launch',{
    method:'POST',
    headers:{'Content-Type':'application/json'},
-   body:JSON.stringify(vkLaunchParams)
+   body:JSON.stringify(launchParams)
   });
   if(!/^[a-f0-9]{64}$/.test(account?.token||''))throw new Error('Invalid session response');
   token=account.token;
   localStorage.setItem(key,token);
   await refresh();
  }catch(error){
-  console.error('[echo vk mini] login failed',error);
-  // Never reuse a previous browser/VK session if this Mini App launch is not verified.
+  console.error('[echo vk mini] automatic login failed',error);
   token=null;
   localStorage.removeItem(key);
-  showGuest(t('auth_failed','Ошибка авторизации VK. Попробуйте войти снова.'));
+  showGuest(error.status===503?
+   t('vk_not_configured','Вход через VK пока не настроен на сервере.'):
+   t('vk_auth_retry','Не удалось автоматически войти через VK. Перезапустите мини-приложение.'));
  }finally{
   vkMiniLoginInProgress=false;
  }
@@ -139,7 +208,7 @@ async function start(){
 document.querySelector('#menu-settings')?.addEventListener('click',()=>{if(token)refresh();});
 document.querySelector('#echo-open-login')?.addEventListener('click',()=>{
  if(current)return;
- if(isVKMiniAppLaunch){loginVKMiniApp();return;}
+ if(isVKMiniApp)return;
  const content=document.createElement('div');
  content.className='echo-login-modal-content';
  loginWidget=document.createElement('div');
@@ -205,6 +274,7 @@ document.querySelector('#echo-edit-name')?.addEventListener('click',()=>{
  requestAnimationFrame(()=>field.focus());
 });
 document.querySelector('#echo-logout')?.addEventListener('click',async()=>{
+ if(isVKMiniApp)return;
  const approved=await window.ECHOModal.confirm({title:t('logout_confirm_title','ВЫХОД'),text:t('logout_confirm_text','Вы уверены, что хотите выйти из аккаунта?'),confirmText:t('yes','Да'),cancelText:t('no','Нет')});
  if(!approved)return;
  try{await request('logout',{method:'POST'});}catch{}
@@ -212,8 +282,15 @@ document.querySelector('#echo-logout')?.addEventListener('click',async()=>{
 });
 // Share the existing authenticated API with the shop; never infer balance from local storage.
 window.ECHOAuth = Object.freeze({getMe:()=>token?request('me'):Promise.resolve(null)});
-if(isVKMiniAppLaunch){
- initializeVKBridge();
+if(isVKMiniApp){
+ document.documentElement.classList.add('echo-vk-mini-app');
+ document.querySelector('#echo-open-login')?.setAttribute('hidden','');
+ document.querySelector('#echo-logout')?.setAttribute('hidden','');
+ guest.hidden=true;
+ panel.hidden=true;
+ status.textContent=t('vk_connecting','Подключение к VK…');
+ status.hidden=false;
+ // The Mini App always authenticates its VK user automatically.
  loginVKMiniApp();
 }else{
  refresh();
