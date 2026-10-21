@@ -285,6 +285,9 @@ document.querySelector('#echo-logout')?.addEventListener('click',async()=>{
 // Share the existing authenticated API with the shop; never infer balance from local storage.
 window.ECHOAuth = Object.freeze({getMe:()=>token?request('me'):Promise.resolve(null)});
 if(isVKMiniApp){
+ // Previous browser session must never identify the VK Mini App player.
+ token=null;
+ localStorage.removeItem(key);
  document.documentElement.classList.add('echo-vk-mini-app');
  document.querySelector('#echo-open-login')?.setAttribute('hidden','');
  document.querySelector('#echo-logout')?.setAttribute('hidden','');
