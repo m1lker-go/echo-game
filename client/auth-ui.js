@@ -78,18 +78,18 @@ function isCompleteVKLaunch(params){
 }
 async function getVKMiniAppLaunch(){
  const bridge=await loadVKBridge();
- // Initialize Bridge even when all signed parameters are already in the URL.
+ // Initialize Bridge on every VK Mini App launch, including when URL params suffice.
  await sendVKBridge(bridge,'VKWebAppInit');
+ // VK already supplies signed URL parameters in normal launches. Use their
+ // original string values without an unnecessary slow Bridge round-trip.
+ if(isCompleteVKLaunch(vkURLLaunch))return vkURLLaunch;
+ // A Bridge lookup is needed only when the VK host omitted URL parameters.
  let fromBridge={};
  try{
   fromBridge=normalizedVKLaunch(await sendVKBridge(bridge,'VKWebAppGetLaunchParams'));
  }catch(error){
-  // Some VK clients provide launch params only in the URL.
   console.warn('[echo vk mini] VKWebAppGetLaunchParams unavailable',error);
  }
- // Keep the exact signed URL strings when present. Do not mix signed fields
- // from different sources, since that can invalidate the signature.
- if(isCompleteVKLaunch(vkURLLaunch))return vkURLLaunch;
  if(isCompleteVKLaunch(fromBridge))return fromBridge;
  throw new Error('Signed VK Mini App launch parameters are missing');
 }
