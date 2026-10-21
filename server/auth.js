@@ -4,7 +4,10 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('./db');
 const { validateNickname } = require('./nickname-policy');
+const { verifyVKMiniAppLaunch } = require('./vk-launch');
 const APP_ID = String(process.env.VK_ID_APP_ID || '');
+const MINI_APP_ID = String(process.env.VK_MINI_APP_ID || '');
+const MINI_APP_SECRET = process.env.VK_MINI_APP_SECRET || '';
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 const getSession = req => (req.headers.authorization || '').match(/^Bearer ([a-f0-9]{64})$/)?.[1];
 async function sessionUser(req) {
@@ -28,7 +31,41 @@ async function initialize() {
     expires_at TIMESTAMPTZ NOT NULL
   )`);
 }
-router.get('/config', (_req, res) => res.json({ enabled: /^\d+$/.test(APP_ID), appId: /^\d+$/.test(APP_ID) ? Number(APP_ID) : null }));
+// Both browser VK ID and VK Mini Apps resolve the same VK user to one ECHO account.
+async function createVKAccountSession(uid) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const existing = await client.query(
+      'SELECT id,nickname FROM echo_accounts WHERE provider=$1 AND provider_id=$2',
+      ['vkid', String(uid)]
+    );
+    let account = existing.rows[0];
+    if (!account) {
+      const id = crypto.randomUUID();
+      const nickname = 'Echo_' + id.replace(/-/g,'').slice(0,10);
+      const created = await client.query(
+        'INSERT INTO echo_accounts(id,provider,provider_id,nickname) VALUES($1,$2,$3,$4) RETURNING id,nickname',
+        [id, 'vkid', String(uid), nickname]
+      );
+      account = created.rows[0];
+    }
+    const session = crypto.randomBytes(32).toString('hex');
+    await client.query(
+      "INSERT INTO echo_auth_sessions(token_hash,account_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '30 days')",
+      [hash(session), account.id]
+    );
+    await client.query('COMMIT');
+    return { token: session, nickname: account.nickname, accountId: account.id };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+router.get('/config', (_req, res) => res.json({ enabled: /^\d+$/.test(APP_ID), appId: /^\d+$/.test(APP_ID) ? Number(APP_ID) : null, miniAppEnabled: /^\d+$/.test(MINI_APP_ID) && Boolean(MINI_APP_SECRET), miniAppId: /^\d+$/.test(MINI_APP_ID) ? Number(MINI_APP_ID) : null }));
 router.post('/vk', async (req,res) => {
   const accessToken = req.body?.accessToken;
   if (!/^\d+$/.test(APP_ID) || typeof accessToken !== 'string' || accessToken.length < 20 || accessToken.length > 4096)
@@ -49,29 +86,26 @@ router.post('/vk', async (req,res) => {
     } finally { clearTimeout(timer); }
     const uid = data?.user?.user_id;
     if (!uid || !/^[a-zA-Z0-9_-]{1,120}$/.test(String(uid))) return res.status(401).json({ error: 'VK ID verification failed' });
-    const client = await pool.connect();
-    let account;
-    try {
-      await client.query('BEGIN');
-      const existing = await client.query('SELECT id,nickname FROM echo_accounts WHERE provider=$1 AND provider_id=$2', ['vkid',String(uid)]);
-      if (existing.rows.length) account = existing.rows[0];
-      else {
-        const id = crypto.randomUUID();
-        const nickname = 'Echo_' + id.replace(/-/g,'').slice(0,10);
-        const created = await client.query('INSERT INTO echo_accounts(id,provider,provider_id,nickname) VALUES($1,$2,$3,$4) RETURNING id,nickname',[id,'vkid',String(uid),nickname]);
-        account = created.rows[0];
-      }
-      const session = crypto.randomBytes(32).toString('hex');
-      await client.query('INSERT INTO echo_auth_sessions(token_hash,account_id,expires_at) VALUES($1,$2,NOW()+INTERVAL \'30 days\')',[hash(session),account.id]);
-      await client.query('COMMIT');
-      res.json({ token: session, nickname: account.nickname, accountId: account.id });
-    } catch (error) { await client.query('ROLLBACK'); throw error; }
-    finally { client.release(); }
+    res.json(await createVKAccountSession(uid));
   } catch (error) {
     console.error('[auth] VK ID login failed:',error.message);
     res.status(502).json({error:'VK ID login failed'});
   }
 });
+// VK Mini App uses signed launch params, not the browser VK ID OAuth token.
+router.post('/vk-launch', async (req, res) => {
+  if (!/^\d+$/.test(MINI_APP_ID) || !MINI_APP_SECRET)
+    return res.status(503).json({ error: 'ECHO VK Mini App is not configured' });
+  if (!verifyVKMiniAppLaunch(req.body, MINI_APP_SECRET, MINI_APP_ID))
+    return res.status(403).json({ error: 'Invalid VK Mini App launch signature' });
+  try {
+    res.json(await createVKAccountSession(req.body.vk_user_id));
+  } catch (error) {
+    console.error('[auth] VK Mini App login failed:', error.message);
+    res.status(500).json({ error: 'VK Mini App login failed' });
+  }
+});
+
 router.get('/me',async(req,res)=>{
   try { const user=await sessionUser(req); if(!user)return res.status(401).json({error:'Unauthorized'});res.json({accountId:user.id,nickname:user.nickname,coins:Number(user.coins||0)}); }
   catch(error){console.error('[auth] me failed:',error.message);res.status(500).json({error:'Unavailable'});}
