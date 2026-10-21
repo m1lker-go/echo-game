@@ -5,6 +5,30 @@ const status=document.querySelector('#echo-auth-status');
 let loginWidget=null;
 let loginError=null;
 
+// VK Mini Apps pass signed launch parameters in the opening URL.
+// Detect this separately from the ordinary browser VK ID login.
+const vkLaunchParams=(()=>{
+ const search=new URLSearchParams(location.search);
+ const hash=new URLSearchParams(location.hash.replace(/^#\\??/,''));
+ const params=search.has('vk_app_id')?search:hash;
+ return Object.fromEntries([...params.entries()].filter(([name])=>name==='sign'||name.startsWith('vk_')));
+})();
+const isVKMiniAppLaunch=Boolean(vkLaunchParams.vk_app_id&&vkLaunchParams.vk_user_id&&vkLaunchParams.sign);
+let vkMiniLoginInProgress=false;
+
+function initializeVKBridge(){
+ if(!isVKMiniAppLaunch)return;
+ const startBridge=()=>{
+  window.vkBridge?.send('VKWebAppInit').catch(error=>console.warn('[echo vk mini] bridge init',error));
+ };
+ if(window.vkBridge){startBridge();return;}
+ const script=document.createElement('script');
+ script.src='https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js';
+ script.onload=startBridge;
+ script.onerror=()=>console.warn('[echo vk mini] VK Bridge unavailable');
+ document.head.append(script);
+}
+
 const key='echo.authToken';
 let token=localStorage.getItem(key);
 let current=null;
@@ -54,6 +78,28 @@ async function refresh(){
  try{showUser(await request('me'));}
  catch(error){if(error.status===401){token=null;localStorage.removeItem(key);}showGuest(t('auth_failed','Ошибка авторизации'));}
 }
+async function loginVKMiniApp(){
+ if(vkMiniLoginInProgress)return;
+ vkMiniLoginInProgress=true;
+ try{
+  // The server checks the signature and ECHO Mini App ID before issuing a session.
+  const account=await request('vk-launch',{
+   method:'POST',
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify(vkLaunchParams)
+  });
+  if(!/^[a-f0-9]{64}$/.test(account?.token||''))throw new Error('Invalid session response');
+  token=account.token;
+  localStorage.setItem(key,token);
+  await refresh();
+ }catch(error){
+  console.error('[echo vk mini] login failed',error);
+  showGuest(t('auth_failed','Ошибка авторизации VK. Попробуйте войти снова.'));
+ }finally{
+  vkMiniLoginInProgress=false;
+ }
+}
+
 function loginMessage(message){
  if(loginError)loginError.textContent=message;
 }
@@ -90,6 +136,7 @@ async function start(){
 document.querySelector('#menu-settings')?.addEventListener('click',()=>{if(token)refresh();});
 document.querySelector('#echo-open-login')?.addEventListener('click',()=>{
  if(current)return;
+ if(isVKMiniAppLaunch){loginVKMiniApp();return;}
  const content=document.createElement('div');
  content.className='echo-login-modal-content';
  loginWidget=document.createElement('div');
@@ -162,4 +209,9 @@ document.querySelector('#echo-logout')?.addEventListener('click',async()=>{
 });
 // Share the existing authenticated API with the shop; never infer balance from local storage.
 window.ECHOAuth = Object.freeze({getMe:()=>token?request('me'):Promise.resolve(null)});
-refresh();
+if(isVKMiniAppLaunch){
+ initializeVKBridge();
+ loginVKMiniApp();
+}else{
+ refresh();
+}
