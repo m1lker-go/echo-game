@@ -76,7 +76,7 @@ test('VK delayed Socket.IO initialization fills the room leaderboard', () => {
     energy: { top: [], me: null },
   });
   assert.equal(env.elements.get('#echo-board-room').textContent, 'Комната 3');
-  assert.match(env.elements.get('#echo-board-clock').textContent, /^\\d\\d:\\d\\d$/);
+  assert.match(env.elements.get('#echo-board-clock').textContent, /^\d\d:\d\d$/);
   assert.equal(env.elements.get('#echo-board-list').children.length, 1);
   assert.equal(env.elements.get('#echo-board-list').children[0].children[0].textContent, '1. Player');
 });
