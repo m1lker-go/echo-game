@@ -1,4 +1,4 @@
-const socket=window.echoSocket;
+let subscribedSocket=null;
 const STORAGE_KEY='echo.lastRoundResult';
 const t=(key,fallback)=>window.$t?.('game:'+key,fallback)||fallback;
 function isPlaying(){return document.querySelector('#main-menu')?.classList.contains('is-hidden');}
@@ -49,4 +49,12 @@ function receiveResults(results){
     openResult(item);
   }
 }
-socket?.on('echo:roundResults',receiveResults);
+function attachSocket(socket){
+  if(!socket||socket===subscribedSocket)return;
+  subscribedSocket?.off('echo:roundResults',receiveResults);
+  subscribedSocket=socket;
+  socket.on('echo:roundResults',receiveResults);
+}
+// VK Mini Apps creates the Socket.IO connection after VK login completes.
+document.addEventListener('echo:socket-ready',event=>attachSocket(event.detail?.socket||window.echoSocket));
+attachSocket(window.echoSocket);
