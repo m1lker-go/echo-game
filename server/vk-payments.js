@@ -154,14 +154,20 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
         return vkError(res, 2, 'Temporarily unavailable', false);
       }
     }
-    if (!validOrder(body.order_id))
+    if (!validOrder(body.order_id)) {
+      trace(type, 'invalid_order_id');
       return vkError(res, 1, 'Invalid order ID');
-    if (body.status !== 'chargeable')
+    }
+    if (body.status !== 'chargeable') {
+      trace(type, 'unsupported_payment_status');
       return vkError(res, 1, 'Unsupported payment status');
+    }
     // Check the product and actual VK price, not just a success flag.
     if (String(body.item_id || '') !== PRODUCT_ID ||
-        String(body.item_price || '') !== String(PREMIUM_PRICE))
+        String(body.item_price || '') !== String(PREMIUM_PRICE)) {
+      trace(type, 'unexpected_item_id_or_price');
       return vkError(res, 20, 'Unexpected product or price');
+    }
 
     let client;
     try {
@@ -177,6 +183,7 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
       const intent = found.rows[0];
       if (!intent || intent.provider_id !== String(body.user_id)) {
         await client.query('ROLLBACK');
+        trace(type, 'intent_missing_or_user_mismatch');
         return vkError(res, 22, 'Payment user not found');
       }
       const previous = await client.query(
@@ -186,14 +193,18 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
       if (previous.rowCount) {
         await client.query('ROLLBACK');
         if (previous.rows[0].intent_id !== intentId ||
-            previous.rows[0].account_id !== intent.account_id)
+            previous.rows[0].account_id !== intent.account_id) {
+          trace(type, 'order_id_conflict');
           return vkError(res, 1, 'Order conflict');
+        }
+        trace(type, 'duplicate_order_acknowledged');
         return res.json({ response: {
           order_id: Number(body.order_id), app_order_id: Number(previous.rows[0].app_order_id)
         } });
       }
       if (intent.status !== 'pending') {
         await client.query('ROLLBACK');
+        trace(type, 'intent_already_used');
         return vkError(res, 1, 'Order already used');
       }
       const cards = rollSecurePack('premium');
@@ -214,12 +225,14 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
       await client.query(
         "UPDATE echo_vk_payment_intents SET status='paid' WHERE id=$1", [intentId]);
       await client.query('COMMIT');
+      trace(type, 'reward_issued');
       console.log('[echo vk payment] fulfilled', { intentId, isTest });
       return res.json({ response: {
         order_id: Number(body.order_id), app_order_id: Number(added.rows[0].app_order_id)
       } });
     } catch (error) {
       if (client) await client.query('ROLLBACK').catch(() => {});
+      trace(type, 'database_or_reward_error');
       console.error('[echo vk payment] charge failed:', error.message);
       return vkError(res, 2, 'Temporarily unavailable', false);
     } finally {
