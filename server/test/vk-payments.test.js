@@ -16,6 +16,7 @@ function harness() {
  const paid=new Map();
  const intents=new Map();
  let grants=0;
+ let questPremium=0;
  let connectionCount=0;
  const sql=[];
  const pool={
@@ -57,6 +58,10 @@ function harness() {
       return {rowCount:1,rows:[order]};
     }
     if(query.startsWith('INSERT INTO echo_hero_collection')){grants++;return {rowCount:1,rows:[]}};
+    if(query.startsWith('INSERT INTO echo_daily_activity(')){
+      assert.match(query,/pack_premium_opened/);
+      questPremium++;return {rowCount:1,rows:[]};
+    }
     if(query.startsWith('UPDATE echo_vk_payment_intents')){intents.get(params[0]).status='paid';return {rowCount:1,rows:[]}};
     throw Error('Unexpected client query '+query.slice(0,100));
    }};
@@ -80,7 +85,7 @@ function harness() {
   await routes['POST /intent']({body:{}},res);
   return result;
  }
- return {controller,call,intent,routes,sql,intents,paid,get grants(){return grants},get connections(){return connectionCount}};
+ return {controller,call,intent,routes,sql,intents,paid,get grants(){return grants},get questPremium(){return questPremium},get connections(){return connectionCount}};
 }
 test('catalog calls mirror Cat Fighting: item 1, fixed price, 3600s expiration',async()=>{
  const h=harness();
@@ -118,6 +123,7 @@ test('chargeable order awards five cards, returns stable order ID, and ignores r
  const duplicate=await h.call('order_status_change_test',fields);
  assert.deepEqual(duplicate,first);
  assert.equal(h.grants,5);
+ assert.equal(h.questPremium,1,'VK retry cannot count premium mission twice');
  assert.equal(h.paid.size,1);
 });
 test('valid signed charges grant rewards even if browser never created an intent',async()=>{
@@ -125,6 +131,7 @@ test('valid signed charges grant rewards even if browser never created an intent
  const result=await h.call('order_status_change',{status:'chargeable',order_id:'8888',item_price:'40.00'});
  assert.equal(result.response.app_order_id,42);
  assert.equal(h.grants,5);
+ assert.equal(h.questPremium,1);
 });
 test('invalid signature, product, price or status never give rewards',async()=>{
  const h=harness();
@@ -140,14 +147,17 @@ test('invalid signature, product, price or status never give rewards',async()=>{
  forged.user_id='54321';
  assert.equal(verifyNotification(forged),false);
  assert.equal(h.grants,0);
+ assert.equal(h.questPremium,0);
 });
 test('VK order test and live order IDs are separate and refund acknowledges without a grant',async()=>{
  const h=harness();
  assert.equal((await h.call('order_status_change_test',{order_id:'300',item_price:'40',status:'chargeable'})).response.order_id,300);
  assert.equal((await h.call('order_status_change',{order_id:'300',item_price:'40',status:'chargeable'})).response.order_id,300);
  assert.equal(h.grants,10);
+ assert.equal(h.questPremium,2);
  assert.equal((await h.call('order_status_change_test',{order_id:'300',status:'refunded'})).response.order_id,300);
  assert.equal(h.grants,10);
+ assert.equal(h.questPremium,2);
 });
 test('VK callback signature checks correct app ID and secret',()=>{
  const x=sign();

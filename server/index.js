@@ -8,6 +8,7 @@ const { pool, checkDatabase } = require('./db');
 const { normalizePlayerName } = require('./player-name');
 const { roundWindow, createRoomManager } = require('./room-manager');
 const roundRewards = require('./round-rewards');
+const {recordPackOpened}=require('./pack-quest-progress');
 const echoAuth = require('./auth');
 const { createAccountSessionRegistry } = require('./account-session-registry');
 const { roomIdentityFor, uniqueParticipants } = require('./player-identity');
@@ -110,6 +111,8 @@ function claimActivityProfileSocket(socket, profileId) {
 }
 async function ensureDailyActivitySchema() {
   await pool.query('CREATE TABLE IF NOT EXISTS echo_daily_activity (profile_id TEXT NOT NULL, activity_date DATE NOT NULL, play_seconds INTEGER NOT NULL DEFAULT 0 CHECK (play_seconds >= 0), food_collected INTEGER NOT NULL DEFAULT 0 CHECK (food_collected >= 0), pvp_wins INTEGER NOT NULL DEFAULT 0 CHECK (pvp_wins >= 0), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (profile_id, activity_date))');
+  // Safely migrate existing daily activity records without resetting quests.
+  await pool.query('ALTER TABLE echo_daily_activity ADD COLUMN IF NOT EXISTS pack_coin_opened INTEGER NOT NULL DEFAULT 0 CHECK (pack_coin_opened >= 0), ADD COLUMN IF NOT EXISTS pack_premium_opened INTEGER NOT NULL DEFAULT 0 CHECK (pack_premium_opened >= 0)');
 }
 async function ensureDailyActivityRow(profileId, dateKey) {
   if (!profileId) return;
@@ -176,6 +179,8 @@ app.post('/api/packs/coin/open',async(req,res)=>{
   for(const card of cards)await client.query(
    'INSERT INTO echo_hero_collection(account_id,model,fragments) VALUES($1,$2,$3) ON CONFLICT(account_id,model) DO UPDATE SET fragments=echo_hero_collection.fragments+EXCLUDED.fragments',
    [String(accountId),card.model,card.count]);
+  // Only after the paid opening successfully granted all five cards.
+  await recordPackOpened(client,accountId,'coin');
   await client.query('COMMIT');
   res.json({cards,balance:Number(wallet.rows[0].coins)});
  }catch(error){if(client)await client.query('ROLLBACK').catch(()=>{});console.error('[packs] purchase failed',error);res.status(500).json({error:'Pack purchase failed'});}
@@ -239,9 +244,9 @@ const DAILY_QUESTS = Object.freeze([
   { id: 'play', column: 'play_seconds', targets: [300,600,1800,2700,3600] },
   { id: 'food', column: 'food_collected', targets: [50,200,500,1000,2000] },
   { id: 'pvp', column: 'pvp_wins', targets: [3,7,12,18,25] },
-  // Pack purchases are deliberately not awarded by demo-pack interactions.
-  { id: 'pack_coin', column: null, targets: [1], reward: 5 },
-  { id: 'pack_premium', column: null, targets: [1], reward: 50 },
+  // Server-confirmed openings only: paid and granted packs both count.
+  { id: 'pack_coin', column: 'pack_coin_opened', targets: [1], reward: 5 },
+  { id: 'pack_premium', column: 'pack_premium_opened', targets: [1], reward: 50 },
 ]);
 const QUEST_LEVEL_REWARDS = [2,4,6,8,10];
 const questKey = (id, level) => id + ':' + level;
@@ -254,7 +259,7 @@ async function getDailyQuests(accountId) {
   const date = dailyDateKey();
   await ensureDailyActivityRow(accountId, date);
   const [activityResult, claimsResult] = await Promise.all([
-    pool.query('SELECT play_seconds, food_collected, pvp_wins FROM echo_daily_activity WHERE profile_id=$1 AND activity_date=$2::date', [accountId, date]),
+    pool.query('SELECT play_seconds, food_collected, pvp_wins, pack_coin_opened, pack_premium_opened FROM echo_daily_activity WHERE profile_id=$1 AND activity_date=$2::date', [accountId, date]),
     pool.query('SELECT quest_id FROM echo_daily_quest_claims WHERE profile_id=$1 AND quest_date=$2::date', [accountId, date]),
   ]);
   const activity = activityResult.rows[0] || {};
@@ -286,7 +291,6 @@ app.post('/api/daily-quests/claim', async (req, res) => {
     if (!accountId) return;
     const quest = DAILY_QUESTS.find(q => q.id === req.body?.questId);
     if (!quest) return res.status(400).json({ error: 'Invalid quest' });
-    if (!quest.column) return res.status(409).json({ error: 'Purchase not available yet' });
     const date = dailyDateKey();
     client = await pool.connect();
     await client.query('BEGIN');
@@ -312,7 +316,7 @@ app.post('/api/daily-quests/claim', async (req, res) => {
     await client.query(
       'INSERT INTO echo_daily_quest_claims(profile_id,quest_date,quest_id) VALUES($1,$2::date,$3)',
       [accountId,date,questKey(quest.id,levelIndex+1)]);
-    const reward = QUEST_LEVEL_REWARDS[levelIndex];
+    const reward = quest.reward ?? QUEST_LEVEL_REWARDS[levelIndex];
     await client.query(
       'INSERT INTO echo_wallets(profile_id,coins) VALUES($1,$2) ON CONFLICT(profile_id) DO UPDATE SET coins=echo_wallets.coins+EXCLUDED.coins',
       [accountId,reward]);

@@ -10,7 +10,7 @@ const cards=type=>Array.from({length:5},(_,i)=>({
  rarity:'common',count:type==='premium'?3:1
 }));
 function harness(start={coin:0,premium:0},signedIn=true){
- const counts={...start},granted=[],sql=[],routes={};
+ const counts={...start},granted=[],sql=[],routes={},quests={coin:0,premium:0};
  let failGrant=false;
  const pool={
   async query(query,params=[]){
@@ -28,8 +28,8 @@ function harness(start={coin:0,premium:0},signedIn=true){
    let snapshot=null;
    return {release(){},async query(query,params=[]){
     sql.push(query);
-    if(query==='BEGIN'){snapshot={...counts};return {rowCount:0,rows:[]}};
-    if(query==='ROLLBACK'){if(snapshot)Object.assign(counts,snapshot);snapshot=null;return {rowCount:0,rows:[]}};
+    if(query==='BEGIN'){snapshot={counts:{...counts},quests:{...quests}};return {rowCount:0,rows:[]}};
+    if(query==='ROLLBACK'){if(snapshot){Object.assign(counts,snapshot.counts);Object.assign(quests,snapshot.quests);}snapshot=null;return {rowCount:0,rows:[]}};
     if(query==='COMMIT'){snapshot=null;return {rowCount:0,rows:[]}};
     if(query.startsWith('UPDATE echo_free_packs')){
      const type=params[1];
@@ -39,6 +39,10 @@ function harness(start={coin:0,premium:0},signedIn=true){
     if(query.startsWith('INSERT INTO echo_hero_collection')){
      if(failGrant)throw Error('Forced fragment failure');
      granted.push(params);return {rowCount:1,rows:[]};
+    }
+    if(query.startsWith('INSERT INTO echo_daily_activity(')){
+     const type=query.includes('pack_coin_opened')?'coin':'premium';
+     quests[type]++;return {rowCount:1,rows:[]};
     }
     throw Error('Unknown transaction SQL '+query.slice(0,90));
    }};
@@ -55,7 +59,7 @@ function harness(start={coin:0,premium:0},signedIn=true){
   await routes[method+' '+url]({body},res);
   return {statusCode,payload};
  }
- return {p,request,counts,granted,sql,fail:v=>{failGrant=v}};
+ return {p,request,counts,granted,sql,quests,fail:v=>{failGrant=v}};
 }
 test('server initializes account-bound free pack table with UUID and checks',async()=>{
  const h=harness();await h.p.initialize();
@@ -80,10 +84,12 @@ test('opening free coin pack uses one quantity and grants five cards without wal
  assert.equal(opened.payload.cards.length,5);
  assert.deepEqual(h.counts,{coin:0,premium:2});
  assert.equal(h.granted.length,5);
+ assert.deepEqual(h.quests,{coin:1,premium:0});
  assert.ok(h.sql.some(q=>q.includes('quantity=quantity-1')));
  assert.ok(!h.sql.some(q=>q.includes('echo_wallets')||q.includes('echo_vk_payments')));
  assert.equal((await h.request('POST','/open',{packType:'coin'})).statusCode,409);
  assert.equal(h.granted.length,5);
+ assert.equal(h.quests.coin,1,'failed extra opening never credits a mission');
 });
 test('premium free pack gives fifteen fragments across five distinct characters',async()=>{
  const h=harness({coin:0,premium:1});
@@ -92,11 +98,13 @@ test('premium free pack gives fifteen fragments across five distinct characters'
  assert.equal(opened.payload.remaining,0);
  assert.equal(opened.payload.cards.reduce((n,c)=>n+c.count,0),15);
  assert.equal(new Set(h.granted.map(x=>x[1])).size,5);
+ assert.deepEqual(h.quests,{coin:0,premium:1});
 });
 test('failed fragment insertion rolls back the free inventory decrement',async()=>{
  const h=harness({coin:1,premium:0});h.fail(true);
  assert.equal((await h.request('POST','/open',{packType:'coin'})).statusCode,500);
  assert.equal(h.counts.coin,1);
+ assert.deepEqual(h.quests,{coin:0,premium:0});
  assert.ok(h.sql.includes('ROLLBACK'));
 });
 test('guests and invalid pack type cannot claim free rewards',async()=>{

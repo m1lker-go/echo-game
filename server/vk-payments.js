@@ -1,4 +1,5 @@
 'use strict';
+const {recordPackOpened}=require('./pack-quest-progress');
 const crypto = require('node:crypto');
 
 const PREMIUM_PRICE = 40;
@@ -266,6 +267,9 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
       if (intentId) await client.query(
         "UPDATE echo_vk_payment_intents SET status='paid' WHERE id=$1", [intentId]
       );
+      // The order_id uniqueness check above guarantees that retries do not
+      // double-count this premium opening or grant duplicate fragments.
+      await recordPackOpened(client,accountId,'premium');
       await client.query('COMMIT');
       trace(type, 'reward_issued');
       console.log('[echo vk payment] fulfilled', { isTest, hasIntent: Boolean(intentId) });

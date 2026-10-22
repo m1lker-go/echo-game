@@ -1,4 +1,5 @@
 'use strict';
+const {recordPackOpened}=require('./pack-quest-progress');
 // Free ECHO packs are account-bound, independent of coins and VK payments.
 const types=new Set(['coin','premium']);
 function createFreePacks({pool,sessionUser,rollSecurePack,createRouter=()=>require('express').Router()}){
@@ -54,6 +55,7 @@ function createFreePacks({pool,sessionUser,rollSecurePack,createRouter=()=>requi
     VALUES($1,$2,$3) ON CONFLICT(account_id,model)
     DO UPDATE SET fragments=echo_hero_collection.fragments+EXCLUDED.fragments`,
     [String(user.id),card.model,card.count]);
+   await recordPackOpened(client,user.id,packType);
    await client.query('COMMIT');
    return res.json({packType,cards,remaining:Number(row.rows[0].quantity)});
   }catch(error){
