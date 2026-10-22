@@ -1,20 +1,25 @@
-// The semi-transparent protective dome is purely visual.
-// Server PvP gating uses the signed-in player's server-side shieldUntil.
+// Visual only: the server decides whether PvP protection is active.
+const SHIELD_TEXTURE='./assets/textures/shield.png';
+let texture=null;
 export function attachSpawnShield(THREE,root){
  if(!root||root.userData.echoSpawnShield)return;
+ if(!texture){
+  texture=new THREE.TextureLoader().load(SHIELD_TEXTURE);
+  texture.colorSpace=THREE.SRGBColorSpace;
+ }
  const holder=new THREE.Group();
- const dome=new THREE.Mesh(
-  new THREE.SphereGeometry(44,32,16,0,Math.PI*2,0,Math.PI/2),
-  new THREE.MeshBasicMaterial({color:0x86dfff,transparent:true,opacity:.17,
-   side:THREE.DoubleSide,depthWrite:false,depthTest:true})
- );
- dome.scale.y=1.65;dome.position.y=-20;dome.renderOrder=3;holder.add(dome);
- const rim=new THREE.Mesh(
-  new THREE.TorusGeometry(44,1.1,6,48),
-  new THREE.MeshBasicMaterial({color:0xb9f5ff,transparent:true,opacity:.46,depthWrite:false})
- );
- rim.rotation.x=Math.PI/2;rim.position.y=-20;rim.renderOrder=4;holder.add(rim);
- holder.visible=false;root.add(holder);root.userData.echoSpawnShield=holder;
+ const dome=new THREE.Sprite(new THREE.SpriteMaterial({
+  map:texture,color:0xffffff,transparent:true,opacity:0.88,
+  depthWrite:false,depthTest:false
+ }));
+ // Billboard is proportional to the character's world dimensions, not pixels.
+ dome.scale.set(138,122,1);
+ dome.position.set(0,-8,0);
+ dome.renderOrder=5;
+ holder.add(dome);
+ holder.visible=false;
+ root.add(holder);
+ root.userData.echoSpawnShield=holder;
 }
 export function updateSpawnShield(root,shieldUntil,now=Date.now()){
  const dome=root?.userData?.echoSpawnShield;

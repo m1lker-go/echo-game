@@ -47,13 +47,15 @@ test('initial spawn and each round reset synchronize server-selected position',(
  assert.match(game,/state\.x=data\.x;state\.y=data\.y/);
  assert.match(game,/state\.socket\?\.connected&&state\.hasServerSpawn/);
 });
-test('semi-transparent dome exists for local and remote players',()=>{
- assert.match(dome,/SphereGeometry\(44/);
- assert.match(dome,/opacity:\.17/);
- assert.match(dome,/holder\.visible=false/);
- assert.match(game,/attachSpawnShield\(THREE,local\)/);
- assert.match(game,/attachSpawnShield\(THREE,holder\)/);
- assert.match(game,/updateSpawnShield\(modelCache\.local,state\.shieldUntil\)/);
- assert.match(game,/updateSpawnShield\(e\.root,p\.shieldUntil\)/);
- assert.match(html,/game\.js\?v=echo-safe-spawn-shield-1/);
+test('PNG shield replaces original geometry for local and remote players',()=>{
+ assert.match(dome,/assets\\/textures\\/shield\\.png/);
+ assert.match(dome,/new THREE\\.Sprite\\(new THREE\\.SpriteMaterial/);
+ assert.match(dome,/transparent:true/);
+ assert.match(dome,/holder\\.visible=false/);
+ assert.doesNotMatch(dome,/SphereGeometry|TorusGeometry/);
+ assert.match(game,/attachSpawnShield\\(THREE,local\\)/);
+ assert.match(game,/attachSpawnShield\\(THREE,holder\\)/);
+ assert.match(game,/updateSpawnShield\\(modelCache\\.local,state\\.shieldUntil\\)/);
+ assert.match(game,/updateSpawnShield\\(e\\.root,p\\.shieldUntil\\)/);
+ assert.match(html,/game\\.js\\?v=echo-shield-texture-1/);
 });
