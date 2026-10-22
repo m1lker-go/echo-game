@@ -160,6 +160,10 @@ function rollSecurePack(type){
 const vkPayments = require('./vk-payments').createVKPayments({
   pool, sessionUser: echoAuth.sessionUser, rollSecurePack
 });
+const freePacks = require('./free-packs').createFreePacks({
+  pool, sessionUser: echoAuth.sessionUser, rollSecurePack
+});
+app.use('/api/packs/free', freePacks.router);
 app.use('/api/payments/vk', express.urlencoded({ extended: false }), vkPayments.router);
 app.post('/api/packs/coin/open',async(req,res)=>{
  let client;
@@ -1299,6 +1303,7 @@ server.listen(port, '0.0.0.0', async () => {
     await pool.query('CREATE TABLE IF NOT EXISTS echo_daily_quest_claims (profile_id TEXT NOT NULL, quest_date DATE NOT NULL, quest_id TEXT NOT NULL, claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (profile_id, quest_date, quest_id))');
     await roundRewards.initialize(pool);
     await echoAuth.initialize();
+    await freePacks.initialize();
     await vkPayments.initialize();
     rewardsReady = true;
     queueRewardWork(()=>roundRewards.finalizeOverdue(pool,Date.now()));
