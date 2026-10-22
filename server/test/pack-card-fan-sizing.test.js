@@ -36,22 +36,35 @@ test('large cards recreate the earlier wide fan while staying inside narrow view
 });
 
 test('card fan stylesheet and script are both cache-busted for every client',()=>{
- assert.match(html,/pack-card-fan\.css\?v=echo-fan-restored-32-1/);
+ assert.match(html,/pack-card-fan\.css\?v=echo-card-intrinsic-scale-1/);
  assert.match(html,/pack-card-fan\.js\?v=echo-fan-labels-075-tap-1/);
 });
 
-test('readable wide rarity plate supports long Russian text without oversized counter',()=>{
- const stage=css.slice(css.lastIndexOf('/* The shared .echo-pack-stage'));
- assert.match(css,/left:10%;\s*width:80%;\s*height:9%;\s*padding:1px 4%/);
- assert.match(css,/clip-path:polygon\(9% 0,91% 0,100% 50%,91% 100%,9% 100%,0 50%\)/);
- assert.match(stage,/\.echo-fan-rarity\{\s*font-size:clamp\(6px,1\.25cqw,10\.5px\)/);
- assert.match(stage,/\.echo-fan-name\{\s*font-size:clamp\(6px,1\.2cqw,10px\)/);
- assert.match(stage,/\.echo-fan-count\{[\s\S]*?font-size:clamp\(6\.75px,1\.275cqw,10\.5px\)/);
- // The image and character keep their existing 1.75x zoom.
- assert.match(stage,/scale\(1\.75\)!important/);
- assert.match(css,/\.echo-fan-portrait\{\s*position:absolute;left:7%;top:5%;width:86%;height:67%/);
+test('every inner card element uses one intrinsic card-width scale on all screens',()=>{
+ const design=css.slice(css.lastIndexOf('/* One intrinsic layout for all card internals.'));
+ assert.match(design,/\.echo-fan-front\{\s*container-type:inline-size/);
+ assert.match(design,/\.echo-fan-rarity\{\s*font-size:9cqw/);
+ assert.match(design,/\.echo-fan-name\{\s*font-size:8\.7cqw/);
+ assert.match(design,/\.echo-fan-count\{[\s\S]*?top:4cqw;left:4cqw;[\s\S]*?padding:\.75cqw 2cqw;[\s\S]*?border-radius:2\.5cqw;[\s\S]*?font-size:9\.2cqw/);
+ assert.match(design,/\.echo-fan-portrait\{\s*font-size:28cqw/);
+ assert.match(design,/\.echo-fan-front,[\s\S]*?border-radius:5%/);
+ assert.doesNotMatch(design,/font-size:(?:clamp|max|min)\(/);
+ assert.doesNotMatch(design,/@media/);
+ // All sizes below are fixed proportions of the actual card width.
+ for(const width of [65,85,115,150,175,220]){
+  const rarity=width*.09, name=width*.087, count=width*.092;
+  assert.ok(Math.abs(rarity/width-.09)<1e-9);
+  assert.ok(Math.abs(name/width-.087)<1e-9);
+  assert.ok(Math.abs(count/width-.092)<1e-9);
+ }
 });
 
+test('wide 80-percent rarity plate leaves room for long rarity names',()=>{
+ assert.match(css,/left:10%;\s*width:80%;\s*height:9%;\s*padding:\.8cqw 3cqw/);
+ assert.match(css,/clip-path:polygon\(9% 0,91% 0,100% 50%,91% 100%,9% 100%,0 50%\)/);
+ assert.match(css,/\.echo-fan-portrait\{\s*position:absolute;left:7%;top:5%;width:86%;height:67%/);
+ assert.match(css,/scale\(1\.75\)!important/);
+});
 test('one click anywhere inside pack modal reveals next card without stealing control clicks',()=>{
  assert.match(js,/root\?\.addEventListener\('click',event=>/);
  assert.doesNotMatch(js,/fan\?\.addEventListener\('click',launchNext\)/);

@@ -21,9 +21,9 @@
 #echo-pack-3d .echo-fan-glow{position:absolute;inset:-25%;background:radial-gradient(circle,var(--rarity),transparent 60%);opacity:.25;pointer-events:none}
 #echo-pack-3d .echo-fan-portrait{position:relative;width:100%;height:72%;display:flex;align-items:center;justify-content:center;font-size:45px;color:var(--rarity);overflow:hidden}
 #echo-pack-3d .echo-fan-portrait img{display:block;width:100%;height:100%;object-fit:contain}
-#echo-pack-3d .echo-fan-rarity{position:relative;font-size:clamp(8px,1vw,11px);font-weight:800;color:var(--rarity);white-space:nowrap}
-#echo-pack-3d .echo-fan-name{position:relative;font-size:clamp(7px,.85vw,10px);font-weight:700;letter-spacing:.04em}
-#echo-pack-3d .echo-fan-count{position:absolute;right:5px;top:5px;background:#000b;border:1px solid var(--rarity);color:white;border-radius:5px;padding:2px 4px;font-size:12px;font-weight:800}
+#echo-pack-3d .echo-fan-rarity{position:relative;font-weight:800;color:var(--rarity);white-space:nowrap}
+#echo-pack-3d .echo-fan-name{position:relative;font-weight:700;letter-spacing:.04em}
+#echo-pack-3d .echo-fan-count{position:absolute;right:5px;top:5px;background:#000b;border:1px solid var(--rarity);color:white;border-radius:5px;font-weight:800}
 @media(max-width:620px){
  #echo-pack-3d .echo-pack-card-fan{width:94vw;height:min(54vh,340px);top:48%}
  #echo-pack-3d .echo-fan-card{width:clamp(65px,18vw,94px)}
@@ -80,27 +80,22 @@
 #echo-pack-3d .echo-fan-card .echo-fan-glow{display:none}
 #echo-pack-3d .echo-fan-card .echo-fan-portrait{
  position:absolute;left:7%;top:5%;width:86%;height:67%;
- background:transparent;font-size:40px;
+ background:transparent;
 }
 #echo-pack-3d .echo-fan-card .echo-fan-rarity{
  position:absolute;left:23%;width:54%;top:72%;height:6%;
  display:flex;align-items:center;justify-content:center;
  color:#fff;text-shadow:0 1px 4px #000;
- font-size:clamp(6px,.8vw,10px);line-height:1.05;
+ line-height:1.05;
 }
 #echo-pack-3d .echo-fan-card .echo-fan-name{
  position:absolute;left:8%;width:84%;top:81%;height:11%;
  display:flex;align-items:center;justify-content:center;
  text-align:center;color:#fff;text-shadow:0 1px 4px #000;
- font-size:clamp(7px,.85vw,11px);font-weight:750;
+ font-weight:750;
 }
 #echo-pack-3d .echo-fan-card .echo-fan-count{z-index:4;top:6px;left:6px;right:auto;color:var(--rarity);text-shadow:0 1px 3px #000}
-@media (max-width:620px){
- #echo-pack-3d .echo-fan-card .echo-fan-rarity{font-size:7px}
- #echo-pack-3d .echo-fan-card .echo-fan-name{font-size:8px}
-}
-
-/* Texture must cover the complete card, independent of card content and CSS variables. */
+ /* Texture must cover the complete card, independent of card content and CSS variables. */
 #echo-pack-3d .echo-fan-card .echo-fan-inner{width:100%;height:100%}
 #echo-pack-3d .echo-fan-card .echo-fan-front{background-image:none!important}
 #echo-pack-3d .echo-fan-card .echo-fan-face-texture,
@@ -121,11 +116,11 @@
  position:absolute;
  /* Keep the typography compact, but give long rarity names a full-size
     plate. Shrinking the plate to 49.5% clipped "НЕОБЫЧНАЯ" on mobile. */
- top:calc(71.5% - 2px);
+ top:70.5%;
  left:10%;
  width:80%;
  height:9%;
- padding:1px 4%;
+ padding:.8cqw 3cqw;
  box-sizing:border-box;
  display:flex;
  align-items:center;
@@ -135,23 +130,17 @@
  border:0;
  clip-path:polygon(9% 0,91% 0,100% 50%,91% 100%,9% 100%,0 50%);
  text-shadow:0 1px 3px #000b;
- font-size:clamp(7px,.95vw,11px);
  font-weight:800;
  letter-spacing:.02em;
  line-height:1;
  white-space:nowrap;
  z-index:3;
 }
-@media(max-width:620px){
- #echo-pack-3d .echo-fan-card .echo-fan-rarity{
-  font-size:clamp(6px,1.85vw,9px);
-  padding:1px 3%;
- }
-}
-
-/* The shared .echo-pack-stage encloses foil, fan and reset button, so all
-   percentages and cqw units resolve against the actual foil width.
-   These overrides deliberately follow the legacy mobile media queries. */
+ /* The ECHO stage is sized from 100dvh and limited by viewport width.
+   It alone determines the card dimensions, and the existing 1.75x launch
+   transform scales the whole card. The FRONT FACE is a separate inline-size
+   query container: every inner cqw is 1% of THE CARD, not the screen/foil.
+   One set of design ratios is therefore shared by phone and desktop. */
 #echo-pack-3d .echo-pack-card-fan{
   left:0;top:0;width:100%;height:100%;
   transform:none;perspective:140cqw;
@@ -168,22 +157,28 @@
 #echo-pack-3d .echo-fan-card.is-launched{
   transform:translate(-50%,-100%) rotate(var(--angle)) translateY(-3cqw) rotateY(720deg) scale(1.75)!important;
 }
+/* One intrinsic layout for all card internals. The face is a 2D layer,
+   so inline-size containment does not interfere with the outer 3D flip. */
+#echo-pack-3d .echo-fan-card .echo-fan-front{
+  container-type:inline-size;
+}
 #echo-pack-3d .echo-fan-card .echo-fan-front,
 #echo-pack-3d .echo-fan-card .echo-fan-back{
-  border-radius:max(5px,1.8cqw);
+  border-radius:5%;
 }
 #echo-pack-3d .echo-fan-card .echo-fan-portrait{
-  font-size:max(22px,8cqw);
+  font-size:28cqw;
 }
 #echo-pack-3d .echo-fan-card .echo-fan-rarity{
-  font-size:clamp(6px,1.25cqw,10.5px);
+  font-size:9cqw;
 }
 #echo-pack-3d .echo-fan-card .echo-fan-name{
-  font-size:clamp(6px,1.2cqw,10px);
+  font-size:8.7cqw;
 }
 #echo-pack-3d .echo-fan-card .echo-fan-count{
-  top:1.25cqw;left:1.25cqw;
-  padding:.1875cqw .4875cqw;
-  border-radius:max(2.25px,.6cqw);
-  font-size:clamp(6.75px,1.275cqw,10.5px);
+  top:4cqw;left:4cqw;
+  padding:.75cqw 2cqw;
+  border:.7cqw solid var(--rarity);
+  border-radius:2.5cqw;
+  font-size:9.2cqw;
 }
