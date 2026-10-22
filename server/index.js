@@ -8,6 +8,7 @@ const { pool, checkDatabase } = require('./db');
 const { normalizePlayerName } = require('./player-name');
 const { roundWindow, createRoomManager } = require('./room-manager');
 const roundRewards = require('./round-rewards');
+const {chooseSafeSpawn,hasSpawnShield,SHIELD_DURATION_MS}=require('./spawn-protection');
 const {recordPackOpened}=require('./pack-quest-progress');
 const echoAuth = require('./auth');
 const { createAccountSessionRegistry } = require('./account-session-registry');
@@ -763,15 +764,28 @@ function isValidPlayerPosition(position) {
     Math.abs(position.y) <= WORLD_HALF_SIZE &&
     !isBlockedByTree(position, TREE_PLAYER_CLEARANCE);
 }
-function findOpenPlayerSpawn() {
-  for (let attempt = 0; attempt < 1000; attempt += 1) {
-    const point = {
-      x: randomBetween(-WORLD_HALF_SIZE + 80, WORLD_HALF_SIZE - 80),
-      y: randomBetween(-WORLD_HALF_SIZE + 80, WORLD_HALF_SIZE - 80),
-    };
-    if (isValidPlayerPosition(point)) return point;
-  }
-  return { x: 0, y: 0 };
+function safeSpawnPosition(point,roundId,roomId,separatePlayers=true){
+ if(!isValidPlayerPosition(point))return false;
+ for(const water of WORLD_WATERS){
+  if(isPointOnWater(point,water))return false;
+  const vertices=getWaterWorldContour(water);
+  for(let i=0;i<vertices.length;i++)
+   if(distanceToWaterSegment(point,vertices[i],vertices[(i+1)%vertices.length])<PLAYER_COLLISION_RADIUS+18)return false;
+ }
+ if(separatePlayers && [...players.values()].some(other=>other.roundId===roundId && other.roomId===roomId &&
+    !other.defeated && Math.hypot(point.x-other.x,point.y-other.y)<130))return false;
+ return true;
+}
+function findOpenPlayerSpawn(roundId,roomId) {
+ const random=()=>packRandom.randomInt(1_000_000)/1_000_000;
+ try {
+  return chooseSafeSpawn({halfSize:WORLD_HALF_SIZE,
+   isSafe:point=>safeSpawnPosition(point,roundId,roomId),random});
+ } catch {
+  // Crowded room: relax other-player distance, never hazard exclusion.
+  return chooseSafeSpawn({halfSize:WORLD_HALF_SIZE,
+   isSafe:point=>safeSpawnPosition(point,roundId,roomId,false),random});
+ }
 }
 const {
   createFoodPoint: createFoodPointCore,
@@ -920,7 +934,8 @@ function advanceRoomRound() {
     player.defeated = false;
     player.inWater = false;
     player.lastWaterDamageAt = 0;
-    const spawn = findOpenPlayerSpawn();
+    const spawn = findOpenPlayerSpawn(player.roundId,player.roomId);
+    player.shieldUntil = Date.now()+SHIELD_DURATION_MS;
     player.x = spawn.x;
     player.y = spawn.y;
     player.vx = 0;
@@ -928,6 +943,7 @@ function advanceRoomRound() {
     socket.join(roomKey(player));
     socket.emit('echo:room', { roomId: player.roomId, round: assignment.round, occupancy: assignment.occupancy });
     socket.emit('echo:combatResult', { result: 'round-reset', energy: 0 });
+    socket.emit('echo:spawn', {x:player.x,y:player.y,shieldUntil:player.shieldUntil});
   }
   for (const player of players.values()) {
     broadcastPlayers(player);
@@ -995,6 +1011,8 @@ function finishFight(fight) {
 
 function startFight(a, b) {
   if (!a || !b || a.id === b.id) return false;
+  // Server-only protection: protected players cannot attack or be attacked.
+  if(hasSpawnShield(a)||hasSpawnShield(b))return false;
   if (a.fightingWith || b.fightingWith || a.defeated || b.defeated) return false;
   if (a.energy === b.energy) return false;
 
@@ -1024,9 +1042,9 @@ function startFight(a, b) {
 }
 
 function checkForFights(source) {
-  if (!source || source.fightingWith || source.defeated) return;
+  if (!source || source.fightingWith || source.defeated || hasSpawnShield(source)) return;
   for (const opponent of players.values()) {
-    if (opponent.id === source.id || opponent.roomId !== source.roomId || opponent.roundId !== source.roundId || opponent.fightingWith || opponent.defeated) continue;
+    if (opponent.id === source.id || opponent.roomId !== source.roomId || opponent.roundId !== source.roundId || opponent.fightingWith || opponent.defeated || hasSpawnShield(opponent)) continue;
     if (opponent.energy === source.energy) continue;
     const distance = Math.hypot(source.x - opponent.x, source.y - opponent.y);
     if (distance > FIGHT_DISTANCE) continue;
@@ -1181,7 +1199,7 @@ io.on('connection', (socket) => {
   socket.join(`echo:${assignment.round.id}:${assignment.roomId}`);
   socket.emit('echo:room', { roomId: assignment.roomId, round: assignment.round, occupancy: assignment.occupancy });
   const requestedSkin = socket.handshake.auth?.skin;
-  const spawn = findOpenPlayerSpawn();
+  const spawn = findOpenPlayerSpawn(assignment.round.id,assignment.roomId);
   players.set(socket.id, {
     id: socket.id,
     roomId: assignment.roomId,
@@ -1189,6 +1207,7 @@ io.on('connection', (socket) => {
     name: socket.data.verifiedNickname || normalizePlayerName(null, activityProfileId || socket.id),
     x: spawn.x,
     y: spawn.y,
+    shieldUntil:Date.now()+SHIELD_DURATION_MS,
     vx: 0,
     vy: 0,
     energy: 0,
@@ -1199,6 +1218,7 @@ io.on('connection', (socket) => {
     fightId: null,
     defeated: false,
   });
+  socket.emit('echo:spawn',{x:spawn.x,y:spawn.y,shieldUntil:players.get(socket.id).shieldUntil});
   broadcastPlayers(players.get(socket.id));
   broadcastFood(players.get(socket.id));
   socket.emit('echo:world', createWorldSnapshot());
