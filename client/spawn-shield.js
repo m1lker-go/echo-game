@@ -9,12 +9,12 @@ export function attachSpawnShield(THREE,root){
  }
  const holder=new THREE.Group();
  const dome=new THREE.Sprite(new THREE.SpriteMaterial({
-  map:texture,color:0xffffff,transparent:true,opacity:0.88,
+  map:texture,color:0xffffff,transparent:true,opacity:0.6,
   depthWrite:false,depthTest:false
  }));
  // Billboard is proportional to the character's world dimensions, not pixels.
  dome.scale.set(138,122,1);
- dome.position.set(0,-8,0);
+ dome.position.set(0,13,0);
  dome.renderOrder=5;
  holder.add(dome);
  holder.visible=false;

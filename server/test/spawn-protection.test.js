@@ -51,6 +51,8 @@ test('PNG shield replaces geometry for local and remote players',()=>{
  assert.ok(dome.includes('assets/textures/shield.png'));
  assert.ok(dome.includes('new THREE.Sprite(new THREE.SpriteMaterial'));
  assert.ok(dome.includes('transparent:true'));
+ assert.ok(dome.includes('opacity:0.6'));
+ assert.ok(dome.includes('dome.position.set(0,13,0)'));
  assert.ok(dome.includes('holder.visible=false'));
  assert.ok(!dome.includes('SphereGeometry'));
  assert.ok(!dome.includes('TorusGeometry'));
@@ -58,5 +60,5 @@ test('PNG shield replaces geometry for local and remote players',()=>{
  assert.ok(game.includes('attachSpawnShield(THREE,holder)'));
  assert.ok(game.includes('updateSpawnShield(modelCache.local,state.shieldUntil)'));
  assert.ok(game.includes('updateSpawnShield(e.root,p.shieldUntil)'));
- assert.ok(html.includes('game.js?v=echo-shield-texture-1'));
+ assert.ok(html.includes('game.js?v=echo-shield-raised-60-1'));
 });
