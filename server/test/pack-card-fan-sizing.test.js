@@ -37,6 +37,25 @@ test('larger five-card fan stays within pack artwork at supported stage widths',
 });
 
 test('card fan stylesheet and script are both cache-busted for every client',()=>{
- assert.match(html,/pack-card-fan\.css\?v=echo-fan-175-1/);
- assert.match(html,/pack-card-fan\.js\?v=echo-fan-175-1/);
+ assert.match(html,/pack-card-fan\.css\?v=echo-fan-labels-075-tap-1/);
+ assert.match(html,/pack-card-fan\.js\?v=echo-fan-labels-075-tap-1/);
+});
+
+test('rarity plate, name and fragment counter are 75% of the original size before scaling',()=>{
+ const rarity=css.slice(css.lastIndexOf('/* The shared .echo-pack-stage'));
+ assert.match(css,/left:25\.25%;\s*width:49\.5%;\s*height:7\.5%;\s*padding:\.75px 6\.75%/);
+ assert.match(rarity,/\.echo-fan-rarity\{\s*font-size:clamp\(5\.25px,1\.125cqw,9\.75px\)/);
+ assert.match(rarity,/\.echo-fan-name\{\s*font-size:clamp\(5\.25px,1\.0875cqw,9px\)/);
+ assert.match(rarity,/\.echo-fan-count\{[\s\S]*?padding:\.1875cqw \.4875cqw;[\s\S]*?font-size:clamp\(6\.75px,1\.275cqw,10\.5px\)/);
+ // The artwork itself must retain its 1.75 enlargement and original 22% base width.
+ assert.match(rarity,/width:22%;top:65%!important/);
+ assert.match(rarity,/scale\(1\.75\)!important/);
+});
+
+test('one click anywhere inside pack modal reveals next card without stealing control clicks',()=>{
+ assert.match(js,/root\?\.addEventListener\('click',event=>/);
+ assert.doesNotMatch(js,/fan\?\.addEventListener\('click',launchNext\)/);
+ assert.match(js,/root\.hidden\|\|!fan\?\.classList\.contains\('is-visible'\)\|\|nextIndex===0/);
+ assert.match(js,/event\.target\?\.closest\?\.\('button, a, input, select, textarea, \[contenteditable="true"\]'\)/);
+ assert.match(js,/fan\?\.addEventListener\('keydown'/);
 });

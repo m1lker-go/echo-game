@@ -206,7 +206,15 @@ async function reveal(event){
  if(id!==session||root.hidden)return;
  canAdvance=true;launchNext();
 }
-fan?.addEventListener('click',launchNext);
+// The pack modal covers the screen: any non-control tap advances the fan,
+// including the background outside the foil and cards.
+root?.addEventListener('click',event=>{
+ if(root.hidden||!fan?.classList.contains('is-visible')||nextIndex===0)return;
+ // Close, fullscreen (outside the modal) and Repeat must not advance cards.
+ // Exclude actual interactive elements, but keep the fan's keyboard handler.
+ if(event.target?.closest?.('button, a, input, select, textarea, [contenteditable="true"]'))return;
+ launchNext();
+});
 fan?.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();launchNext();}});
 window.addEventListener('echo:pack-prepare',event=>prepareRoll(event.detail?.type,event.detail?.cards));
 window.addEventListener('echo:pack-opened',reveal);

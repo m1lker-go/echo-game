@@ -119,11 +119,12 @@
 /* Rarity label: one consistent hexagonal plate over every rarity texture. */
 #echo-pack-3d .echo-fan-card .echo-fan-rarity{
  position:absolute;
- top:calc(71% - 2px);
- left:17%;
- width:66%;
- height:10%;
- padding:1px 9%;
+ /* The rarity plate is 25% smaller before the fan's 1.75x transform. */
+ top:calc(72.25% - 2px);
+ left:25.25%;
+ width:49.5%;
+ height:7.5%;
+ padding:.75px 6.75%;
  box-sizing:border-box;
  display:flex;
  align-items:center;
@@ -172,14 +173,14 @@
   font-size:max(22px,8cqw);
 }
 #echo-pack-3d .echo-fan-card .echo-fan-rarity{
-  font-size:clamp(7px,1.5cqw,13px);
+  font-size:clamp(5.25px,1.125cqw,9.75px);
 }
 #echo-pack-3d .echo-fan-card .echo-fan-name{
-  font-size:clamp(7px,1.45cqw,12px);
+  font-size:clamp(5.25px,1.0875cqw,9px);
 }
 #echo-pack-3d .echo-fan-card .echo-fan-count{
   top:1.25cqw;left:1.25cqw;
-  padding:.25cqw .65cqw;
-  border-radius:max(3px,.8cqw);
-  font-size:clamp(9px,1.7cqw,14px);
+  padding:.1875cqw .4875cqw;
+  border-radius:max(2.25px,.6cqw);
+  font-size:clamp(6.75px,1.275cqw,10.5px);
 }
