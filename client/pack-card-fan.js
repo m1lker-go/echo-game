@@ -104,7 +104,7 @@ function makeCard(r,i){
  const card=document.createElement('div');card.className='echo-fan-card';card.style.setProperty('--rarity',rarityInfo[r.rarity].color);
  
  card.style.setProperty('--index',i);
- card.style.setProperty('--angle',(-40+i*20)+'deg');
+ card.style.setProperty('--angle',(-34+i*17)+'deg');
  card.style.setProperty('--spread',(-2+i)*49+'%');
  card.style.setProperty('--rise',(Math.abs(i-2)*10)+'px');
  const info=rarityInfo[r.rarity];
