@@ -9,7 +9,7 @@ import { createMobileFloorReflections } from './mobile-floor-reflections.js?v=ec
 import { getWorldViewport } from './viewport-scale.js?v=echo-world-zoom-2';
 import { createWorldMinimap } from './world-minimap.js?v=echo-isometric-minimap-1';
 import { createPlayerLabels, measurePlayerLabelBounds } from './player-labels.js?v=echo-labels-up-1';
-import {attachSpawnShield,updateSpawnShield} from './spawn-shield.js?v=echo-shield-raised-60-1';
+import {attachSpawnShield,updateSpawnShield} from './spawn-shield.js?v=echo-shield-75-raised-third-1';
 import { createServerWaterBoundaryDebug } from './server-water-boundary-debug.js?v=echo-global-font-1';
 
 const activityProfileStorageKey = 'echo.activityProfileId';

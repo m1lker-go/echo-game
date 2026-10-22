@@ -13,8 +13,8 @@ export function attachSpawnShield(THREE,root){
   depthWrite:false,depthTest:false
  }));
  // Billboard is proportional to the character's world dimensions, not pixels.
- dome.scale.set(138,122,1);
- dome.position.set(0,13,0);
+ dome.scale.set(103.5,91.5,1);
+ dome.position.set(0,53.67,0);
  dome.renderOrder=5;
  holder.add(dome);
  holder.visible=false;
