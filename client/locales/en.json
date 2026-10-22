@@ -151,7 +151,12 @@
     "pack_name_premium": "an elite pack",
     "pack_price_coin": "50 ECHO Coin",
     "pack_price_rubles": "250 ₽",
-    "pack_price_votes": "40 VK votes"
+    "pack_price_votes": "40 VK votes",
+    "pack_free_open": "Open",
+    "pack_repeat_free_confirm": "Are you sure you want to open a free {pack}?",
+    "pack_free_empty": "No free packs left. Refresh the shop.",
+    "pack_free_unavailable": "Could not check your free packs. Try again.",
+    "pack_free_failed": "Could not open the free pack."
   },
   "game": {
     "map_short": "MAP",

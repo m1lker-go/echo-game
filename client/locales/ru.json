@@ -151,7 +151,12 @@
     "pack_name_premium": "элитный пак",
     "pack_price_coin": "50 ECHO Coin",
     "pack_price_rubles": "250 ₽",
-    "pack_price_votes": "40 голосов VK"
+    "pack_price_votes": "40 голосов VK",
+    "pack_free_open": "Открыть",
+    "pack_repeat_free_confirm": "Вы уверены, что хотите бесплатно открыть {pack}?",
+    "pack_free_empty": "Бесплатные паки закончились. Обновите магазин.",
+    "pack_free_unavailable": "Не удалось проверить бесплатные паки. Попробуйте ещё раз.",
+    "pack_free_failed": "Не удалось открыть бесплатный пак."
   },
   "game": {
     "map_short": "КАРТА",

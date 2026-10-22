@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="./pack-preview.css?v=echo-ribbon-v6" />
   <link rel="stylesheet" href="./pack-shop-3d.css?v=echo-pack-relative-2" />
   <link rel="stylesheet" href="./pack-card-fan.css?v=echo-pack-relative-2" />
-  <link rel="stylesheet" href="./shop.css?v=echo-larger-packs-1" />
+  <link rel="stylesheet" href="./shop.css?v=echo-free-packs-1" />
   <link rel="stylesheet" href="./daily-quests.css?v=7" />
   <link rel="stylesheet" href="./auth.css?v=echo-vk-mini-auto-2" />
   <link rel="stylesheet" href="./toast.css?v=2" />
@@ -108,12 +108,12 @@
   <div class="menu-page-head"><h1 data-i18n="menu:shop_title">МАГАЗИН</h1><p class="echo-shop-balance" role="status"><span data-i18n="menu:shop_balance">Баланс:</span> <strong id="echo-shop-balance-value">—</strong> <img src="./assets/icons/coin.webp" alt="ECHO Coin" width="26" height="26"></p></div>
   <div class="echo-shop-packs">
     <article class="echo-shop-pack" aria-label="Обычный пак Echo" data-i18n-aria-label="menu:pack_basic_label">
-      <div class="echo-shop-pack-art"><img src="./assets/packs/basiccardpic.webp" alt="ECHO CARDS — обычная колода" data-i18n-alt="menu:pack_basic_alt"></div>
-      <button class="menu-button" type="button" data-echo-preview-pack="coin" aria-label="50 ECHO Coin"><span>50</span><img class="echo-pack-price-coin" src="./assets/icons/coin.webp" alt="ECHO Coin"></button>
+      <div class="echo-shop-pack-art"><img src="./assets/packs/basiccardpic.webp" alt="ECHO CARDS — обычная колода" data-i18n-alt="menu:pack_basic_alt"><span class="echo-shop-free-badge" data-echo-free-badge="coin" hidden></span></div>
+      <button class="menu-button" type="button" data-echo-preview-pack="coin" aria-label="50 ECHO Coin"><span class="echo-pack-paid-price" data-echo-paid-price><span>50</span><img class="echo-pack-price-coin" src="./assets/icons/coin.webp" alt="ECHO Coin"></span><span class="echo-pack-free-label" data-echo-free-label hidden>Открыть</span></button>
     </article>
     <article class="echo-shop-pack" aria-label="Специальный пак Echo" data-i18n-aria-label="menu:pack_special_label">
-      <div class="echo-shop-pack-art"><img src="./assets/packs/specialcardpic.webp" alt="ECHO CARDS — Special Edition" data-i18n-alt="menu:pack_special_alt"></div>
-      <button class="menu-button" type="button" data-echo-preview-pack="premium"><span id="echo-premium-price">250 ₽</span></button>
+      <div class="echo-shop-pack-art"><img src="./assets/packs/specialcardpic.webp" alt="ECHO CARDS — Special Edition" data-i18n-alt="menu:pack_special_alt"><span class="echo-shop-free-badge" data-echo-free-badge="premium" hidden></span></div>
+      <button class="menu-button" type="button" data-echo-preview-pack="premium"><span id="echo-premium-price" data-echo-paid-price>250 ₽</span><span class="echo-pack-free-label" data-echo-free-label hidden>Открыть</span></button>
     </article>
   </div>
   <button id="shop-back" class="menu-back" type="button" data-i18n="menu:back">Назад</button>
@@ -148,7 +148,7 @@
   <script type="module" src="./auth-ui.js?v=echo-account-nickname-sync-1"></script>
   <script type="module" src="./daily-quests.js?v=echo-vk-auth-hud-1"></script>
   <script type="module" src="./shop-balance.js?v=echo-vk-mini-auto-2"></script>
-  <script type="module" src="./pack-animation.js?v=echo-vk-static-item-1"></script>
+  <script type="module" src="./pack-animation.js?v=echo-free-packs-1"></script>
   <script type="module" src="./pack-card-fan.js?v=echo-real-coin-1"></script>
   <script type="module" src="./music-manager.js?v=echo-volume-controls-1"></script>
   <script type="module" src="./audio-settings.js?v=echo-volume-controls-1"></script>
