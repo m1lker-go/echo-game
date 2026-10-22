@@ -66,10 +66,12 @@ test('PNG shield replaces geometry for local and remote players',()=>{
 });
 
 test('shield pulses between 15% and 60% visibility each second',async()=>{
- const {pathToFileURL}=require('node:url');
- // Dynamic import works for the browser-compatible exported math helper.
- const url=pathToFileURL(path.join(__dirname,'../../client/spawn-shield.js')).href;
- const {shieldOpacity}=await import(url);
+ const vm=require('node:vm');
+ // The production client is ESM, while the deployment test runner uses
+ // CommonJS. Evaluate the unchanged helper without browser imports.
+ const scope={};
+ vm.runInNewContext(dome.replaceAll('export function ','function ')+'\nthis.shieldOpacity=shieldOpacity;',scope);
+ const {shieldOpacity}=scope;
  const until=100000;
  const start=until-5000;
  const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-9,a+' expected '+b);
