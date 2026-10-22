@@ -27,6 +27,7 @@
     /VkAndroidApp|VKMobile|VKontakte|VKCOM|VKMessenger/i.test(navigator.userAgent)
   );
   if (!window.isVKMiniApp) return;
+  console.info('[echo vk mini] Early bootstrap started');
 
   function loadBridgeScript(src) {
     if (window.vkBridge?.send) return Promise.resolve(window.vkBridge);
@@ -60,12 +61,23 @@
   async function initialize() {
     let bridge = window.vkBridge;
     if (!bridge?.send) {
-      try {
-        bridge = await loadBridgeScript('https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js');
-      } catch (error) {
-        console.warn('[echo vk mini] VK Bridge primary CDN failed, trying fallback', error);
-        bridge = await loadBridgeScript('https://cdn.jsdelivr.net/npm/@vkontakte/vk-bridge/dist/browser.min.js');
+      const sources = [
+        './vendor/vk-bridge-2.15.12.min.js',
+        'https://unpkg.com/@vkontakte/vk-bridge@2.15.12/dist/browser.min.js',
+        'https://cdn.jsdelivr.net/npm/@vkontakte/vk-bridge@2.15.12/dist/browser.min.js'
+      ];
+      let lastError;
+      for (const src of sources) {
+        try {
+          bridge = await loadBridgeScript(src);
+          console.info('[echo vk mini] Bridge loaded from', src);
+          break;
+        } catch (error) {
+          lastError = error;
+          console.warn('[echo vk mini] Bridge source unavailable', src, error);
+        }
       }
+      if (!bridge?.send) throw lastError || new Error('VK Bridge is unavailable');
     }
 
     let timer;
@@ -79,6 +91,7 @@
     } finally {
       clearTimeout(timer);
     }
+    console.info('[echo vk mini] VKWebAppInit OK');
     return bridge;
   }
 

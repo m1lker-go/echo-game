@@ -8,7 +8,7 @@ const vm = require('node:vm');
 const client = join(__dirname, '../../client');
 const bootstrap = readFileSync(join(client, 'vk-mini-bootstrap.js'), 'utf8');
 
-function simulate(search, { failPrimary = false, existingBridge = false, inVK = true } = {}) {
+function simulate(search, { failures = 0, existingBridge = false, inVK = true } = {}) {
   const scripts = [];
   const methods = [];
   const host = { send(method) { methods.push(method); return Promise.resolve({}); } };
@@ -24,7 +24,7 @@ function simulate(search, { failPrimary = false, existingBridge = false, inVK = 
       appendChild(script) {
         scripts.push(script.src);
         queueMicrotask(() => {
-          if (failPrimary && scripts.length === 1) {
+          if (scripts.length <= failures) {
             script.onerror();
             return;
           }
@@ -39,30 +39,38 @@ function simulate(search, { failPrimary = false, existingBridge = false, inVK = 
     document: doc,
     navigator: { userAgent: '' },
     URL, URLSearchParams, Promise, setTimeout, clearTimeout,
-    console: { error() {}, warn() {} }
+    console: { error() {}, warn() {}, info() {} }
   });
   return { win, scripts, methods };
 }
 
-test('VK Mini App initializes early and exactly once', async () => {
+test('VK Mini App loads local Bridge first and initializes exactly once', async () => {
   const app = simulate('?vk_app_id=54838920&vk_user_id=123&sign=dummy');
   assert.equal(app.win.isVKMiniApp, true);
   assert.ok(app.win.ECHOVKBridgeReady);
-  assert.equal(app.scripts.length, 1);
+  assert.deepEqual(app.scripts, ['./vendor/vk-bridge-2.15.12.min.js']);
   await app.win.ECHOVKBridgeReady;
   assert.deepEqual(app.methods, ['VKWebAppInit']);
 });
 
-test('VK Mini App tries alternate CDN when the first script fails', async () => {
-  const app = simulate('?vk_app_id=54838920', { failPrimary: true });
+test('if local Bridge fails, VK Mini App uses pinned unpkg version', async () => {
+  const app = simulate('?vk_app_id=54838920', { failures: 1 });
   await app.win.ECHOVKBridgeReady;
   assert.equal(app.scripts.length, 2);
-  assert.match(app.scripts[0], /unpkg.com/);
-  assert.match(app.scripts[1], /jsdelivr.net/);
+  assert.match(app.scripts[0], /vk-bridge-2\.15\.12\.min\.js/);
+  assert.match(app.scripts[1], /unpkg\.com.*@2\.15\.12/);
   assert.deepEqual(app.methods, ['VKWebAppInit']);
 });
 
-test('existing bridge avoids a redundant download or initialization', async () => {
+test('if local and unpkg fail, use pinned jsDelivr', async () => {
+  const app = simulate('?vk_app_id=54838920', { failures: 2 });
+  await app.win.ECHOVKBridgeReady;
+  assert.equal(app.scripts.length, 3);
+  assert.match(app.scripts[2], /jsdelivr\.net.*@2\.15\.12/);
+  assert.deepEqual(app.methods, ['VKWebAppInit']);
+});
+
+test('existing bridge avoids redundant downloads or initialization', async () => {
   const app = simulate('?vk_app_id=54838920', { existingBridge: true });
   await app.win.ECHOVKBridgeReady;
   assert.equal(app.scripts.length, 0);
@@ -76,7 +84,7 @@ test('regular browser launch does not initialize VK Bridge', () => {
   assert.equal(app.scripts.length, 0);
 });
 
-test('bootstrap loads before ESM imports and auth reuses its initialization', () => {
+test('bootstrap runs before game modules and auth reuses one init', () => {
   const html = readFileSync(join(client, 'index.html'), 'utf8');
   const auth = readFileSync(join(client, 'auth-ui.js'), 'utf8');
   const bootPosition = html.indexOf('src="./vk-mini-bootstrap.js');
@@ -84,4 +92,12 @@ test('bootstrap loads before ESM imports and auth reuses its initialization', ()
   assert.ok(bootPosition < html.indexOf('<script type="importmap">'));
   assert.ok(auth.includes('await window.ECHOVKBridgeReady'));
   assert.ok(!auth.includes("bridge.send('VKWebAppInit')"));
+});
+
+test('deploy installs pinned local bridge asset', () => {
+  const workflow = readFileSync(join(__dirname, '../../.github/workflows/deploy.yml'), 'utf8');
+  const installer = readFileSync(join(__dirname, '../../scripts/install-vk-bridge.sh'), 'utf8');
+  assert.match(workflow, /scripts\/install-vk-bridge\.sh/);
+  assert.match(installer, /@vkontakte\/vk-bridge@2\.15\.12/);
+  assert.match(installer, /client\/vendor\/vk-bridge-2\.15\.12\.min\.js/);
 });

@@ -91,6 +91,12 @@ jobs:
             cd /var/www/echo-game/server
             npm install
             echo "npm install OK"
+            echo "== Install local VK Bridge (CDN remains as fallback) =="
+            cd /var/www/echo-game
+            if ! timeout 60s bash scripts/install-vk-bridge.sh; then
+              echo "WARNING: Local VK Bridge install failed; pinned CDNs remain available."
+            fi
+            cd /var/www/echo-game/server
             echo "== [5/6] Restart ECHO PM2 only =="
             pm2 restart echo-server || pm2 start index.js --name echo-server
             pm2 save
@@ -169,6 +175,12 @@ jobs:
             cd /var/www/echo-game/server
             npm install
             echo "npm install OK"
+            echo "== Install local VK Bridge (CDN remains as fallback) =="
+            cd /var/www/echo-game
+            if ! timeout 60s bash scripts/install-vk-bridge.sh; then
+              echo "WARNING: Local VK Bridge install failed; pinned CDNs remain available."
+            fi
+            cd /var/www/echo-game/server
             echo "== [5/6] Restart ECHO PM2 only =="
             pm2 restart echo-server || pm2 start index.js --name echo-server
             pm2 save
