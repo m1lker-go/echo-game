@@ -21,8 +21,11 @@
  pointer-events:auto;
  box-shadow:0 2px 14px #0009;
 }
+/* During pack opening, the fullscreen button shares the same edge
+   origin, button width and gap as the pack Close button. Never offset
+   fullscreen by a fixed number of pixels from the viewport edge. */
 #game:has(#echo-pack-3d:not([hidden])) > #echo-fullscreen-toggle{
- right:calc(max(10px,env(safe-area-inset-right)) + 55px);
+ right:calc(var(--echo-nav-right) + var(--echo-nav-size) + var(--echo-nav-gap));
 }
 
 /* Battle-only right corner: fullscreen + exit, then connection, then minimap. */
