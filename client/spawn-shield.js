@@ -1,4 +1,13 @@
 // Visual only: the server decides whether PvP protection is active.
+// The PNG fades in, holds, and fades out once per second for five seconds.
+export function shieldOpacity(shieldUntil,now=Date.now()){
+ if(!Number.isFinite(shieldUntil)||shieldUntil<=now)return 0;
+ const elapsed=Math.max(0,5000-(shieldUntil-now));
+ const phase=(elapsed%1000)/1000;
+ if(phase<0.25)return 0.15+(0.6-0.15)*(phase/0.25);
+ if(phase<=0.75)return 0.6;
+ return 0.6-(0.6-0.15)*((phase-0.75)/0.25);
+}
 const SHIELD_TEXTURE='./assets/textures/shield.png';
 let texture=null;
 export function attachSpawnShield(THREE,root){
@@ -23,5 +32,7 @@ export function attachSpawnShield(THREE,root){
 }
 export function updateSpawnShield(root,shieldUntil,now=Date.now()){
  const dome=root?.userData?.echoSpawnShield;
- if(dome)dome.visible=Number.isFinite(shieldUntil)&&shieldUntil>now;
+ if(!dome)return;
+ dome.visible=Number.isFinite(shieldUntil)&&shieldUntil>now;
+ if(dome.visible)dome.children[0].material.opacity=shieldOpacity(shieldUntil,now);
 }

@@ -61,5 +61,24 @@ test('PNG shield replaces geometry for local and remote players',()=>{
  assert.ok(game.includes('attachSpawnShield(THREE,holder)'));
  assert.ok(game.includes('updateSpawnShield(modelCache.local,state.shieldUntil)'));
  assert.ok(game.includes('updateSpawnShield(e.root,p.shieldUntil)'));
- assert.ok(html.includes('game.js?v=echo-shield-height-corrected-1'));
+ assert.ok(html.includes('game.js?v=echo-shield-pulse-1'));
+ assert.ok(dome.includes('material.opacity=shieldOpacity(shieldUntil,now)'));
+});
+
+test('shield pulses between 15% and 60% visibility each second',async()=>{
+ const {pathToFileURL}=require('node:url');
+ // Dynamic import works for the browser-compatible exported math helper.
+ const url=pathToFileURL(path.join(__dirname,'../../client/spawn-shield.js')).href;
+ const {shieldOpacity}=await import(url);
+ const until=100000;
+ const start=until-5000;
+ const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-9,a+' expected '+b);
+ for(let second=0;second<5;second++){
+  const time=start+second*1000;
+  close(shieldOpacity(until,time),0.15);
+  close(shieldOpacity(until,time+250),0.6);
+  close(shieldOpacity(until,time+750),0.6);
+  close(shieldOpacity(until,time+999),0.1518);
+ }
+ close(shieldOpacity(until,until),0);
 });
