@@ -17,43 +17,10 @@ function readVKLaunchFromURL(){
  return Object.fromEntries([...params.entries()].filter(([name])=>name==='sign'||name.startsWith('vk_')));
 }
 const vkURLLaunch=readVKLaunchFromURL();
-const isVKContainer=(()=>{
- let framedByVK=false;
- try{
-  const refHost=new URL(document.referrer).hostname.toLowerCase();
-  framedByVK=window.self!==window.top&&
-   ['vk.com','vk.ru','vkontakte.ru'].some(host=>refHost===host||refHost.endsWith('.'+host));
- }catch(_error){}
- return framedByVK||/VkAndroidApp|VKMobile|VKontakte|VKCOM|VKMessenger/i.test(navigator.userAgent);
-})();
-const isVKMiniApp=Boolean(
- vkURLLaunch.vk_app_id||vkURLLaunch.vk_user_id||
- vkURLLaunch.vk_platform||vkURLLaunch.sign||isVKContainer
-);
-window.isVKMiniApp=isVKMiniApp;
+// Initialized in the classic bootstrap before any Three.js modules run.
+const isVKMiniApp=Boolean(window.isVKMiniApp);
 let vkMiniLoginInProgress=false;
-let vkBridgePromise=null;
 
-function loadVKBridge(){
- if(window.vkBridge?.send)return Promise.resolve(window.vkBridge);
- if(vkBridgePromise)return vkBridgePromise;
- vkBridgePromise=new Promise((resolve,reject)=>{
-  const script=document.createElement('script');
-  const timeout=setTimeout(()=>reject(new Error('VK Bridge script timed out')),10000);
-  script.src='https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js';
-  script.onload=()=>{
-   clearTimeout(timeout);
-   if(window.vkBridge?.send)resolve(window.vkBridge);
-   else reject(new Error('VK Bridge is unavailable'));
-  };
-  script.onerror=()=>{
-   clearTimeout(timeout);
-   reject(new Error('Cannot load VK Bridge'));
-  };
-  document.head.append(script);
- });
- return vkBridgePromise;
-}
 async function sendVKBridge(bridge,method){
  let timer;
  try{
@@ -77,9 +44,9 @@ function isCompleteVKLaunch(params){
  return Boolean(params.sign&&params.vk_user_id&&params.vk_app_id);
 }
 async function getVKMiniAppLaunch(){
- const bridge=await loadVKBridge();
- // Initialize Bridge on every VK Mini App launch, including when URL params suffice.
- await sendVKBridge(bridge,'VKWebAppInit');
+ // VKWebAppInit runs early, before any Three.js imports.
+ if(!window.ECHOVKBridgeReady)throw new Error('VK Bridge bootstrap was not started');
+ const bridge=await window.ECHOVKBridgeReady;
  // VK already supplies signed URL parameters in normal launches. Use their
  // original string values without an unnecessary slow Bridge round-trip.
  if(isCompleteVKLaunch(vkURLLaunch))return vkURLLaunch;
