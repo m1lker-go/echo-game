@@ -39,6 +39,12 @@ let trackIndex = 0;
 let started = false;
 let blocked = false;
 let failedTracks = 0;
+// Track the play intent so backgrounding never turns ECHO into a music player.
+let pendingPlay = false;
+let pausedForBackground = false;
+let pageHidden = false;
+let windowBlurred = false;
+const isInactive = () => Boolean(document.hidden || pageHidden || windowBlurred);
 
 try {
   const saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || 'null');
@@ -74,21 +80,70 @@ function selectTrack(index) {
 }
 
 function tryPlay() {
-  if (started && !audio.paused) return;
-  const attempt = audio.play();
+  // Unlike a music player, ECHO must not request audio focus in the background.
+  if (isInactive() || pendingPlay || !audio.paused) return;
+  let attempt;
+  try {
+    pendingPlay = true;
+    attempt = audio.play();
+  } catch (error) {
+    pendingPlay = false;
+    console.warn('[ECHO music] Playback failed:', error);
+    return;
+  }
   if (attempt?.then) {
     attempt.then(() => {
+      pendingPlay = false;
       started = true;
       blocked = false;
-      removeUnlockListeners();
+      if (isInactive()) {
+        // A delayed play() promise may settle after the app was hidden.
+        pausedForBackground = true;
+        audio.pause();
+      } else if (pausedForBackground && audio.paused) {
+        resumeFromBackground();
+      } else {
+        pausedForBackground = false;
+        removeUnlockListeners();
+      }
     }).catch((error) => {
+      pendingPlay = false;
       if (error?.name === 'NotAllowedError') {
         blocked = true;
         attachUnlockListeners();
       } else if (error?.name !== 'AbortError') {
         console.warn('[ECHO music] Playback failed:', error);
       }
+      // Background pause may abort an in-flight play. Retry only once
+      // focus returns; other errors should wait for a user gesture.
+      if (error?.name === 'AbortError') resumeFromBackground();
     });
+  } else {
+    pendingPlay = false;
+    started = true;
+    if (isInactive()) {
+      pausedForBackground = true;
+      audio.pause();
+    } else {
+      pausedForBackground = false;
+      removeUnlockListeners();
+    }
+  }
+}
+
+function pauseForBackground() {
+  if (!audio.paused || pendingPlay) pausedForBackground = true;
+  audio.pause();
+  savePosition();
+}
+
+function resumeFromBackground() {
+  if (isInactive() || pendingPlay) return;
+  if (pausedForBackground) {
+    pausedForBackground = false;
+    tryPlay();
+  } else if (blocked) {
+    tryPlay();
   }
 }
 
@@ -126,9 +181,26 @@ audio.addEventListener('error', () => {
   tryPlay();
 });
 
-window.addEventListener('pagehide', savePosition);
+// Pause like Cat Fighting, including lifecycle/focus events for mobile webviews.
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && blocked) tryPlay();
+  if (document.hidden) pauseForBackground();
+  else resumeFromBackground();
+});
+window.addEventListener('pagehide', () => {
+  pageHidden = true;
+  pauseForBackground();
+});
+window.addEventListener('pageshow', () => {
+  pageHidden = false;
+  resumeFromBackground();
+});
+window.addEventListener('blur', () => {
+  windowBlurred = true;
+  pauseForBackground();
+});
+window.addEventListener('focus', () => {
+  windowBlurred = false;
+  resumeFromBackground();
 });
 
 selectTrack(trackIndex);
