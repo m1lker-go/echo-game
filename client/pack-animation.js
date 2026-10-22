@@ -1,4 +1,5 @@
 // ECHO: finger-controlled animated WebP. This is frame scrubbing, NOT autonomous playback.
+import {cachedFreePackCount,refreshFreePackCounts,setFreePackRemaining} from './free-packs-ui.js?v=echo-free-packs-1';
 const root=document.querySelector('#echo-pack-3d');
 if(root){
  const canvas=root.querySelector('#echo-pack-3d-canvas'),ctx=canvas.getContext('2d',{alpha:false});
@@ -167,19 +168,58 @@ if(root){
   if(purchaseBusy)return;
   const token=localStorage.getItem('echo.authToken');
   if(!token){window.ECHOToast?.show(tr('pack_login_required','Для покупки пака войдите в аккаунт'));return;}
-  if(type==='premium'){await buyPremiumPack(token);return;}
   purchaseBusy=true;
-  const button=document.querySelector('[data-echo-preview-pack="coin"]');
+  const button=document.querySelector('[data-echo-preview-pack="'+type+'"]');
   if(button)button.disabled=true;
   try{
-    const response=await fetch('/echo/api/packs/coin/open',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}});
+   // Check the server before every purchase. Free inventory always takes
+   // precedence over money; missing inventory must never initiate payment.
+   const wasFree=cachedFreePackCount(type)>0;
+   const inventory=await refreshFreePackCounts();
+   if(inventory[type]>0){
+    const response=await fetch('/echo/api/packs/free/open',{
+     method:'POST',
+     headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+     body:JSON.stringify({packType:type})
+    });
     const data=await response.json().catch(()=>({}));
-    if(!response.ok)throw new Error(response.status===409?'coins':response.status===401?'auth':'server');
-    if(!Array.isArray(data.cards)||data.cards.length!==5)throw new Error('server');
-    showAwardedPack('coin',data.cards);
+    if(!response.ok){
+     if(response.status===409){setFreePackRemaining(type,0);throw new Error('free_packs_empty');}
+     throw new Error(response.status===401?'auth':'free_packs_failed');
+    }
+    if(!Array.isArray(data.cards)||data.cards.length!==5||!Number.isInteger(data.remaining))
+     throw new Error('free_packs_failed');
+    setFreePackRemaining(type,data.remaining);
+    showAwardedPack(type,data.cards);
+    return;
+   }
+   // A free pack may have just been used from another tab: never charge
+   // ECHO Coins or VK votes for a click that appeared to be free.
+   if(wasFree)throw new Error('free_packs_empty');
+   if(type==='premium'){
+    purchaseBusy=false;
+    if(button)button.disabled=false;
+    await buyPremiumPack(token);
+    return;
+   }
+   const response=await fetch('/echo/api/packs/coin/open',{
+    method:'POST',
+    headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}
+   });
+   const data=await response.json().catch(()=>({}));
+   if(!response.ok)throw new Error(response.status===409?'coins':response.status===401?'auth':'server');
+   if(!Array.isArray(data.cards)||data.cards.length!==5)throw new Error('server');
+   showAwardedPack('coin',data.cards);
   }catch(error){
-    console.warn('[ECHO packs] Purchase unavailable:',error);
-    window.ECHOToast?.show(error.message==='coins'?tr('pack_not_enough_coins','Недостаточно ECHO Coin'):error.message==='auth'?tr('pack_login_required','Для покупки пака войдите в аккаунт'):tr('pack_buy_failed','Не удалось купить пак'));
+   console.warn('[ECHO packs] opening unavailable:',error);
+   const messages={
+    coins:tr('pack_not_enough_coins','Недостаточно ECHO Coin'),
+    auth:tr('pack_login_required','Для покупки пака войдите в аккаунт'),
+    free_packs_empty:tr('pack_free_empty','Бесплатные паки закончились. Обновите магазин.'),
+    free_packs_status:tr('pack_free_unavailable','Не удалось проверить бесплатные паки. Попробуйте ещё раз.'),
+    free_packs_failed:tr('pack_free_failed','Не удалось открыть бесплатный пак.')
+   };
+   window.ECHOToast?.show(messages[error.message]||tr('pack_buy_failed','Не удалось купить пак'));
   }finally{purchaseBusy=false;if(button)button.disabled=false;}
  }
  function close(){window.dispatchEvent(new Event('echo:pack-closed'));awardedCards=null;root.hidden=true;down=false;active=false;clearInterval(hintTimer);clearTimeout(toastTimer);}
@@ -190,13 +230,18 @@ if(root){
   if(repeatConfirming||purchaseBusy||root.hidden)return;
   repeatConfirming=true;
   try{
+   const inventory=await refreshFreePackCounts();
+   const hasFree=inventory[packType]>0;
    const isVk=isVKPurchasePlatform();
    const premiumPrice=isVk?tr('pack_price_votes','40 голосов VK'):tr('pack_price_rubles','250 ₽');
    const packName=packType==='premium'?tr('pack_name_premium','элитный пак'):tr('pack_name_coin','обычный пак');
    const price=packType==='premium'?premiumPrice:tr('pack_price_coin','50 ECHO Coin');
+   const text=hasFree
+    ?tr('pack_repeat_free_confirm','Вы уверены, что хотите бесплатно открыть {pack}?').replace('{pack}',packName)
+    :tr('pack_repeat_confirm','Вы уверены, что хотите приобрести {pack} за {price}?').replace('{pack}',packName).replace('{price}',price);
    const approved=await window.ECHOModal?.confirm({
-    title:tr('pack_repeat_title','Покупка пака'),
-    text:tr('pack_repeat_confirm','Вы уверены, что хотите приобрести {pack} за {price}?').replace('{pack}',packName).replace('{price}',price),
+    title:hasFree?tr('pack_free_open','Открыть'):tr('pack_repeat_title','Покупка пака'),
+    text,
     cancelText:tr('no','Нет'),confirmText:tr('yes','Да')
    });
    if(!approved||root.hidden)return;
