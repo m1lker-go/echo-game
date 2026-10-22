@@ -145,7 +145,7 @@
 @media(max-width:620px){
  #echo-pack-3d .echo-fan-card .echo-fan-rarity{
   font-size:clamp(6px,1.85vw,9px);
-  padding:1px 8%;
+  padding:1px 3%;
  }
 }
 

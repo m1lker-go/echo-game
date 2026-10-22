@@ -37,7 +37,7 @@ test('large cards recreate the earlier wide fan while staying inside narrow view
 
 test('card fan stylesheet and script are both cache-busted for every client',()=>{
  assert.match(html,/pack-card-fan\.css\?v=echo-fan-restored-32-1/);
- assert.match(html,/pack-card-fan\.js\?v=echo-fan-restored-32-1/);
+ assert.match(html,/pack-card-fan\.js\?v=echo-fan-labels-075-tap-1/);
 });
 
 test('readable wide rarity plate supports long Russian text without oversized counter',()=>{
