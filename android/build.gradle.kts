@@ -2,4 +2,21 @@ plugins {
     id("com.android.application") version "8.9.2" apply false
     id("org.jetbrains.kotlin.android") version "2.0.21" apply false
     id("org.jetbrains.kotlin.plugin.compose") version "2.0.21" apply false
+    id("vkid.manifest.placeholders") version "1.1.0" apply true
+}
+
+/*
+ * VK ID for ECHO only (not Cat Fighting). Never commit the VK ID client secret.
+ * Place ECHO_VK_CLIENT_SECRET in ~/.gradle/gradle.properties or the environment.
+ * A benign placeholder keeps offline UI/debug builds possible before VK is set up.
+ */
+val echoVkSecret = System.getenv("ECHO_VK_CLIENT_SECRET")
+    ?: providers.gradleProperty("ECHO_VK_CLIENT_SECRET").orNull
+    ?: ""
+
+vkidManifestPlaceholders {
+    init(
+        clientId = "54832804",
+        clientSecret = echoVkSecret.ifBlank { "ECHO_VK_ID_NOT_CONFIGURED" }
+    )
 }
