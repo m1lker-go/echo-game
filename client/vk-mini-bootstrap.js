@@ -26,6 +26,18 @@
     launchParams.vk_platform || launchParams.sign || framedByVK ||
     /VkAndroidApp|VKMobile|VKontakte|VKCOM|VKMessenger/i.test(navigator.userAgent)
   );
+  // Mobile VK Mini Apps do not need ECHO's browser fullscreen toggle.
+  // Prefer the signed VK platform; use the device UA only if VK omitted it.
+  const vkPlatform = String(launchParams.vk_platform || '').toLowerCase();
+  const mobileUserAgent = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  window.isVKMobileMiniApp = Boolean(
+    window.isVKMiniApp &&
+    (vkPlatform.startsWith('mobile_') || (!vkPlatform && mobileUserAgent))
+  );
+  if (window.isVKMobileMiniApp) {
+    // This runs in <head> before fullscreen.css and the first paint.
+    document.documentElement.classList.add('echo-vk-mobile-mini');
+  }
   if (!window.isVKMiniApp) return;
   console.info('[echo vk mini] Early bootstrap started');
 

@@ -202,3 +202,9 @@
 #menu-quests-screen #quests-back {
   display: none !important;
 }
+
+/* VK Mini Apps on phones/tablets: hide browser fullscreen on every ECHO screen. */
+html.echo-vk-mobile-mini #game > #echo-fullscreen-toggle {
+  display: none !important;
+  pointer-events: none !important;
+}

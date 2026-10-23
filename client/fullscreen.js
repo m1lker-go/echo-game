@@ -1,6 +1,7 @@
 // Browser fullscreen toggle, triggered by a direct user gesture.
 const button=document.getElementById('echo-fullscreen-toggle');
 const game=document.getElementById('game');
+const allowFullscreenButton=!window.isVKMobileMiniApp;
 const preferenceKey='echo.fullscreenWanted';
 const t=(key,fallback)=>window.$t?.('game:'+key,fallback)||fallback;
 function sync(){
@@ -9,7 +10,7 @@ function sync(){
  button?.setAttribute('aria-label',active?t('fullscreen_exit','Выйти из полноэкранного режима'):t('fullscreen_enter','На весь экран'));
  button?.setAttribute('title',active?t('fullscreen_exit','Выйти из полноэкранного режима'):t('fullscreen_enter','На весь экран'));
 }
-button?.addEventListener('click',async()=>{
+if(allowFullscreenButton) button?.addEventListener('click',async()=>{
  try{
   if(document.fullscreenElement||document.webkitFullscreenElement){
    const exit=document.exitFullscreen||document.webkitExitFullscreen;
@@ -34,7 +35,7 @@ sync();
 
 // Reloading the document exits browser fullscreen by design. Browsers require
 // a fresh user activation to enter it again; reuse the first battle gesture.
-if(sessionStorage.getItem(preferenceKey)==='1'){
+if(allowFullscreenButton && sessionStorage.getItem(preferenceKey)==='1'){
  const restore=(event)=>{
   if(!game?.classList.contains('echo-in-battle'))return;
   if(document.fullscreenElement||document.webkitFullscreenElement)return;

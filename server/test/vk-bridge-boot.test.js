@@ -8,7 +8,7 @@ const vm = require('node:vm');
 const client = join(__dirname, '../../client');
 const bootstrap = readFileSync(join(client, 'vk-mini-bootstrap.js'), 'utf8');
 
-function simulate(search, { failures = 0, existingBridge = false, inVK = true } = {}) {
+function simulate(search, { failures = 0, existingBridge = false, inVK = true, userAgent = '' } = {}) {
   const scripts = [];
   const methods = [];
   const host = { send(method) { methods.push(method); return Promise.resolve({}); } };
@@ -17,7 +17,9 @@ function simulate(search, { failures = 0, existingBridge = false, inVK = true } 
   win.top = inVK ? {} : win.self;
   if (existingBridge) win.vkBridge = host;
 
+  const classes = new Set();
   const doc = {
+    documentElement: { classList: { add(name) { classes.add(name); }, contains(name) { return classes.has(name); } } },
     referrer: inVK ? 'https://vk.com/feed' : '',
     createElement() { return { remove() {} }; },
     head: {
@@ -37,11 +39,11 @@ function simulate(search, { failures = 0, existingBridge = false, inVK = true } 
   vm.runInNewContext(bootstrap, {
     window: win,
     document: doc,
-    navigator: { userAgent: '' },
+    navigator: { userAgent },
     URL, URLSearchParams, Promise, setTimeout, clearTimeout,
     console: { error() {}, warn() {}, info() {} }
   });
-  return { win, scripts, methods };
+  return { win, scripts, methods, classes };
 }
 
 test('VK Mini App loads local Bridge first and initializes exactly once', async () => {
@@ -100,4 +102,47 @@ test('deploy installs pinned local bridge asset', () => {
   assert.match(workflow, /scripts\/install-vk-bridge\.sh/);
   assert.match(installer, /@vkontakte\/vk-bridge@2\.15\.12/);
   assert.match(installer, /client\/vendor\/vk-bridge-2\.15\.12\.min\.js/);
+});
+
+test('VK mobile launch hides fullscreen via early document class', async () => {
+  for (const platform of ['mobile_android', 'mobile_iphone', 'mobile_ipad', 'mobile_web']) {
+    const app = simulate('?vk_app_id=54838920&vk_platform=' + platform);
+    assert.equal(app.win.isVKMobileMiniApp, true, platform);
+    assert.equal(app.classes.has('echo-vk-mobile-mini'), true, platform);
+    await app.win.ECHOVKBridgeReady;
+  }
+});
+
+test('VK desktop and ordinary browsers keep fullscreen available', async () => {
+  const desktop = simulate('?vk_app_id=54838920&vk_platform=desktop_web');
+  assert.equal(desktop.win.isVKMobileMiniApp, false);
+  assert.equal(desktop.classes.has('echo-vk-mobile-mini'), false);
+  await desktop.win.ECHOVKBridgeReady;
+
+  const browser = simulate('', { inVK: false, userAgent: 'Mozilla/5.0 (Linux; Android 15) Chrome/120' });
+  assert.equal(browser.win.isVKMobileMiniApp, false);
+  assert.equal(browser.classes.has('echo-vk-mobile-mini'), false);
+  assert.equal(browser.scripts.length, 0);
+});
+
+test('VK mobile app without platform falls back to phone UA, explicit desktop stays desktop', async () => {
+  const fallback = simulate('', { userAgent: 'Mozilla/5.0 (Linux; Android 15) VkAndroidApp' });
+  assert.equal(fallback.win.isVKMobileMiniApp, true);
+  await fallback.win.ECHOVKBridgeReady;
+
+  const explicitDesktop = simulate('?vk_platform=desktop_web', { userAgent: 'Mozilla/5.0 (Linux; Android 15)' });
+  assert.equal(explicitDesktop.win.isVKMobileMiniApp, false);
+  await explicitDesktop.win.ECHOVKBridgeReady;
+});
+
+test('fullscreen button stays hidden and cannot auto-restore on mobile VK', () => {
+  const css = readFileSync(join(client, 'fullscreen.css'), 'utf8');
+  const logic = readFileSync(join(client, 'fullscreen.js'), 'utf8');
+  const html = readFileSync(join(client, 'index.html'), 'utf8');
+  assert.match(css, /html\.echo-vk-mobile-mini #game > #echo-fullscreen-toggle\s*\{\s*display:\s*none\s*!important/);
+  assert.match(logic, /const allowFullscreenButton=!window\.isVKMobileMiniApp/);
+  assert.match(logic, /if\(allowFullscreenButton\) button\?\.addEventListener/);
+  assert.match(logic, /if\(allowFullscreenButton && sessionStorage\.getItem\(preferenceKey\)===/);
+  assert.match(html, /vk-mini-bootstrap\.js\?v=echo-vk-mobile-fullscreen-1/);
+  assert.match(html, /fullscreen\.css\?v=echo-vk-mobile-fullscreen-1/);
 });
