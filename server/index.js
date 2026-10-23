@@ -10,6 +10,7 @@ const { roundWindow, createRoomManager } = require('./room-manager');
 const roundRewards = require('./round-rewards');
 const {chooseSafeSpawn,hasSpawnShield,SHIELD_DURATION_MS}=require('./spawn-protection');
 const {recordPackOpened}=require('./pack-quest-progress');
+const {createPurchaseHistory,recordPackOpening}=require('./purchase-history');
 const echoAuth = require('./auth');
 const { createAccountSessionRegistry } = require('./account-session-registry');
 const { roomIdentityFor, uniqueParticipants } = require('./player-identity');
@@ -169,6 +170,7 @@ const vkPayments = require('./vk-payments').createVKPayments({
 const robokassaPayments = require('./robokassa-payments').createRobokassaPayments({
   pool, sessionUser: echoAuth.sessionUser, rollSecurePack
 });
+const purchaseHistory = createPurchaseHistory({pool,sessionUser:echoAuth.sessionUser});
 const freePacks = require('./free-packs').createFreePacks({
   pool, sessionUser: echoAuth.sessionUser, rollSecurePack
 });
@@ -179,6 +181,7 @@ const specialQuests = require('./special-quests').createSpecialQuests({
 app.use('/api/special-quests', specialQuests.router);
 app.use('/api/payments/vk', express.urlencoded({ extended: false }), vkPayments.router);
 app.use('/api/payments/robokassa', express.urlencoded({ extended: false }), robokassaPayments.router);
+app.use('/api/purchases',purchaseHistory.router);
 app.post('/api/packs/coin/open',async(req,res)=>{
  let client;
  try{
@@ -192,6 +195,7 @@ app.post('/api/packs/coin/open',async(req,res)=>{
    [String(accountId),card.model,card.count]);
   // Only after the paid opening successfully granted all five cards.
   await recordPackOpened(client,accountId,'coin');
+  await recordPackOpening(client,accountId,'coin','coin',cards);
   await client.query('COMMIT');
   res.json({cards,balance:Number(wallet.rows[0].coins)});
  }catch(error){if(client)await client.query('ROLLBACK').catch(()=>{});console.error('[packs] purchase failed',error);res.status(500).json({error:'Pack purchase failed'});}
@@ -1341,6 +1345,7 @@ server.listen(port, '0.0.0.0', async () => {
     await specialQuests.initialize();
     await vkPayments.initialize();
     await robokassaPayments.initialize();
+    await purchaseHistory.initialize();
     rewardsReady = true;
     queueRewardWork(()=>roundRewards.finalizeOverdue(pool,Date.now()));
     console.log('[echo-server] database connection OK');
