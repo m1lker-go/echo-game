@@ -353,8 +353,12 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Text("Нет подключения к ECHO", color = Accent, fontSize = 18.sp)
-                Text("Проверь интернет и повтори загрузку.", color = Muted)
+                Text("Не удалось открыть ECHO", color = Accent, fontSize = 18.sp)
+                Text(
+                    if (failureMessage.isBlank()) "Проверь подключение и обнови Android System WebView."
+                    else failureMessage,
+                    color = Muted
+                )
                 Surface(
                     onClick = {
                         failed = false
@@ -366,6 +370,18 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text("ПОВТОРИТЬ", Modifier.padding(12.dp))
+                }
+                Surface(
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(WEB_BASE)))
+                        }
+                    },
+                    color = Panel, contentColor = Accent,
+                    border = BorderStroke(1.dp, Color(0xFF596D7A)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("ПРОВЕРИТЬ САЙТ В БРАУЗЕРЕ", Modifier.padding(12.dp))
                 }
             }
         }
