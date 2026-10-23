@@ -23,6 +23,10 @@ test('Both VPS deploy attempts install the pinned browser assets', () => {
   const script = file('scripts/install-client-deps.sh');
   assert.equal(workflow.split('timeout 180s bash scripts/install-client-deps.sh').length - 1, 2);
   assert.match(script, /three@0\.180\.0/);
+  // three.module.js imports ./three.core.js; without it ALL Three.js modules fail.
+  assert.match(script, /package\/build\/three\.core\.js/);
+  assert.match(script, /\$DEST\/three\/build\/three\.core\.js/);
+  assert.match(script, /cp package\/build\/three\.core\.js/);
   assert.match(script, /socket\.io@4\.8\.1/);
   assert.match(script, /@fortawesome\/fontawesome-free@6\.7\.2/);
   assert.match(script, /node --input-type=module --check/);

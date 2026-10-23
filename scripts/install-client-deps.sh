@@ -6,6 +6,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEST="$ROOT/client/vendor"
 
 if [[ -s "$DEST/three/build/three.module.js" &&
+      -s "$DEST/three/build/three.core.js" &&
       -s "$DEST/three/examples/jsm/loaders/GLTFLoader.js" &&
       -s "$DEST/three/examples/jsm/utils/SkeletonUtils.js" &&
       -s "$DEST/socket.io-4.8.1.min.js" &&
@@ -27,9 +28,10 @@ pack_and_extract() {
   tar -xzf "$archive" "$@"
 }
 
-pack_and_extract 'three@0.180.0' package/build/three.module.js package/examples/jsm
+pack_and_extract 'three@0.180.0' package/build/three.module.js package/build/three.core.js package/examples/jsm
 mkdir -p "$TMP_DIR/staged/three/build" "$TMP_DIR/staged/three/examples"
 cp package/build/three.module.js "$TMP_DIR/staged/three/build/three.module.js"
+cp package/build/three.core.js "$TMP_DIR/staged/three/build/three.core.js"
 cp -R package/examples/jsm "$TMP_DIR/staged/three/examples/jsm"
 rm -rf package
 
@@ -43,6 +45,7 @@ cp package/css/all.min.css "$TMP_DIR/staged/fontawesome/css/all.min.css"
 cp -R package/webfonts "$TMP_DIR/staged/fontawesome/webfonts"
 
 node --input-type=module --check < "$TMP_DIR/staged/three/build/three.module.js"
+node --input-type=module --check < "$TMP_DIR/staged/three/build/three.core.js"
 node --input-type=module --check < "$TMP_DIR/staged/three/examples/jsm/loaders/GLTFLoader.js"
 node --input-type=module --check < "$TMP_DIR/staged/three/examples/jsm/utils/SkeletonUtils.js"
 node --check "$TMP_DIR/staged/socket.io-4.8.1.min.js"
@@ -52,6 +55,7 @@ mkdir -p "$DEST"
 cp -R "$TMP_DIR/staged/." "$DEST/"
 for resource in \
   "$DEST/three/build/three.module.js" \
+  "$DEST/three/build/three.core.js" \
   "$DEST/three/examples/jsm/loaders/GLTFLoader.js" \
   "$DEST/three/examples/jsm/utils/SkeletonUtils.js" \
   "$DEST/socket.io-4.8.1.min.js" \
