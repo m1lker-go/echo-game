@@ -1,4 +1,4 @@
-# ECHO Android — APK branch (0.3.4)
+# ECHO Android — APK branch (0.3.5)
 
 Independent Android Studio project. Main website and server are unchanged.
 
@@ -127,3 +127,37 @@ main/client/style.css's .echo-modal-overlay and .echo-modal design:
 
 Only the `apk` branch has changed. The web client, server, VK auth and
 automatic GitHub builds remain untouched.
+
+## Selected hero survives WebView navigation (0.3.5)
+
+Issue: live `main/client/menu.js` reads the selected hero from
+`localStorage['echo.selectedModel']`, but calls `ensureUnlockedSelection()`
+before the asynchronous `/echo/api/heroes` inventory response arrives. It
+mistakes previously unlocked heroes for locked ones and overwrites their
+stored selection with a starter. A new Android WebView/arena then picks the
+wrong model from localStorage.
+
+Android workaround in `EchoHeroWebBootstrap.kt` (no production web edits):
+- AndroidX WebKit's document-start injection executes **before** menu.js and
+  game.js, scoped to `https://cat-fight.ru` + the `/echo/` path.
+- Native ECHO authentication is set at document start, avoiding an initial
+  anonymous page load and a redundant reload on supported WebViews.
+- Until web hero ownership data arrives, the stored valid selected skin
+  is preserved against programmatic premature starter resets. Legitimate
+  taps on unlocked character cards continue to update the selection.
+- The Heroes WebView re-selects the chosen card after the server's hero
+  inventory is reflected in the clickable card state.
+- A logout clears stale WebView login and the previously selected skin.
+- Old WebView engines without `DOCUMENT_START_SCRIPT` keep the prior
+  post-load authentication fallback; updating Android System WebView is
+  recommended for complete selected-hero protection.
+
+Test on device: log in -> open Heroes -> choose a legitimately unlocked hero
+(non-default, preferably nonstarter) -> exit -> reopen Heroes and verify it
+remains Active -> enter Arena and verify the model displayed/spawned -> reopen
+Heroes. Then choose another hero and repeat. Also check logout/guest behavior.
+
+This is an APK-specific guard; the same initial inventory race may still
+occur in the website because main/client/menu.js has not been changed.
+No purchases, advertising SDKs, Cat Fighting or server configuration were
+modified.
