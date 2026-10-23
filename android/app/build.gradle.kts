@@ -13,8 +13,8 @@ android {
         applicationId = "ru.echo.game"
         minSdk = 26
         targetSdk = 35
-        versionCode = 10
-        versionName = "0.3.4"
+        versionCode = 11
+        versionName = "0.3.5"
 
         val vkConfigured = !((System.getenv("ECHO_VK_CLIENT_SECRET")
             ?: providers.gradleProperty("ECHO_VK_CLIENT_SECRET").orNull).isNullOrBlank())
@@ -45,6 +45,7 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.activity:activity-compose:1.10.1")
+    implementation("androidx.webkit:webkit:1.17.1")
     implementation("com.vk.id:vkid:2.7.3")
 
     implementation(platform("androidx.compose:compose-bom:2025.04.01"))
