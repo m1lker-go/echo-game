@@ -47,11 +47,14 @@ class EchoWebActivity : ComponentActivity() {
     }
     private lateinit var root: FrameLayout
     private lateinit var web: WebView
+    private lateinit var loading: EchoWebLoadingView
     private lateinit var auth: EchoAuthSession
     private var page = Page.ARENA
     private var crashed = false
     private var sessionBootstrapped = false
     private var latestError = ""
+    private var loadSequence = 0
+    private var failureDialogOpen = false
     private val requestedUrl get() = if (page == Page.ARENA) BASE + "?play=1" else BASE
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
@@ -71,6 +74,12 @@ class EchoWebActivity : ComponentActivity() {
         root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         setContentView(root)
         createWebView()
+        // Opaque native overlay: no intermediate webpage menu can flash.
+        loading = EchoWebLoadingView(this)
+        root.addView(loading, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
+        ))
+        loading.restart()
 
         val back = TextView(this).apply {
             text = if (page == Page.ARENA) "✕" else "НАЗАД"
@@ -81,10 +90,15 @@ class EchoWebActivity : ComponentActivity() {
                 .getOrNull() ?: Typeface.DEFAULT_BOLD
             background = panelBackground()
             setOnClickListener { finish() }
+            // Preserve WebGL diagnostics for Android Studio builds without
+            // showing a stray '?' where the original close control belongs.
+            if ((applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+                setOnLongClickListener { showDiagnostic(); true }
+            }
         }
         val backParams = if (page == Page.ARENA) {
-            FrameLayout.LayoutParams(dp(44), dp(44), Gravity.TOP or Gravity.START).apply {
-                topMargin = dp(10); leftMargin = dp(10)
+            FrameLayout.LayoutParams(dp(44), dp(44), Gravity.TOP or Gravity.END).apply {
+                topMargin = dp(10); rightMargin = dp(10)
             }
         } else {
             val metrics = resources.displayMetrics
@@ -94,17 +108,6 @@ class EchoWebActivity : ComponentActivity() {
             ).apply { bottomMargin = dp(8) }
         }
         root.addView(back, backParams)
-        if ((applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
-            val diagnose = TextView(this).apply {
-                text = "?"; gravity = Gravity.CENTER; textSize = 18f
-                setTextColor(Color.WHITE)
-                background = panelBackground()
-                setOnClickListener { showDiagnostic() }
-            }
-            root.addView(diagnose,
-                FrameLayout.LayoutParams(dp(42), dp(42), Gravity.TOP or Gravity.END)
-                    .apply { rightMargin = dp(10); topMargin = dp(10) })
-        }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { finish() }
         })
