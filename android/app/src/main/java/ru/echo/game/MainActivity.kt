@@ -212,7 +212,7 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine, aut
             failed = true
         }
     }
-    val url = when (page) {
+    val requestedUrl = when (page) {
         Page.ARENA -> WEB_BASE + "?play=1"
         else -> WEB_BASE
     }
@@ -278,6 +278,7 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine, aut
                         }
                         webViewClient = object : WebViewClient() {
                             private var mainFrameBroken = false
+                            private var sessionInjected = false
 
                             private fun trusted(address: Uri): Boolean {
                                 return address.scheme == "https" &&
@@ -364,6 +365,35 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine, aut
                                 if (!trusted(finalUri)) {
                                     fail("ECHO перенаправила на неподдерживаемый адрес: " + finalUri.host)
                                     return
+                                }
+
+                                // The site's auth-ui.js loads its session from localStorage
+                                // during module initialization. Injecting AFTER onPageFinished
+                                // therefore requires one subsequent load of the original URL.
+                                // Never send ECHO or VK tokens through query parameters.
+                                if (!sessionInjected) {
+                                    val token = auth.token()
+                                    val clearNativeSession = auth.clearWebSession
+                                    if (token != null || clearNativeSession) {
+                                        sessionInjected = true
+                                        val storeScript = if (token != null) {
+                                            "(function(){try{localStorage.setItem('echo.authToken'," +
+                                                JSONObject.quote(token) + ");return true;}catch(e){return false;}})()"
+                                        } else {
+                                            "(function(){try{localStorage.removeItem('echo.authToken');return true;}catch(e){return false;}})()"
+                                        }
+                                        view.evaluateJavascript(storeScript) { value ->
+                                            if (value == "true") {
+                                                if (clearNativeSession) auth.webSessionCleared()
+                                                // Always use the requested URL again: menu.js
+                                                // may have removed ?play=1 using replaceState.
+                                                view.loadUrl(requestedUrl)
+                                            } else {
+                                                fail("Не удалось сохранить сессию ECHO в WebView")
+                                            }
+                                        }
+                                        return
+                                    }
                                 }
                                 val script = """
                                     (function () {
@@ -459,7 +489,7 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine, aut
                             }
                         }
                         debugWebView.value = this
-                        loadUrl(url)
+                        loadUrl(requestedUrl)
                     }
                 },
                 onRelease = { view ->
@@ -569,7 +599,7 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine, aut
                 title = { Text("ECHO WebView") },
                 text = {
                     Text(
-                        "URL: " + url + "\nProgress: " + progress + "%" +
+                        "URL: " + requestedUrl + "\nProgress: " + progress + "%" +
                             "\nLoaded: " + loaded +
                             "\nAndroid API: " + Build.VERSION.SDK_INT +
                             "\nWebView: " + (WebView.getCurrentWebViewPackage()?.versionName ?: "unknown") +
