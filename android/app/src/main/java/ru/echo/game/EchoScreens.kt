@@ -52,6 +52,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.random.Random
 
 private val EchoFont = FontFamily(Font(R.font.echo_superxp))
 private val White = Color(0xFFF1F4F7)
@@ -92,38 +95,63 @@ internal fun EchoAndroidShell(audio: EchoAudioEngine) {
     }
 }
 
+private data class EchoParticle(
+    val x: Float, val y: Float, val size: Float, val phase: Float,
+    val speed: Float, val drift: Float
+)
+
 @Composable
 private fun EchoSpaceBackground(content: @Composable () -> Unit) {
-    val transition = rememberInfiniteTransition(label = "echo-stars")
-    val pulse by transition.animateFloat(
-        initialValue = 0f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(2850, easing = LinearEasing)),
-        label = "pulse"
-    )
-    val drift by transition.animateFloat(
-        initialValue = 0f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(16000, easing = LinearEasing)),
-        label = "drift"
+    // Identical motion model to client/menu.js in main:
+    // x += sin(time * speed + phase) * 28 px;
+    // y += cos(time * drift + phase) * 22 px;
+    // particles have independent randomized position, phase and speeds.
+    val particles = remember {
+        val random = Random(82141)
+        List(46) {
+            EchoParticle(
+                x = random.nextFloat(), y = random.nextFloat(),
+                size = 1.8f + random.nextFloat() * 2.6f,
+                phase = random.nextFloat() * (2f * Math.PI.toFloat()),
+                speed = 0.00008f + random.nextFloat() * 0.00012f,
+                drift = 0.00015f + random.nextFloat() * 0.00025f
+            )
+        }
+    }
+    val transition = rememberInfiniteTransition(label = "echo-moving-particles")
+    val clock by transition.animateFloat(
+        initialValue = 0f, targetValue = 120000f,
+        animationSpec = infiniteRepeatable(tween(120000, easing = LinearEasing)),
+        label = "time-ms"
     )
     Box(Modifier.fillMaxSize().background(Black)) {
         Canvas(Modifier.fillMaxSize()) {
-            repeat(46) { i ->
-                val x = ((i * .6180339f + .11f + drift * (.004f + i % 3 * .002f)) % 1f) * size.width
-                val y = ((i * .41421356f + drift * (.014f + i % 3 * .006f)) % 1f) * size.height
-                val shimmer = .55f + .45f * kotlin.math.sin(pulse * 6.2831853f + i * 1.91f)
-                val radius = (1.8f + i % 5 * .55f) * density * shimmer
+            val w = size.width
+            val h = size.height
+            val unit = density
+            for (particle in particles) {
+                // Original values are CSS pixels: convert to actual Android px.
+                val x = ((particle.x * w +
+                    sin(clock * particle.speed + particle.phase) * 28f * unit + w) % w)
+                val y = ((particle.y * h +
+                    cos(clock * particle.drift + particle.phase) * 22f * unit + h) % h)
+                val pulse = .55f + .45f * sin(clock * .0022f + particle.phase)
+                val radius = particle.size * pulse * unit
                 val center = Offset(x, y)
                 drawCircle(
                     brush = Brush.radialGradient(
-                        0f to White.copy(alpha = .35f),
-                        .30f to White.copy(alpha = .14f),
+                        0f to Color(0xFFDDF2FF).copy(alpha = .38f),
+                        .30f to Color(0xFFDDF2FF).copy(alpha = .14f),
                         1f to Color.Transparent,
                         center = center,
                         radius = radius * 4.2f
                     ),
                     radius = radius * 4.2f, center = center
                 )
-                drawCircle(White.copy(alpha = .28f + shimmer * .42f), radius = radius, center = center)
+                drawCircle(
+                    color = Color(0xFFEBF8FF).copy(alpha = .28f + pulse * .42f),
+                    radius = radius, center = center
+                )
             }
         }
         content()
