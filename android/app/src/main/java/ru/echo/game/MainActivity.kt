@@ -13,6 +13,7 @@ import android.view.View
 import android.view.WindowManager
 import android.webkit.ConsoleMessage
 import android.webkit.SslErrorHandler
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -227,6 +228,15 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                             ) {
                                 handler.cancel()
                                 fail("Ошибка сертификата HTTPS ECHO: " + error.primaryError)
+                            }
+
+                            override fun onRenderProcessGone(
+                                view: WebView, detail: RenderProcessGoneDetail
+                            ): Boolean {
+                                // ECHO's WebGL renderer may exceed device GPU resources.
+                                // Let the user retry rather than leaving a permanently black view.
+                                fail("Процесс WebView остановился. Попробуй повторить запуск или обновить Android System WebView.")
+                                return true
                             }
 
                             override fun onPageFinished(view: WebView, url: String) {
