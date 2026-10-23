@@ -176,10 +176,10 @@ class EchoWebActivity : ComponentActivity() {
                         if (token != null || auth.clearWebSession) {
                             sessionBootstrapped = true
                             val script = if (token != null) {
-                                "try {localStorage.setItem('echo.authToken'," +
-                                    JSONObject.quote(token) + ");true} catch(e) {false}"
+                                "(function(){try {localStorage.setItem('echo.authToken'," +
+                                    JSONObject.quote(token) + ");return true;} catch(e) {return false;}})()"
                             } else {
-                                "try {localStorage.removeItem('echo.authToken');true} catch(e) {false}"
+                                "(function(){try {localStorage.removeItem('echo.authToken');return true;} catch(e) {return false;}})()"
                             }
                             view.evaluateJavascript(script) { result ->
                                 if (result == "true") {
