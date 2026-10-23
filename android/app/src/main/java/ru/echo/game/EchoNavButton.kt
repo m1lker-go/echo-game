@@ -15,7 +15,7 @@ import android.view.View
  */
 internal class EchoNavButton(
     context: Context,
-    private val mode: Mode
+    private var mode: Mode
 ) : View(context) {
     enum class Mode { BACK, CLOSE }
 
@@ -43,6 +43,14 @@ internal class EchoNavButton(
         isClickable = true
         isFocusable = true
         contentDescription = if (mode == Mode.CLOSE) "Закрыть игру" else "Назад"
+    }
+
+    fun setMode(newMode: Mode) {
+        if (mode == newMode) return
+        mode = newMode
+        symbol.strokeWidth = density * if (mode == Mode.CLOSE) 2.2f else 3f
+        contentDescription = if (mode == Mode.CLOSE) "Закрыть" else "Назад"
+        invalidate()
     }
 
     override fun onDraw(canvas: Canvas) {
