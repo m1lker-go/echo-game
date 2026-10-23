@@ -56,16 +56,27 @@ internal class EchoWebLoadingView(context: Context) : View(context) {
     }
     private val arc = RectF()
     private var started = SystemClock.uptimeMillis()
+    // Same persisted language as the native Settings switcher.
+    private fun localizedLoadingText(): String {
+        val language = context.getSharedPreferences(
+            "echo.android.preferences", Context.MODE_PRIVATE
+        ).getString("language", "ru")
+        return if (language == "en") "Loading page" else "Загрузка страницы"
+    }
+    private var loadingText = localizedLoadingText()
 
     init {
         setBackgroundColor(Color.BLACK)
         isClickable = true // Don't let taps reach a menu that is not ready.
-        contentDescription = "Загрузка страницы"
+        contentDescription = loadingText
     }
 
     private fun dp(value: Float) = value * resources.displayMetrics.density
 
     fun restart() {
+        // Re-read on each page transition, not just at Activity creation.
+        loadingText = localizedLoadingText()
+        contentDescription = loadingText
         started = SystemClock.uptimeMillis()
         visibility = VISIBLE
         invalidate()
@@ -90,7 +101,7 @@ internal class EchoWebLoadingView(context: Context) : View(context) {
         }
         val cx = w / 2f
         val cy = h / 2f
-        canvas.drawText("Загрузка страницы", cx, cy - dp(22f), title)
+        canvas.drawText(loadingText, cx, cy - dp(22f), title)
         val spinnerY = cy + dp(30f)
         val radius = dp(16f)
         arc.set(cx - radius, spinnerY - radius, cx + radius, spinnerY + radius)
