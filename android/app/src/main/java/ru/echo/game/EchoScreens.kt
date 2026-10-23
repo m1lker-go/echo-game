@@ -190,7 +190,7 @@ private fun EchoPageHeader(title: String, description: String? = null) {
 }
 
 @Composable
-private fun EchoNativePage(page: Page, onNavigate: (Page) -> Unit, onBack: () -> Unit) {
+private fun EchoNativePage(page: Page, audio: EchoAudioEngine, onNavigate: (Page) -> Unit, onBack: () -> Unit) {
     EchoSpaceBackground {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             // In client/menu-width.css every page is constrained to 100dvh in landscape.
@@ -206,15 +206,15 @@ private fun EchoNativePage(page: Page, onNavigate: (Page) -> Unit, onBack: () ->
                 ) {
                     EchoText("ЭХО.", 52, modifier = Modifier.fillMaxWidth(), centered = true, weight = FontWeight.Bold)
                     Spacer(Modifier.height(17.dp))
-                    EchoButton("НАЧАТЬ ИГРУ", Modifier.fillMaxWidth()) { onNavigate(Page.ARENA) }
+                    EchoButton(trans(audio, "НАЧАТЬ ИГРУ", "START GAME"), Modifier.fillMaxWidth()) { onNavigate(Page.ARENA) }
                     Spacer(Modifier.height(8.dp))
-                    EchoButton("ПЕРСОНАЖ", Modifier.fillMaxWidth()) { onNavigate(Page.HEROES) }
+                    EchoButton(trans(audio, "ПЕРСОНАЖ", "CHARACTER"), Modifier.fillMaxWidth()) { onNavigate(Page.HEROES) }
                     Spacer(Modifier.height(8.dp))
-                    EchoButton("МАГАЗИН", Modifier.fillMaxWidth()) { onNavigate(Page.SHOP) }
+                    EchoButton(trans(audio, "МАГАЗИН", "SHOP"), Modifier.fillMaxWidth()) { onNavigate(Page.SHOP) }
                     Spacer(Modifier.height(8.dp))
-                    EchoButton("ЗАДАНИЯ", Modifier.fillMaxWidth()) { onNavigate(Page.QUESTS) }
+                    EchoButton(trans(audio, "ЗАДАНИЯ", "QUESTS"), Modifier.fillMaxWidth()) { onNavigate(Page.QUESTS) }
                     Spacer(Modifier.height(8.dp))
-                    EchoButton("НАСТРОЙКИ", Modifier.fillMaxWidth()) { onNavigate(Page.SETTINGS) }
+                    EchoButton(trans(audio, "НАСТРОЙКИ", "SETTINGS"), Modifier.fillMaxWidth()) { onNavigate(Page.SETTINGS) }
                 }
             } else {
                 Column(
@@ -224,26 +224,26 @@ private fun EchoNativePage(page: Page, onNavigate: (Page) -> Unit, onBack: () ->
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     when (page) {
-                        Page.HEROES -> EchoPageHeader("ПЕРСОНАЖ", "Выбери героя для игры")
-                        Page.SHOP -> EchoShopHeader()
-                        Page.QUESTS -> EchoPageHeader("ЗАДАНИЯ")
-                        Page.ACCOUNT -> EchoPageHeader("АККАУНТ")
-                        Page.SETTINGS -> EchoPageHeader("НАСТРОЙКИ")
+                        Page.HEROES -> EchoPageHeader(trans(audio, "ПЕРСОНАЖ", "CHARACTER"), trans(audio, "Выбери героя для игры", "Choose a hero"))
+                        Page.SHOP -> EchoShopHeader(audio)
+                        Page.QUESTS -> EchoPageHeader(trans(audio, "ЗАДАНИЯ", "QUESTS"))
+                        Page.ACCOUNT -> EchoPageHeader(trans(audio, "АККАУНТ", "ACCOUNT"))
+                        Page.SETTINGS -> EchoPageHeader(trans(audio, "НАСТРОЙКИ", "SETTINGS"))
                         else -> Unit
                     }
                     Spacer(Modifier.height(8.dp))
                     Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                         when (page) {
-                            Page.HEROES -> EchoHeroes(onNavigate)
-                            Page.SHOP -> EchoShop(onNavigate, screenHeight)
-                            Page.QUESTS -> EchoQuests()
+                            Page.HEROES -> EchoHeroes(audio, onNavigate)
+                            Page.SHOP -> EchoShop(audio, onNavigate, screenHeight)
+                            Page.QUESTS -> EchoQuests(audio)
                             Page.ACCOUNT -> EchoAccount()
-                            Page.SETTINGS -> EchoSettings(onNavigate)
+                            Page.SETTINGS -> EchoSettings(audio, onNavigate)
                             else -> Unit
                         }
                     }
                     Spacer(Modifier.height(7.dp))
-                    EchoButton("НАЗАД", Modifier.fillMaxWidth(), height = 44.dp, onClick = onBack)
+                    EchoButton(trans(audio, "НАЗАД", "BACK"), Modifier.fillMaxWidth(), height = 44.dp, onClick = onBack)
                 }
             }
         }
@@ -285,10 +285,10 @@ private fun rarityColor(rarity: String) = when (rarity) {
 }
 
 @Composable
-private fun EchoHeroes(onNavigate: (Page) -> Unit) {
+private fun EchoHeroes(audio: EchoAudioEngine, onNavigate: (Page) -> Unit) {
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         EchoText(
-            "Карточки и редкость — как в веб-игре. 3D-галерея открывается отдельно.",
+            trans(audio, "Нажми на карточку для просмотра 3D", "Tap a card to view 3D"),
             11, Secondary, Modifier.fillMaxWidth(), centered = true
         )
         Spacer(Modifier.height(6.dp))
@@ -329,18 +329,18 @@ private fun EchoHeroes(onNavigate: (Page) -> Unit) {
             }
         }
         Spacer(Modifier.height(7.dp))
-        EchoButton("ОТКРЫТЬ 3D-ГАЛЕРЕЮ", Modifier.fillMaxWidth(), height = 39.dp) {
+        EchoButton(trans(audio, "ОТКРЫТЬ 3D-ГАЛЕРЕЮ", "OPEN 3D GALLERY"), Modifier.fillMaxWidth(), height = 39.dp) {
             onNavigate(Page.HERO_VIEW)
         }
     }
 }
 
 @Composable
-private fun EchoShopHeader() {
-    EchoPageHeader("МАГАЗИН")
+private fun EchoShopHeader(audio: EchoAudioEngine) {
+    EchoPageHeader(trans(audio, "МАГАЗИН", "SHOP"))
     Spacer(Modifier.height(2.dp))
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-        EchoText("Баланс: —", 18)
+        EchoText(trans(audio, "Баланс: —", "Balance: —"), 18)
         Spacer(Modifier.width(6.dp))
         Image(painterResource(R.drawable.echo_coin), contentDescription = "ECHO Coin", modifier = Modifier.size(24.dp))
     }
@@ -375,7 +375,7 @@ private fun EchoPackCard(art: Int, price: String, coin: Boolean, width: Dp, onCl
 }
 
 @Composable
-private fun EchoShop(onNavigate: (Page) -> Unit, screenHeight: Dp) {
+private fun EchoShop(audio: EchoAudioEngine, onNavigate: (Page) -> Unit, screenHeight: Dp) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val packWidth = minOf((maxWidth - 14.dp) / 2, screenHeight * .36f)
         Column(
@@ -389,7 +389,7 @@ private fun EchoShop(onNavigate: (Page) -> Unit, screenHeight: Dp) {
             }
             Spacer(Modifier.height(5.dp))
             EchoText(
-                "Покупка откроется в веб-витрине. Android-платежи пока не подключены.",
+                trans(audio, "Паки открываются через веб-витрину. Android-платежи пока не подключены.", "Packs open in the web shop. Android payments are not connected yet."),
                 11, Secondary, modifier = Modifier.fillMaxWidth(), centered = true
             )
         }
@@ -406,15 +406,15 @@ private val questTemplates = listOf(
 )
 
 @Composable
-private fun EchoQuests() {
+private fun EchoQuests(audio: EchoAudioEngine) {
     var special by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            EchoButton("ЕЖЕДНЕВНЫЕ", Modifier.weight(1f), selected = !special, height = 38.dp) { special = false }
-            EchoButton("ОСОБЫЕ", Modifier.weight(1f), selected = special, height = 38.dp) { special = true }
+            EchoButton(trans(audio, "ЕЖЕДНЕВНЫЕ", "DAILY"), Modifier.weight(1f), selected = !special, height = 38.dp) { special = false }
+            EchoButton(trans(audio, "ОСОБЫЕ", "SPECIAL"), Modifier.weight(1f), selected = special, height = 38.dp) { special = true }
         }
         Spacer(Modifier.height(5.dp))
-        EchoText(if (special) "Специальные награды ECHO" else "Обновление ежедневно в 00:00 по Москве",
+        EchoText(if (special) trans(audio, "Специальные награды ECHO", "Special ECHO rewards") else trans(audio, "Обновление ежедневно в 00:00 по Москве", "Resets at midnight Moscow time"),
             12, Secondary, modifier = Modifier.fillMaxWidth(), centered = true)
         Spacer(Modifier.height(8.dp))
         Column(
@@ -422,12 +422,12 @@ private fun EchoQuests() {
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             if (special) {
-                EchoQuestCard("Специальное задание", "Привяжи аккаунт, чтобы увидеть активное задание", "◆")
+                EchoQuestCard(trans(audio, "Специальное задание", "Special quest"), trans(audio, "Привяжи аккаунт, чтобы увидеть активное задание", "Sign in to see your quest"), "◆")
             } else {
                 questTemplates.forEach { quest -> EchoQuestCard(quest.title, quest.hint, quest.mark) }
             }
         }
-        EchoText("Прогресс и получение наград появятся после подключения авторизации.",
+        EchoText(trans(audio, "Прогресс и получение наград появятся после подключения авторизации.", "Progress and rewards require native account integration."),
             11, Secondary, modifier = Modifier.fillMaxWidth().padding(top = 5.dp), centered = true)
     }
 }
