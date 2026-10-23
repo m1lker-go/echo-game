@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { playGameSound } from './audio-effects.js?v=echo-sfx-1';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createCharacterLoaderSelector } from './character-textures.js?v=echo-isolated-character-atlas-1';
-import { clone as cloneSkeleton } from 'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/utils/SkeletonUtils.js';
+import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js';
 import { bindPlayerControls, updatePlayerMovement } from './player-controls.js?v=echo-keyboard-layout-1';
 import { updateCharacterFacing } from './character-facing.js';
 import { createMobileFloorReflections } from './mobile-floor-reflections.js?v=echo-skeleton-reflection-1';

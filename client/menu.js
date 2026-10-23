@@ -165,6 +165,7 @@ document.querySelector('#quests-back')?.addEventListener('click', openMenu);
 characterBack.addEventListener('click', openMenu);
 placeholderBack.addEventListener('click', openMenu);
 settingsBack?.addEventListener('click', openMenu);
+console.info('[echo menu] Main menu click handlers ready');
 
 const loader = new GLTFLoader();
 const characterLoader = createCharacterLoaderSelector(THREE, GLTFLoader, loader);
