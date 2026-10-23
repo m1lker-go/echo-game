@@ -33,7 +33,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,6 +52,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -65,42 +73,67 @@ private val Black = Color(0xFF000000)
 private val Cyan = Color(0xFFB6EBFF)
 private val QuestBorder = Color(0xFF4A5967)
 
+private val LocalEchoAudio = staticCompositionLocalOf<EchoAudioEngine?> { null }
+private fun trans(audio: EchoAudioEngine, ru: String, en: String) =
+    if (audio.language == "en") en else ru
+
 @Composable
-internal fun EchoAndroidShell() {
+internal fun EchoAndroidShell(audio: EchoAudioEngine) {
     var page by remember { mutableStateOf(Page.HOME) }
+    LaunchedEffect(page) {
+        audio.setWebActive(page == Page.ARENA || page == Page.HERO_VIEW ||
+            page == Page.PACK_VIEW || page == Page.ACCOUNT || page == Page.CODE_VIEW)
+    }
     val back: () -> Unit = {
         page = when (page) {
             Page.HERO_VIEW -> Page.HEROES
             Page.PACK_VIEW -> Page.SHOP
+            Page.ACCOUNT, Page.CODE_VIEW -> Page.SETTINGS
             else -> Page.HOME
         }
     }
-    BackHandler(enabled = page != Page.HOME, onBack = back)
-    when (page) {
-        Page.ARENA, Page.HERO_VIEW, Page.PACK_VIEW -> WebPage(page, back)
-        else -> EchoNativePage(page, onNavigate = { page = it }, onBack = back)
+    CompositionLocalProvider(LocalEchoAudio provides audio) {
+        BackHandler(enabled = page != Page.HOME, onBack = back)
+        when (page) {
+            Page.ARENA, Page.HERO_VIEW, Page.PACK_VIEW, Page.ACCOUNT, Page.CODE_VIEW ->
+                WebPage(page, back, audio)
+            else -> EchoNativePage(page, audio, onNavigate = { page = it }, onBack = back)
+        }
     }
 }
 
 @Composable
 private fun EchoSpaceBackground(content: @Composable () -> Unit) {
     val transition = rememberInfiniteTransition(label = "echo-space")
-    val phase by transition.animateFloat(
+    val pulse by transition.animateFloat(
         initialValue = 0f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(14000, easing = LinearEasing), RepeatMode.Restart),
-        label = "food-drift"
+        animationSpec = infiniteRepeatable(tween(2850, easing = LinearEasing)),
+        label = "pulse"
+    )
+    val drift by transition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(16000, easing = LinearEasing)),
+        label = "drift"
     )
     Box(Modifier.fillMaxSize().background(Black)) {
         Canvas(Modifier.fillMaxSize()) {
-            // The original website animates a field of pale food particles on black.
-            // Stable positions keep Compose recompositions from rearranging the scene.
+            // Same 46 independently pulsing food-stars as client/menu.js.
             repeat(46) { i ->
-                val x = ((i * 0.6180339f + 0.11f) % 1f) * size.width
-                val y = ((i * 0.41421356f + phase * (0.014f + i % 3 * .006f)) % 1f) * size.height
-                val pulse = 0.55f + .45f * kotlin.math.sin(phase * 6.28318f + i * 1.91f)
-                val radius = (1.1f + i % 4 * .55f) * density
-                drawCircle(White.copy(alpha = .055f * pulse), radius = radius * 4, center = Offset(x, y))
-                drawCircle(White.copy(alpha = .25f + .42f * pulse), radius = radius, center = Offset(x, y))
+                val x = ((i * .6180339f + .11f + drift * (.004f + i % 3 * .002f)) % 1f) * size.width
+                val y = ((i * .41421356f + drift * (.014f + i % 3 * .006f)) % 1f) * size.height
+                val shimmer = .55f + .45f * kotlin.math.sin(pulse * 6.2831853f + i * 1.91f)
+                val radius = (1.8f + i % 5 * .55f) * density * shimmer
+                val center = Offset(x, y)
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        0f to White.copy(alpha = .35f),
+                        .30f to White.copy(alpha = .14f),
+                        1f to Color.Transparent,
+                        center = center, radius = radius * 4.2f
+                    ),
+                    radius = radius * 4.2f, center = center
+                )
+                drawCircle(White.copy(alpha = .28f + shimmer * .42f), radius = radius, center = center)
             }
         }
         content()
@@ -134,11 +167,12 @@ private fun EchoButton(
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(12.dp)
+    val audio = LocalEchoAudio.current
     Box(
         modifier = modifier.height(height).clip(shape)
             .background(if (selected) White else Black)
             .border(1.dp, Outline, shape)
-            .clickable(onClick = onClick)
+            .clickable { audio?.click(); onClick() }
             .padding(horizontal = 8.dp),
         contentAlignment = Alignment.Center
     ) {
