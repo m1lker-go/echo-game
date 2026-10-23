@@ -37,6 +37,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -118,6 +120,13 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
     var loaded by remember(page) { mutableStateOf(false) }
     var retry by remember(page) { mutableIntStateOf(0) }
     var failureMessage by remember(page) { mutableStateOf("") }
+    var lastConsoleError by remember(page) { mutableStateOf("") }
+    var progress by remember(page) { mutableIntStateOf(0) }
+    var debugDetails by remember(page) { mutableStateOf("") }
+    var showDebug by remember(page) { mutableStateOf(false) }
+    val debugWebView = remember(page, retry) { mutableStateOf<WebView?>(null) }
+    val isDebugBuild =
+        (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     LaunchedEffect(page, retry) {
         delay(20000)
         if (!loaded && !failed) {
@@ -164,9 +173,15 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                         settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                         settings.mediaPlaybackRequiresUserGesture = false
                         webChromeClient = object : WebChromeClient() {
+                            override fun onProgressChanged(view: WebView, newProgress: Int) {
+                                progress = newProgress
+                                super.onProgressChanged(view, newProgress)
+                            }
+
                             override fun onConsoleMessage(message: ConsoleMessage): Boolean {
                                 val detail = message.message()
                                 if (message.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
+                                    lastConsoleError = detail.take(250)
                                     Log.e("EchoWebView", "JS: " + detail + " (" + message.sourceId() + ":" + message.lineNumber() + ")")
                                 }
                                 return super.onConsoleMessage(message)
@@ -195,6 +210,8 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                                 failed = false
                                 loaded = false
                                 failureMessage = ""
+                                progress = 0
+                                lastConsoleError = ""
                                 Log.d("EchoWebView", "Loading: " + url)
                             }
 
@@ -348,10 +365,12 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                                 view.postDelayed({ probe(0) }, 300)
                             }
                         }
+                        debugWebView.value = this
                         loadUrl(url)
                     }
                 },
                 onRelease = { view ->
+                    debugWebView.value = null
                     // A crashed renderer may reject further load/stop operations.
                     runCatching { view.stopLoading() }
                     runCatching { view.loadUrl("about:blank") }
@@ -361,10 +380,17 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
         }
 
         if (!loaded && !failed) {
-            CircularProgressIndicator(
+            Column(
                 modifier = Modifier.align(Alignment.Center),
-                color = Accent
-            )
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                CircularProgressIndicator(color = Accent)
+                Text(
+                    "Загрузка ECHO: " + progress + "%",
+                    modifier = Modifier.padding(top = 12.dp),
+                    fontSize = 12.sp, color = Muted
+                )
+            }
         }
         if (failed) {
             Column(
@@ -405,6 +431,64 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                     Text("ПРОВЕРИТЬ САЙТ В БРАУЗЕРЕ", Modifier.padding(12.dp))
                 }
             }
+        }
+
+        // An on-device diagnostics control is available in debug builds only.
+        // It reports DOM/UI readiness without exposing account tokens or private data.
+        if (isDebugBuild) {
+            Surface(
+                onClick = {
+                    val script = """
+                        (function(){
+                            const ids=['menu-main','menu-character','menu-shop-screen',
+                                'menu-quests-screen','menu-settings-screen'];
+                            const screens=ids.filter(id=>{
+                                const n=document.getElementById(id);
+                                return n && !n.hidden;
+                            });
+                            return 'HTML: '+document.readyState
+                                +'\nMenu: '+!!document.getElementById('main-menu')
+                                +'\nJS: '+typeof window.ECHO_SELECTED_MODEL
+                                +'\nScreen: '+screens.join(',')
+                                +'\nSize: '+window.innerWidth+'x'+window.innerHeight;
+                        })()
+                    """.trimIndent()
+                    debugWebView.value?.evaluateJavascript(script) { result ->
+                        debugDetails = result.trim('"').replace("\\n", "\n")
+                        showDebug = true
+                    } ?: run {
+                        debugDetails = "WebView instance unavailable"
+                        showDebug = true
+                    }
+                },
+                modifier = Modifier.align(Alignment.TopEnd)
+                    .padding(top = 9.dp, end = 9.dp),
+                color = Black, contentColor = Accent,
+                border = BorderStroke(1.dp, Color.White),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("?", Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+            }
+        }
+        if (showDebug) {
+            AlertDialog(
+                onDismissRequest = { showDebug = false },
+                title = { Text("ECHO WebView") },
+                text = {
+                    Text(
+                        "URL: " + url + "\nProgress: " + progress + "%" +
+                            "\nLoaded: " + loaded + "\n" + debugDetails +
+                            if (lastConsoleError.isNotBlank())
+                                "\nJS error: " + lastConsoleError else ""
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { showDebug = false }) { Text("ЗАКРЫТЬ") }
+                },
+                containerColor = Panel,
+                titleContentColor = Accent,
+                textContentColor = Accent
+            )
         }
 
         Surface(
