@@ -261,7 +261,10 @@ private fun EchoNativePage(
 ) {
     EchoSpaceBackground {
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            val css = EchoCss(maxHeight)
+            // Capture the BoxWithConstraints dimensions before entering the
+            // ColumnScope, which hides the implicit constraints receiver.
+            val viewportHeight = maxHeight
+            val css = EchoCss(viewportHeight)
             val width = css.contentWidth(maxWidth)
 
             // A viewport-wide scroll container receives gestures even at the
@@ -277,7 +280,7 @@ private fun EchoNativePage(
                     val logoSize = css.logoFontSp
                     val gap = css.mainButtonsGap
                     val logoGap = css.mainLogoGap
-                    val heightLeft = maxHeight.value - 32f -
+                    val heightLeft = viewportHeight.value - 32f -
                         (logoSize * 1.22f) - logoGap.value - 4f * gap.value
                     val buttonHeight = (heightLeft / 5f).coerceAtLeast(34f).dp
                     Column(
