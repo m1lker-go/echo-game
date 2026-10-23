@@ -1,4 +1,4 @@
-# ECHO Android — APK branch (0.3.2)
+# ECHO Android — APK branch (0.3.3)
 
 Independent Android Studio project. Main website and server are unchanged.
 
@@ -88,3 +88,25 @@ targeted GPU/view-composition hypothesis and is not yet device-proven.
   unsuccessful load, a Retry/Back dialog is shown rather than an infinite
   spinner. Debug diagnostics remain accessible by a long press.
 - No website, server, Cat Fighting, or GitHub Actions build changes.
+
+
+## Unified top-right navigation (0.3.3)
+
+- Source of truth: main/client/fullscreen.css lines describing the fixed
+  #game-exit menu Back arrow and Arena Close cross.
+- Every opened WebView subpage now uses the same native **top-right square**
+  (44dp, or 42dp at <=600dp viewport), dark fill, 70%-white border,
+  10dp corner radius. Position is calculated from the original UI scale
+  and minimap toolbar horizontal alignment. **No lower Back bar.**
+- Arena shows Close (X); Heroes, Shop, Quests and Code use a left-chevron.
+  On Pack Opening, the control switches from Back to Close and clicks the
+  original pack close action instead of leaving the whole Shop.
+- Settings (Compose) now has the same fixed top-right chevron, and the old
+  oversized bottom Back button was removed; its content still scrolls
+  from blank edges.
+- Original web fullscreen toggle and duplicate web navigation buttons
+  are hidden **only inside APK WebView**, preserving main and all browser UX.
+- In Android Studio debug runs, long-press the native navigation icon for
+  the existing diagnostics. Nothing labeled '?' is displayed.
+- No modifications were made to main's CSS, production server, VK auth or
+  GitHub Action build automation.
