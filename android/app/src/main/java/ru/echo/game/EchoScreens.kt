@@ -540,7 +540,7 @@ private fun EchoCacheConfirmDialog(
                         fontFamily = FontFamily.SansSerif,
                         fontSize = if (availableWidth < 600.dp) 22.sp else 28.sp,
                         fontWeight = FontWeight.SemiBold,
-                        letterSpacing = .14.em,
+                        letterSpacing = 0.14.em,
                         textAlign = TextAlign.Center,
                         lineHeight = 36.sp
                     )
@@ -607,7 +607,7 @@ private fun EchoModalAction(
             fontFamily = FontFamily.SansSerif,
             fontWeight = FontWeight.SemiBold,
             fontSize = 12.sp,
-            letterSpacing = .1.em,
+            letterSpacing = 0.1.em,
             textAlign = TextAlign.Center
         )
     }
