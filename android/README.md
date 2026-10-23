@@ -1,4 +1,4 @@
-# ECHO Android — APK branch (0.3.0)
+# ECHO Android — APK branch (0.3.1)
 
 Independent Android Studio project. Main website and server are unchanged.
 
@@ -51,3 +51,22 @@ The Android settings now use matching left-aligned section labels, language flag
 equally sized action buttons and white-outlined audio sliders.
 
 Android Settings now use the **native VK ID SDK** rather than WebView OAuth. The SDK callback is handled by MainActivity, and the resulting ECHO bearer session is persisted privately and synced into the ECHO WebView. The VK developer portal must be configured for this Android package and signing key. See `VK_ID_AUTH.md`.
+
+## WebGL and edge scrolling (0.3.1)
+
+The handset logs show ECHO's JavaScript/GLB/socket startup and the old false
+positive `ECHO ready: ARENA`, not proof of a painted WebGL frame. Web content
+now runs in an unexported native `EchoWebActivity` with the WebView as a
+direct hardware-accelerated window child, rather than embedding it in Compose
+via `AndroidView`. Native VK ID login and the same-origin ECHO session
+transfer are preserved. The debug `?` control reports DOM, canvas pixel
+dimensions, WebGL context and context-loss status if the screen remains black.
+
+The native Home and Settings use a **full-width** vertical scroll container.
+Only the visible controls remain constrained by `menu-width.css` dimensions.
+Vertical gestures started on the blank left/right side now scroll the page
+when its contents overflow the screen.
+
+No production HTML/CSS/server changes were made. Run through Android Studio
+and verify rendering on an affected Xiaomi/MIUI phone; this change is a
+targeted GPU/view-composition hypothesis and is not yet device-proven.
