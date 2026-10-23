@@ -203,7 +203,11 @@ class EchoWebActivity : ComponentActivity() {
                         Page.ACCOUNT, Page.CODE_VIEW -> "menu-settings"
                         else -> ""
                     }
-                    val secondary = if (page == Page.CODE_VIEW) "settings-enter-code" else ""
+                    val secondary = when (page) {
+                        Page.CODE_VIEW -> "settings-enter-code"
+                        Page.ACCOUNT -> "echo-open-login"
+                        else -> ""
+                    }
                     val audio = getSharedPreferences("echo.android.preferences", MODE_PRIVATE)
                     val musicVolume = audio.getFloat("musicVolume", .6f).coerceIn(0f, 1f)
                     val sfxVolume = audio.getFloat("sfxVolume", .7f).coerceIn(0f, 1f)
