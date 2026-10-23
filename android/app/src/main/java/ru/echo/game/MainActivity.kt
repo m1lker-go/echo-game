@@ -133,7 +133,7 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                         settings.setSupportZoom(false)
                         settings.javaScriptCanOpenWindowsAutomatically = false
                         settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-                        settings.mediaPlaybackRequiresUserGesture = true
+                        settings.mediaPlaybackRequiresUserGesture = false
                         webChromeClient = WebChromeClient()
                         webViewClient = object : WebViewClient() {
                             override fun shouldOverrideUrlLoading(
