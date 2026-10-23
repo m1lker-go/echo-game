@@ -14,6 +14,7 @@ function loadFixture() {
   let focused = null;
   const toasts = [];
   const confirmClicks = [];
+  const calls = [];
   const trigger = {
     addEventListener(event, handler) {
       if (event === 'click') openCode = handler;
@@ -42,11 +43,14 @@ function loadFixture() {
     ECHOModal: { open(options) { modal = options; return { close() {} }; } }
   };
   vm.runInNewContext(fs.readFileSync(path.join(clientDir, 'code-entry.js'), 'utf8'), {
-    document, window, requestAnimationFrame: fn => fn()
+    document, window, localStorage: {getItem(){return 'valid-echo-account-token'}},
+    fetch: async(path,options)=>{calls.push({path,options});return {ok:true,status:200,json:async()=>({success:true})}},
+    requestAnimationFrame: fn => fn()
   }, {filename:'code-entry.js'});
   return {
     open() { assert.equal(typeof openCode, 'function'); openCode(); return modal; },
     toasts,
+    calls,
     confirmClicks,
     get focused() { return focused; }
   };
@@ -65,7 +69,7 @@ test('Enter Code is directly above Clear Cache and uses its button classes', () 
   assert.match(css, /\.echo-code-input\s*\{[^}]*border:\s*1px solid #fff/s);
 });
 
-test('Code modal accepts pasted text and does not claim an unavailable reward', () => {
+test('Code modal accepts pasted text and verifies it with authenticated server', async () => {
   const fixture = loadFixture();
   const modal = fixture.open();
   assert.equal(modal.title, 'ВВЕДИТЕ КОД');
@@ -77,11 +81,14 @@ test('Code modal accepts pasted text and does not claim an unavailable reward', 
   assert.equal(input.autocomplete, 'off');
   assert.equal(fixture.focused, input);
 
-  assert.equal(modal.buttons[0].onClick(), false);
+  assert.equal(await modal.buttons[0].onClick(), false);
   assert.deepEqual(fixture.toasts, ['Введите код']);
-  input.value = ' CF-K8P42 ';
-  assert.equal(modal.buttons[0].onClick(), undefined);
-  assert.deepEqual(fixture.toasts, ['Введите код', 'Активация кодов пока не подключена']);
+  input.value = ' cf-k8p42 ';
+  assert.equal(await modal.buttons[0].onClick(), true);
+  assert.equal(fixture.calls[0].path, '/echo/api/codes/redeem');
+  assert.equal(JSON.parse(fixture.calls[0].options.body).code, 'CF-K8P42');
+  assert.ok(fixture.calls[0].options.headers.Authorization.startsWith('Bearer '));
+  assert.match(fixture.toasts.at(-1), /Код принят/);
 
   const event = { key: 'Enter', isComposing: false, prevented: false, preventDefault() { this.prevented = true; } };
   input.handlers.keydown(event);

@@ -1,4 +1,4 @@
-// First stage of the unified code entry UI. Redemption is not wired to the server yet.
+// Universal code modal; the server alone decides which partner quest the code verifies.
 (() => {
   'use strict';
 
@@ -27,14 +27,38 @@
         label: t('code_ok', 'ОК'),
         value: true,
         variant: 'primary',
-        onClick() {
-          if (!input.value.trim()) {
-            window.ECHOToast?.show(t('code_empty', 'Введите код'));
-            input.focus();
+        async onClick() {
+          const code=input.value.trim().toUpperCase();
+          if (!code) {
+            window.ECHOToast?.show(t('code_empty','Введите код'));
+            input.focus();return false;
+          }
+          const token=localStorage.getItem('echo.authToken');
+          if (!token) {
+            window.ECHOToast?.show(t('code_auth_required','Войди в аккаунт'));
             return false;
           }
-          // No fake activation or account changes until the code API is implemented.
-          window.ECHOToast?.show(t('code_unavailable', 'Активация кодов пока не подключена'));
+          try {
+            const response=await fetch('/echo/api/codes/redeem',{
+              method:'POST',
+              headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+              body:JSON.stringify({code}),cache:'no-store'
+            });
+            const data=await response.json();
+            if(!response.ok||!data.success) {
+              const messages={400:'code_invalid',404:'code_not_found',409:'code_used',410:'code_expired',429:'code_limited',503:'code_not_configured'};
+              const fallback={400:'Неверный код',404:'Код не найден',409:'Код уже использован',410:'Срок действия кода истёк',429:'Слишком много попыток',503:'Связь игр пока не настроена'};
+              const status=messages[response.status]||'code_error';
+              window.ECHOToast?.show(t(status,fallback[response.status]||'Не удалось проверить код'));
+              return false;
+            }
+            window.ECHOToast?.show(t('code_accepted','Код принят! Вернись в Cat Fighting и нажми «Проверка».'));
+            return true;
+          } catch (error) {
+            console.warn('[echo codes] activation failed:',error);
+            window.ECHOToast?.show(t('code_error','Не удалось проверить код'));
+            return false;
+          }
         }
       }]
     });

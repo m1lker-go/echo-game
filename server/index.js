@@ -23,6 +23,7 @@ const allowedOrigin = process.env.CORS_ORIGIN || '*';
 app.use(cors({ origin: allowedOrigin === '*' ? true : allowedOrigin.split(',').map(v => v.trim()) }));
 app.use(express.json());
 app.use('/api/auth', echoAuth.router);
+app.use('/api/codes', require('./code-redemption').createCodeRedemption({sessionUser:echoAuth.sessionUser}));
 
 const io = new Server(server, {
   cors: {
