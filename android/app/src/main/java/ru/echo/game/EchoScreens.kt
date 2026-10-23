@@ -161,6 +161,7 @@ private fun EchoNativePage(page: Page, onNavigate: (Page) -> Unit, onBack: () ->
         BoxWithConstraints(Modifier.fillMaxSize()) {
             // In client/menu-width.css every page is constrained to 100dvh in landscape.
             val contentWidth = minOf(maxHeight, maxWidth - 36.dp)
+            val screenHeight = maxHeight
             if (page == Page.HOME) {
                 Column(
                     Modifier.align(Alignment.Center).width(contentWidth)
@@ -200,7 +201,7 @@ private fun EchoNativePage(page: Page, onNavigate: (Page) -> Unit, onBack: () ->
                     Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                         when (page) {
                             Page.HEROES -> EchoHeroes(onNavigate)
-                            Page.SHOP -> EchoShop(onNavigate, maxHeight)
+                            Page.SHOP -> EchoShop(onNavigate, screenHeight)
                             Page.QUESTS -> EchoQuests()
                             Page.ACCOUNT -> EchoAccount()
                             Page.SETTINGS -> EchoSettings(onNavigate)
