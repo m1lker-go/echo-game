@@ -58,6 +58,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -155,7 +156,18 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
     val language = audio.language
 
     BoxWithConstraints(Modifier.fillMaxSize().background(Background)) {
-        val nativeBackWidth = minOf(maxHeight, maxWidth - 36.dp)
+        val css = EchoCss(maxHeight)
+        val nativeBackWidth = css.contentWidth(maxWidth)
+        val nativeBackHeight = when (page) {
+            Page.ACCOUNT, Page.CODE_VIEW -> css.settingsButtonHeight
+            Page.SHOP, Page.PACK_VIEW ->
+                (maxHeight.value * .07f).coerceIn(34f, 52f).dp
+            else -> css.menuBackHeight
+        }
+        val nativeBackFontSp = when (page) {
+            Page.ACCOUNT, Page.CODE_VIEW -> css.settingsButtonFontSp
+            else -> css.menuBackFontSp
+        }
         key(page, retry) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -303,7 +315,11 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                                       if (!document.getElementById('echo-android-style')) {
                                         var style = document.createElement('style');
                                         style.id = 'echo-android-style';
-                                        style.textContent = '#echo-fullscreen-toggle,#game-exit,#character-back,#quests-back,#shop-back,#settings-back{display:none!important}' + '#menu-character,#menu-quests-screen,#menu-shop-screen,#menu-settings-screen{padding-bottom:64px!important}';
+                                        // Hide duplicate navigation without changing the site's flex heights,
+                                        // margins, padding or scroll regions from main CSS.
+                                        style.textContent = '#echo-fullscreen-toggle{display:none!important}' +
+                                            '#game-exit,#character-back,#quests-back,#shop-back,#settings-back{' +
+                                            'visibility:hidden!important;pointer-events:none!important}';
                                         document.head.appendChild(style);
                                       }
                                       var opener = '$opener', secondary = '$additional';
@@ -501,7 +517,7 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                     .width(44.dp).height(44.dp)
             } else {
                 Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp)
-                    .width(nativeBackWidth).height(50.dp)
+                    .width(nativeBackWidth).height(nativeBackHeight)
             },
             color = Color.Black,
             contentColor = Color.White,
@@ -516,7 +532,7 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                         else -> "НАЗАД"
                     },
                     fontFamily = FontFamily(Font(R.font.echo_superxp)),
-                    fontSize = if (page == Page.ARENA) 22.sp else 19.sp,
+                    fontSize = if (page == Page.ARENA) 22.sp else nativeBackFontSp.sp,
                     fontWeight = FontWeight.Medium
                 )
             }
