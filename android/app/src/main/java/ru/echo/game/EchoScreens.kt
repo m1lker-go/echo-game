@@ -54,7 +54,6 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.text.style.TextAlign
@@ -178,13 +177,15 @@ private fun EchoText(
     color: Color = White,
     modifier: Modifier = Modifier,
     centered: Boolean = false,
-    weight: FontWeight = FontWeight.Normal
+    weight: FontWeight = FontWeight.Normal,
+    letterSpacingEm: Float = 0f
 ) {
     Text(
         text = text, color = color, modifier = modifier,
         fontFamily = EchoFont, fontWeight = weight,
         fontSize = size.sp, lineHeight = (size * 1.18f).sp,
         textAlign = if (centered) TextAlign.Center else TextAlign.Start,
+        letterSpacing = letterSpacingEm.em,
         maxLines = 2, overflow = TextOverflow.Ellipsis
     )
 }
@@ -343,13 +344,15 @@ private fun EchoSettings(css: EchoCss, audio: EchoAudioEngine, onNavigate: (Page
     ) {
         // Reflects main's Settings hierarchy: headers are LEFT aligned;
         // action buttons have equal width/height and stretch across content column.
-        EchoText(tr(audio, "АККАУНТ", "ACCOUNT"), css.settingsLabelFontSp, Secondary, Modifier.fillMaxWidth())
+        EchoText(tr(audio, "АККАУНТ", "ACCOUNT"), css.settingsLabelFontSp, Secondary,
+            Modifier.fillMaxWidth(), letterSpacingEm = .12f)
         EchoButton(tr(audio, "ВОЙТИ В АККАУНТ", "SIGN IN"), Modifier.fillMaxWidth(),
             height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp) {
             onNavigate(Page.ACCOUNT)
         }
         Spacer(Modifier.height(6.dp))
-        EchoText(tr(audio, "ЯЗЫК", "LANGUAGE"), css.settingsLabelFontSp, Secondary, Modifier.fillMaxWidth())
+        EchoText(tr(audio, "ЯЗЫК", "LANGUAGE"), css.settingsLabelFontSp, Secondary,
+            Modifier.fillMaxWidth(), letterSpacingEm = .12f)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             EchoButton(tr(audio, "РУССКИЙ", "RUSSIAN"), Modifier.weight(1f),
                 selected = !english, height = css.settingsButtonHeight,
@@ -363,13 +366,15 @@ private fun EchoSettings(css: EchoCss, audio: EchoAudioEngine, onNavigate: (Page
             }
         }
         Spacer(Modifier.height(6.dp))
-        EchoText(tr(audio, "ЗВУК", "SOUND"), css.settingsLabelFontSp, Secondary, Modifier.fillMaxWidth())
+        EchoText(tr(audio, "ЗВУК", "SOUND"), css.settingsLabelFontSp, Secondary,
+            Modifier.fillMaxWidth(), letterSpacingEm = .12f)
         EchoVolumeSlider(tr(audio, "МУЗЫКА", "MUSIC"), audio.musicVolume,
             css.settingsValueFontSp, audio::updateMusicVolume)
         EchoVolumeSlider(tr(audio, "ЗВУКИ", "EFFECTS"), audio.sfxVolume,
             css.settingsValueFontSp, audio::updateSfxVolume)
         Spacer(Modifier.height(6.dp))
-        EchoText(tr(audio, "ДРУГОЕ", "OTHER"), css.settingsLabelFontSp, Secondary, Modifier.fillMaxWidth())
+        EchoText(tr(audio, "ДРУГОЕ", "OTHER"), css.settingsLabelFontSp, Secondary,
+            Modifier.fillMaxWidth(), letterSpacingEm = .12f)
         EchoButton(tr(audio, "ВВЕСТИ КОД", "REDEEM CODE"), Modifier.fillMaxWidth(),
             height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp) {
             onNavigate(Page.CODE_VIEW)
