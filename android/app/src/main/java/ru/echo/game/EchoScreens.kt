@@ -390,6 +390,7 @@ private fun EchoSettings(
     onNavigate: (Page) -> Unit
 ) {
     var confirmCache by remember { mutableStateOf(false) }
+    var confirmLogout by remember { mutableStateOf(false) }
     var cacheMessage by remember { mutableStateOf("") }
     val context = LocalContext.current
     val english = audio.language == "en"
@@ -416,7 +417,7 @@ private fun EchoSettings(
                 Modifier.fillMaxWidth(), centered = true)
             EchoButton(tr(audio, "ВЫЙТИ ИЗ АККАУНТА", "SIGN OUT"), Modifier.fillMaxWidth(),
                 height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp) {
-                onLogout()
+                confirmLogout = true
             }
         }
         if (auth.message != null) {
@@ -466,11 +467,37 @@ private fun EchoSettings(
         }
     }
 
-    if (confirmCache) {
-        EchoCacheConfirmDialog(
-            audio = audio,
-            onDismiss = { confirmCache = false },
+    if (confirmLogout) {
+        EchoConfirmDialog(
+            title = tr(audio, "ВЫХОД", "SIGN OUT"),
+            message = tr(audio, "Вы уверены, что хотите выйти из аккаунта?",
+                "Are you sure you want to sign out of your account?"),
+            cancelLabel = tr(audio, "НЕТ", "NO"),
+            confirmLabel = tr(audio, "ДА", "YES"),
+            onDismiss = {
+                audio.click()
+                confirmLogout = false
+            },
             onConfirm = {
+                audio.click()
+                confirmLogout = false
+                onLogout()
+            }
+        )
+    }
+    if (confirmCache) {
+        EchoConfirmDialog(
+            title = tr(audio, "СБРОС КЭША", "CLEAR CACHE"),
+            message = tr(audio, "Вы уверены, что хотите сбросить кэш?",
+                "Are you sure you want to clear the cache?"),
+            cancelLabel = tr(audio, "НЕТ", "NO"),
+            confirmLabel = tr(audio, "ДА", "YES"),
+            onDismiss = {
+                audio.click()
+                confirmCache = false
+            },
+            onConfirm = {
+                audio.click()
                 confirmCache = false
                 // Same intended behavior as the browser cache reset:
                 // drop downloaded WebView resources without touching cookies,
@@ -491,14 +518,17 @@ private fun EchoSettings(
 
 /**
  * Compose counterpart of main/client/style.css .echo-modal-overlay/.echo-modal
- * and client/cache-reset.js ECHOModal.confirm.
+ * and client/modal.js ECHOModal.confirm.
  *
- * The dialog is native, so it appears immediately in Android Settings and
- * never launches the website's main menu just to ask for confirmation.
+ * Shared by cache reset, account logout, and the native arena exit.
+ * This preserves the original ECHO visual style without loading another WebView.
  */
 @Composable
-private fun EchoCacheConfirmDialog(
-    audio: EchoAudioEngine,
+internal fun EchoConfirmDialog(
+    title: String,
+    message: String,
+    cancelLabel: String,
+    confirmLabel: String,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
@@ -534,7 +564,7 @@ private fun EchoCacheConfirmDialog(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = tr(audio, "СБРОС КЭША", "CLEAR CACHE"),
+                        text = title,
                         modifier = Modifier.fillMaxWidth(),
                         color = Color.White,
                         fontFamily = FontFamily.SansSerif,
@@ -546,11 +576,7 @@ private fun EchoCacheConfirmDialog(
                     )
                     Spacer(Modifier.height(if (compact) 18.dp else 30.dp))
                     Text(
-                        text = tr(
-                            audio,
-                            "Вы уверены, что хотите сбросить кэш?",
-                            "Are you sure you want to clear the cache?"
-                        ),
+                        text = message,
                         modifier = Modifier.fillMaxWidth(),
                         color = Color.White,
                         fontFamily = FontFamily.SansSerif,
@@ -565,19 +591,17 @@ private fun EchoCacheConfirmDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         EchoModalAction(
-                            label = tr(audio, "НЕТ", "NO"),
+                            label = cancelLabel,
                             primary = false,
                             modifier = Modifier.weight(1f)
                         ) {
-                            audio.click()
                             onDismiss()
                         }
                         EchoModalAction(
-                            label = tr(audio, "ДА", "YES"),
+                            label = confirmLabel,
                             primary = true,
                             modifier = Modifier.weight(1f)
                         ) {
-                            audio.click()
                             onConfirm()
                         }
                     }
