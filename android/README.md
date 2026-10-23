@@ -1,37 +1,35 @@
-# ECHO Android — experimental APK branch
+# ECHO Android — APK branch (0.2.0)
 
-This folder is an **independent Android Studio project**. It does not change or bundle the ECHO website, backend, or the production deployment.
+Independent Android Studio project. Main website and server are unchanged.
 
-## Open the Android project
+## Open in Android Studio
 
-1. In Android Studio, switch Git branch from main to apk and pull.
-2. Select **File > Open**, then select the **android** folder inside the cloned echo-game repository (not the repository root).
-3. Trust the project, choose the bundled Gradle wrapper, and allow Gradle sync/download of SDK 35 if requested.
-4. Select the **app** run configuration, connect a physical Android phone with USB debugging (or an emulator), and press Run.
-5. The app is intentionally locked to landscape.
+1. Switch to the existing `apk` branch and use Git > Pull.
+2. Open `android/` as the Android Studio project (not the repository root).
+3. Allow Gradle Sync to finish and download SDK components (Google Maven/AAPT2 needs network access).
+4. Select `app` and Run on a phone, or Build > Build APK(s).
+5. GitHub Actions does **not** build APKs on every push; the workflow is manual-only.
 
-Gradle versions: Android Gradle Plugin 8.9.2, Gradle 8.11.1, Kotlin/Compose compiler 2.0.21, JDK 17. Uses the official Gradle wrapper scripts and JAR.
+## What's real in this build
 
-## What works in the initial build
+- Fullscreen landscape with a native main menu and settings.
+- Black ECHO starfield with independently pulsing 46 particles and the original SchuelerSuperXP font.
+- All five original background-music MP3 tracks bundled in Android.
+- Music volume slider (initially 60%) and sound effects slider (70%) actually work and persist.
+- Native UI click sounds, Russian/English switcher, and WebView cache clearing with confirmation.
+- Android pauses its native playlist during Arena/other web screens and when the app is backgrounded; the website handles in-game music.
+- Original ECHO Arena, Heroes, Shop and Quests run inside WebView so their real GLB previews, pack animation, account-backed collection, purchases and quest actions aren't replaced with fake offline placeholder data.
+- Account and code redemption open the existing website's settings/code UI in WebView.
 
-- Native Jetpack Compose start menu and Android navigation.
-- Native initial pages for Heroes, Shop, Quests, Account and Settings (informational scaffolds; server-backed features will be added in later steps).
-- One disposable WebView opened as needed for the existing **arena** at https://cat-fight.ru/echo/?play=1&apk=1.
-- Temporary WebView compatibility mode for the website's existing 3D hero gallery and pack view, launched from their native pages.
-- Landscape, immersive fullscreen, WebGL hardware acceleration, native back/close control.
-- Network error screen with retry button.
+## Still to implement
 
-## Limitations and next steps
+Native account/session integration and verified server data for native Heroes, Shop and Quests. Those screens intentionally use the live web implementation until native functionality is equivalent. Paid Android purchases still require platform-specific work. VK ID login may require external-browser handling on certain WebView/device combinations. Do not assume a VK Mini App account signs in automatically in Android.
 
-- Heroes and pack opening currently use the *existing site menu* inside WebView; the website has NOT yet been refactored into standalone viewer pages. Native data-driven heroes, quests, shop, account and purchases are NOT implemented yet.
-- Native account login, purchase integrations, rewarded ads, push notifications, and server API synchronization are future stages.
-- WebView shares the deployed game's server, but its cookies/localStorage are separate from the desktop/VK browsers; do not expect an automatically signed-in VK account.
-- WebGL performance must be tested on real devices; no APK build or physical device verification has been performed by this commit.
-- ECHO relies on the live website and an active internet connection. This is not an offline APK.
+WebView also has its own session storage, but shares origin-based WebView cookies/localStorage between ECHO WebView screens. The game requires internet.
 
-## Safety boundaries
+## Safety
 
-- No JavaScript bridge is exported to untrusted pages.
-- Only HTTPS pages under cat-fight.ru/echo/ load inside WebView; external HTTPS links open in the system browser.
-- Never copy Cat Fighting's Android package name, activity files, or credentials into this application.
-- Production ECHO is deployed from main; keep all Android work on apk until reviewed.
+- Work only on the `apk` branch. Do not merge into `main` until reviewed.
+- Do not change Cat Fighting, its server/database, or any user account credentials.
+- Android does not export a JavaScript bridge. Main-frame external HTTP(S) links use the system browser.
+- Android music resources are copied from the ECHO client assets without modification.
