@@ -1,4 +1,4 @@
-# ECHO Android — APK branch (0.3.1)
+# ECHO Android — APK branch (0.3.2)
 
 Independent Android Studio project. Main website and server are unchanged.
 
@@ -70,3 +70,21 @@ when its contents overflow the screen.
 No production HTML/CSS/server changes were made. Run through Android Studio
 and verify rendering on an affected Xiaomi/MIUI phone; this change is a
 targeted GPU/view-composition hypothesis and is not yet device-proven.
+
+## Native loading veil and close control (0.3.2)
+
+- The debug-only question mark formerly shown at the top-right is gone.
+- The Arena's close X is restored to the top-right. On other web menus,
+  the normal bottom Back button remains. In Android Studio debug builds,
+  long-press the close/Back button to see WebView diagnostics.
+- A **native opaque loading screen** draws 46 independently moving and
+  pulsing particles matching ECHO's native home background, centered
+  "Загрузка страницы" text and a rotating circular progress indicator.
+- The WebView loads the original ECHO web menu *behind* this screen. The
+  loading veil is removed only once the requested destination is actually
+  visible (arena, shop, character, quests or code modal), plus a short
+  frame-compositing grace period. The original web CSS and UI remain intact.
+- Readiness checks ignore unrelated older page loads. After an extended
+  unsuccessful load, a Retry/Back dialog is shown rather than an infinite
+  spinner. Debug diagnostics remain accessible by a long press.
+- No website, server, Cat Fighting, or GitHub Actions build changes.
