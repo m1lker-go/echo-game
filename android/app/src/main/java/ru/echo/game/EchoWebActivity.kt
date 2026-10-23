@@ -51,6 +51,7 @@ class EchoWebActivity : ComponentActivity() {
     private var page = Page.ARENA
     private var crashed = false
     private var sessionBootstrapped = false
+    private var documentStartInstalled = false
     private var latestError = ""
     private var loadSequence = 0
     private var failureDialogOpen = false
@@ -192,8 +193,14 @@ class EchoWebActivity : ComponentActivity() {
                     super.onPageFinished(view, url)
                     if (crashed || !trusted(Uri.parse(url))) return
 
-                    // The site's auth module reads localStorage at module load.
-                    // Set the same-origin ECHO session, then reload just once.
+                    // On modern WebViews the trusted document-start bootstrap
+                    // has already synchronized auth and protected hero choice.
+                    // Legacy WebViews still use the post-load/reload fallback.
+                    if (documentStartInstalled && auth.clearWebSession) {
+                        view.evaluateJavascript(
+                            "(function(){try{return !localStorage.getItem('echo.authToken');}catch(e){return false;}})()"
+                        ) { cleared -> if (cleared == "true") auth.webSessionCleared() }
+                    }
                     if (!sessionBootstrapped) {
                         val token = auth.token()
                         if (token != null || auth.clearWebSession) {
@@ -276,6 +283,32 @@ class EchoWebActivity : ComponentActivity() {
                               const button = document.getElementById(opener);
                               if (button && typeof window.ECHO_SELECTED_MODEL === 'string') {
                                 button.click(); clearInterval(navigate);
+                                // For the Heroes page, the server's hero collection
+                                // loads AFTER menu.js's early fallback check.
+                                // Reapply the preserved selection once ownership
+                                // has been confirmed and its card is clickable.
+                                if (opener === 'menu-character-button') {
+                                  const wanted = localStorage.getItem('echo.selectedModel');
+                                  if (wanted) {
+                                    let restoreAttempts = 0;
+                                    const restore = setInterval(() => {
+                                      if (localStorage.getItem('echo.selectedModel') !== wanted ||
+                                          window.ECHO_SELECTED_MODEL === wanted) {
+                                        clearInterval(restore); return;
+                                      }
+                                      const card = Array.from(
+                                        document.querySelectorAll('#character-grid [data-model]')
+                                      ).find(el => el.dataset.model === wanted);
+                                      if (card && card.getAttribute('aria-disabled') === 'false' &&
+                                          !card.classList.contains('is-locked')) {
+                                        card.click();
+                                        clearInterval(restore);
+                                        return;
+                                      }
+                                      if (++restoreAttempts >= 120) clearInterval(restore);
+                                    }, 150);
+                                  }
+                                }
                                 if (secondary) setTimeout(() => {
                                   document.getElementById(secondary)?.click();
                                 }, 350);
@@ -345,6 +378,10 @@ class EchoWebActivity : ComponentActivity() {
         }
         root.addView(web, 0, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        // Install before the FIRST loadUrl(). ECHO's menu.js and game.js read
+        // the chosen model synchronously, before onPageFinished ever fires.
+        documentStartInstalled = EchoHeroWebBootstrap.install(web, auth)
+        if (documentStartInstalled) sessionBootstrapped = true
     }
 
     /**
