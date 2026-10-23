@@ -41,6 +41,22 @@ internal data class EchoCss(private val viewportHeight: Dp) {
     val settingsValueFontSp: Int get() = clamp(15f, 21f * scale, 30f).toInt()
     val settingsNoteFontSp: Int get() = clamp(13f, 16f * scale, 23f).toInt()
 
+    // main/client/fullscreen.css: top-right shared game-exit button.
+    // --echo-nav-size:44px, --echo-nav-gap:10px; at widths <=600px:42px.
+    fun navigationSize(viewportWidth: Dp): Dp =
+        if (viewportWidth.value <= 600f) 42.dp else 44.dp
+
+    // --echo-nav-right = --echo-minimap-right +
+    //   (190px * uiScale - 2*navSize - 10px) / 2.
+    // The positioning follows the minimap toolbar instead of the screen edge.
+    fun navigationRight(viewportWidth: Dp): Dp {
+        val size = navigationSize(viewportWidth).value
+        val intended = 22f * scale + (190f * scale - 2f * size - 10f) / 2f
+        return intended.coerceAtLeast(10f).dp
+    }
+
+    val navigationTop: Dp = 5.dp
+
     val menuBorderRadius: Dp = 13.dp
     val menuBorderWidth: Dp = 1.dp
 }
