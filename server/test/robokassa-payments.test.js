@@ -3,7 +3,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {
   createRobokassaPayments, toCents, signatureForCheckout,
-  signatureForResult, secureSameSignature, PRICE_RUB
+  signatureForResult, secureSameSignature, PRICE_RUB, PRODUCT, toInvoice
 }=require('../robokassa-payments');
 
 const creds={
@@ -49,8 +49,9 @@ function harness(){
     createRouter:()=>router,getConfig:()=>creds
   });
   const user={id:row.account_id};
-  const result=(outSum='250.000000', signature=signatureForResult(outSum,'1',creds.password2))=>({
-    body:{InvId:'1',OutSum:outSum,SignatureValue:signature}
+  const invoice=toInvoice('1');
+  const result=(outSum='250.000000', signature=signatureForResult(outSum,invoice,creds.password2))=>({
+    body:{InvId:invoice,OutSum:outSum,SignatureValue:signature,Shp_type:PRODUCT}
   });
   return {router,events,row,handlers,user,result};
 }
@@ -63,8 +64,8 @@ test('robokassa amount accepts six-decimal real-world form and rejects fractions
   assert.equal(toCents('-250'),null);
 });
 test('checkout signature is not accepted as callback signature',()=>{
-  const checkout=signatureForCheckout(creds.merchant,'250.00','1',creds.password1);
-  const result=signatureForResult('250.00','1',creds.password2);
+  const checkout=signatureForCheckout(creds.merchant,'250.00',toInvoice('1'),creds.password1);
+  const result=signatureForResult('250.00',toInvoice('1'),creds.password2);
   assert.equal(secureSameSignature(result,checkout),false);
   assert.equal(secureSameSignature(result,result.toLowerCase()),true);
 });
@@ -75,7 +76,10 @@ test('Robokassa creates orders only for signed-in ECHO users at server-owned pri
   assert.equal(unauthorized.statusCode,401);
   const valid=response();await create({user:h.user,body:{amount:'1',cards:999}},valid);
   assert.equal(valid.data.price,'250.00');
-  assert.equal(new URL(valid.data.checkoutUrl).hostname,'auth.robokassa.ru');
+  const link=new URL(valid.data.checkoutUrl);
+  assert.equal(link.hostname,'auth.robokassa.ru');
+  assert.equal(link.searchParams.get('Shp_type'),PRODUCT);
+  assert.equal(valid.data.orderId,toInvoice('1'));
   const inserted=h.events.find(e=>e.sql.startsWith('INSERT INTO echo_robokassa_orders'));
   assert.equal(inserted.args[1],'250.00');
   assert.equal(inserted.args[2],true);
@@ -91,10 +95,10 @@ test('verified ResultURL grants exactly once even when callback is retried',asyn
   const h=harness();await h.handlers.initialize();
   const cb=h.router.routes.post.get('/result');
   const first=response();await cb(h.result(),first);
-  assert.equal(first.data,'OK1');
+  assert.equal(first.data,'OK'+toInvoice('1'));
   assert.equal(h.row.status,'paid');
   assert.equal(h.events.filter(e=>e.sql.includes('echo_hero_collection')).length,5);
   const again=response();await cb(h.result(),again);
-  assert.equal(again.data,'OK1');
+  assert.equal(again.data,'OK'+toInvoice('1'));
   assert.equal(h.events.filter(e=>e.sql.includes('echo_hero_collection')).length,5);
 });
