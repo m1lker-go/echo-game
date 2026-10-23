@@ -92,12 +92,19 @@ class MainActivity : ComponentActivity() {
         echoAuth = EchoAuthSession(applicationContext)
         echoAuth.token()?.let { previous ->
             Thread {
-                runCatching { echoAuth.checkSession(previous) }.onSuccess { freshName ->
-                    // Token may have been logged out while this request was in flight.
-                    if (echoAuth.token() == previous && freshName.isNotBlank()) runOnUiThread {
-                        if (echoAuth.token() == previous) echoAuth.updateNickname(freshName)
+                runCatching { echoAuth.checkSession(previous) }
+                    .onSuccess { freshName ->
+                        if (freshName.isNotBlank()) runOnUiThread {
+                            if (echoAuth.token() == previous) echoAuth.updateNickname(freshName)
+                        }
                     }
-                }
+                    .onFailure { error ->
+                        // Clear only a verified 401; offline or server 5xx must not
+                        // silently sign out users from the native app.
+                        if (error is EchoSessionExpired) runOnUiThread {
+                            if (echoAuth.token() == previous) echoAuth.clearSession()
+                        }
+                    }
             }.start()
         }
         window.setBackgroundDrawable(ColorDrawable(AndroidColor.BLACK))
