@@ -266,7 +266,7 @@ private fun EchoNativePage(
                             fontFamily = EchoFont,
                             fontSize = logoSize.sp,
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = .38.em,
+                            letterSpacing = 0.38.em,
                             shadow = Shadow(
                                 color = Color(0x29EBF6FF),
                                 offset = Offset.Zero,
@@ -313,7 +313,7 @@ private fun EchoNativePage(
                         fontFamily = EchoFont,
                         fontSize = css.settingsTitleSp.sp,
                         fontWeight = FontWeight.SemiBold,
-                        letterSpacing = .16.em,
+                        letterSpacing = 0.16.em,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
