@@ -165,6 +165,8 @@ class EchoWebActivity : ComponentActivity() {
 
                 override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                     super.onPageStarted(view, url, favicon)
+                    loadSequence++
+                    loading.restart()
                     Log.i(TAG, "Native full-screen WebView loading: " + Uri.parse(url).path)
                 }
 
@@ -246,6 +248,10 @@ class EchoWebActivity : ComponentActivity() {
                         })()
                     """.trimIndent()
                     view.evaluateJavascript(script, null)
+                    // Keep the native loading veil above the web menu until the
+                    // requested page is visible (not merely until HTML finishes).
+                    val sequence = loadSequence
+                    view.postDelayed({ pollPageReady(view, sequence, 0) }, 180L)
                     // A DOM ready event is NOT proof of a visible WebGL frame.
                     view.postDelayed({
                         if (!crashed) {
@@ -301,6 +307,79 @@ class EchoWebActivity : ComponentActivity() {
         }
         root.addView(web, 0, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+    }
+
+    /**
+     * The HTML entrypoint is shared by Arena/Heroes/Shop/Quests. The website
+     * briefly opens its home menu before menu.js handles the requested click.
+     * Keep the native full-screen loading surface up until that click succeeds.
+     */
+    private fun pollPageReady(view: WebView, sequence: Int, attempt: Int) {
+        if (isFinishing || isDestroyed || crashed ||
+            sequence != loadSequence || loading.visibility != View.VISIBLE) return
+        val target = when (page) {
+            Page.ARENA -> "arena"
+            Page.HEROES, Page.HERO_VIEW -> "character"
+            Page.SHOP, Page.PACK_VIEW -> "shop"
+            Page.QUESTS -> "quests"
+            Page.ACCOUNT -> "account"
+            Page.CODE_VIEW -> "code"
+            else -> "menu"
+        }
+        val script = """
+            (function() {
+              const menu = document.getElementById('main-menu');
+              if (!menu || document.readyState !== 'complete' ||
+                  typeof window.ECHO_SELECTED_MODEL !== 'string') return false;
+              const shown = id => {
+                const node = document.getElementById(id);
+                if (!node || node.hidden) return false;
+                const css = getComputedStyle(node);
+                return css.display !== 'none' && css.visibility !== 'hidden';
+              };
+              switch (${JSONObject.quote(target)}) {
+                case 'arena':
+                  return menu.classList.contains('is-hidden') &&
+                         document.getElementById('world')?.width > 1 &&
+                         document.getElementById('models')?.width > 1;
+                case 'character':
+                  return shown('menu-character');
+                case 'shop':
+                  return shown('menu-shop-screen') &&
+                         !!document.querySelector('.echo-shop-pack');
+                case 'quests':
+                  return shown('menu-quests-screen');
+                case 'code':
+                  return shown('menu-settings-screen') &&
+                         !!document.querySelector('.echo-code-modal-content .echo-code-input');
+                case 'account':
+                  return shown('menu-settings-screen') &&
+                         !!document.querySelector('.echo-login-widget');
+                default:
+                  return shown('menu-main');
+              }
+            })()
+        """.trimIndent()
+        view.evaluateJavascript(script) { result ->
+            if (isFinishing || isDestroyed || crashed ||
+                sequence != loadSequence || loading.visibility != View.VISIBLE) {
+                return@evaluateJavascript
+            }
+            if (result == "true") {
+                // Permit a couple of display frames for WebGL/DOM compositing.
+                view.postDelayed({
+                    if (!isFinishing && !isDestroyed && !crashed &&
+                        sequence == loadSequence && loading.visibility == View.VISIBLE) {
+                        loading.visibility = View.GONE
+                        Log.i(TAG, "Requested screen visible: " + page.name)
+                    }
+                }, 180L)
+            } else if (attempt < 125) {
+                view.postDelayed({ pollPageReady(view, sequence, attempt + 1) }, 150L)
+            } else {
+                showFailure("Раздел ECHO не открылся. Проверь интернет и повтори.")
+            }
+        }
     }
 
     private fun showFailure(message: String) {
