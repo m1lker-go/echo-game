@@ -11,6 +11,8 @@ import java.net.URL
 private const val ECHO_AUTH_ENDPOINT = "https://cat-fight.ru/echo/api/auth/"
 private val TOKEN_PATTERN = Regex("^[a-f0-9]{64}$")
 
+internal class EchoSessionExpired : Exception("Сессия ECHO истекла")
+
 internal data class EchoLoginResult(val token: String, val nickname: String)
 
 internal class EchoAuthSession(context: Context) {
@@ -83,6 +85,7 @@ internal class EchoAuthSession(context: Context) {
             val code = connection.responseCode
             val response = (if (code in 200..299) connection.inputStream else connection.errorStream)
                 ?.bufferedReader()?.use { it.readText() }.orEmpty()
+            if (code == 401 && endpoint == "me") throw EchoSessionExpired()
             if (code !in 200..299) throw IllegalStateException(
                 when (code) {
                     400, 401, 403 -> "VK ID не подтвердил вход в ECHO ($code)"
