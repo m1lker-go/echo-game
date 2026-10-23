@@ -1,4 +1,4 @@
-# ECHO Android — APK branch (0.3.5)
+# ECHO Android — APK branch (0.3.6)
 
 Independent Android Studio project. Main website and server are unchanged.
 
@@ -161,3 +161,30 @@ This is an APK-specific guard; the same initial inventory race may still
 occur in the website because main/client/menu.js has not been changed.
 No purchases, advertising SDKs, Cat Fighting or server configuration were
 modified.
+
+## ECHO confirm modals for logout and arena exit (0.3.6)
+
+The native settings and arena now reproduce `main/client/auth-ui.js` and
+`main/client/game.js` confirmation behavior using the **same shared,
+animated ECHO Compose modal** already used for clearing WebView cache.
+
+- Account Settings -> Sign out opens `ВЫХОД` /
+  `Вы уверены, что хотите выйти из аккаунта?` with `НЕТ` (dark) and
+  `ДА` (white). Only `ДА` invokes native logout (clear session and
+  asynchronously revoke its server bearer token).
+- Arena top-right cross and device Back trigger `ВЫХОД ИЗ ИГРЫ` /
+  `Вы действительно хотите покинуть игру?`. `НЕТ` keeps the active
+  WebView and live match; `ДА` closes only the battle's Activity,
+  returning to the native home. The original browser's `game-exit`
+  button stays hidden inside the APK to prevent duplicate confirmations.
+- Shop, Quests, Heroes, Code and Settings still go Back immediately.
+  The pack-opening cross still closes *only the pack*, not the arena;
+  no exit confirmation is added to that action.
+- Confirmation windows retain CSS-equivalent black panel, white border,
+  floating particles, and equal-width dark/light buttons. Browser `main`
+  and backend are unchanged, and no GitHub Actions APK build runs.
+
+Test: sign in -> Settings -> Sign Out -> No (remains signed in), then
+Yes (logs out). Arena -> cross -> No (continue playing), then cross ->
+Yes (return home). Repeat with Android system Back. Verify Pack Close
+and the ordinary subpage Back icons remain unchanged.
