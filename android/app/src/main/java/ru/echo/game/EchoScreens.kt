@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -61,6 +62,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
@@ -349,12 +351,29 @@ private fun EchoNativePage(
                         )
                         Spacer(Modifier.height(10.dp))
                         EchoSettings(css, audio, auth, onVkLogin, onLogout, onNavigate)
-                        Spacer(Modifier.height(7.dp))
-                        EchoButton(tr(audio, "НАЗАД", "BACK"), Modifier.fillMaxWidth(),
-                            height = css.settingsButtonHeight,
-                            fontSize = css.settingsButtonFontSp, onClick = onBack)
                     }
                 }
+            }
+
+            // main/client/fullscreen.css: fixed square upper-right return arrow.
+            // Keep it outside the scroll container, so it never scrolls away.
+            if (page == Page.SETTINGS) {
+                AndroidView(
+                    modifier = Modifier.align(Alignment.TopEnd)
+                        .padding(
+                            top = css.navigationTop,
+                            end = css.navigationRight(maxWidth)
+                        )
+                        .size(css.navigationSize(maxWidth)),
+                    factory = { ctx ->
+                        EchoNavButton(ctx, EchoNavButton.Mode.BACK).apply {
+                            setOnClickListener { audio.click(); onBack() }
+                        }
+                    },
+                    update = { button ->
+                        button.setOnClickListener { audio.click(); onBack() }
+                    }
+                )
             }
         }
     }
