@@ -60,6 +60,8 @@ class EchoWebActivity : ComponentActivity() {
     private var packDialogOpen = false
     private var arenaExitDialogOpen = false
     private var arenaExitDialogHost: ComposeView? = null
+    private var paymentOverlay: FrameLayout? = null
+    private var paymentWeb: WebView? = null
     private val requestedUrl get() = if (page == Page.ARENA) BASE + "?play=1" else BASE
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
@@ -121,6 +123,10 @@ class EchoWebActivity : ComponentActivity() {
     // Keep pack closing independent; only leaving the actual arena needs
     // the confirmation implemented in main/client/game.js.
     private fun navigateBack() {
+        if (paymentOverlay != null) {
+            closeRobokassaPayment()
+            return
+        }
         if (arenaExitDialogOpen) {
             dismissArenaExitDialog()
             return
@@ -175,6 +181,113 @@ class EchoWebActivity : ComponentActivity() {
         }
     }
 
+    private fun isRobokassaCheckout(uri: Uri): Boolean =
+        uri.scheme == "https" &&
+        uri.host.equals("auth.robokassa.ru", ignoreCase = true) &&
+        uri.path.orEmpty().startsWith("/Merchant/", ignoreCase = true)
+
+    private fun isRobokassaReturn(uri: Uri): Boolean =
+        uri.scheme == "https" &&
+        uri.host.equals("cat-fight.ru", ignoreCase = true) &&
+        (uri.path == "/echo/api/payments/robokassa/return" ||
+         uri.path == "/echo/api/payments/robokassa/fail")
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun showRobokassaPayment(checkoutUrl: String) {
+        if (paymentOverlay != null || isFinishing || isDestroyed) return
+        val uri = Uri.parse(checkoutUrl)
+        if (!isRobokassaCheckout(uri)) return
+        // A separate payment WebView keeps the existing shop JS, auth session
+        // and pending-order polling alive underneath. No token in the payment URL.
+        val container = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        val checkout = WebView(this).apply {
+            setBackgroundColor(Color.BLACK)
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            settings.setSupportZoom(false)
+            settings.allowFileAccess = false
+            settings.allowContentAccess = false
+            settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            settings.javaScriptCanOpenWindowsAutomatically = false
+            webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(
+                    view: WebView, request: WebResourceRequest
+                ): Boolean {
+                    val dest = request.url
+                    if (isRobokassaReturn(dest)) {
+                        closeRobokassaPayment()
+                        return true
+                    }
+                    if (dest.scheme == "https") return false
+                    // Robokassa/banks may use app-specific bank-payment schemes.
+                    // Never load these untrusted schemes in the WebView.
+                    if (dest.scheme == "intent" || dest.scheme == "market" ||
+                        dest.scheme == "bank100000000111" ||
+                        dest.scheme == "sberpay") {
+                        runCatching {
+                            startActivity(Intent(Intent.ACTION_VIEW, dest))
+                        }.onFailure {
+                            Log.w(TAG, "Bank app not available")
+                        }
+                    }
+                    return true
+                }
+                override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+                    super.onPageStarted(view, url, favicon)
+                    if (isRobokassaReturn(Uri.parse(url))) closeRobokassaPayment()
+                }
+                override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
+                    handler.cancel()
+                    Log.e(TAG, "Robokassa HTTPS error")
+                    closeRobokassaPayment()
+                }
+            }
+        }
+        container.addView(checkout, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        val metrics = resources.displayMetrics
+        val density = metrics.density
+        val viewportWidth = (metrics.widthPixels / density).dp
+        val css = EchoCss((metrics.heightPixels / density).dp)
+        val control = EchoNavButton(this, EchoNavButton.Mode.CLOSE).apply {
+            contentDescription = "Закрыть оплату"
+            setOnClickListener { closeRobokassaPayment() }
+        }
+        container.addView(
+            control,
+            FrameLayout.LayoutParams(
+                (css.navigationSize(viewportWidth).value * density).toInt(),
+                (css.navigationSize(viewportWidth).value * density).toInt(),
+                Gravity.TOP or Gravity.END
+            ).apply {
+                rightMargin = (css.navigationRight(viewportWidth).value * density).toInt()
+                topMargin = (css.navigationTop.value * density).toInt()
+            }
+        )
+        paymentOverlay = container
+        paymentWeb = checkout
+        root.addView(container, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        checkout.loadUrl(checkoutUrl)
+    }
+
+    private fun closeRobokassaPayment() {
+        paymentOverlay?.let { container ->
+            paymentOverlay = null
+            val checkout = paymentWeb
+            paymentWeb = null
+            root.removeView(container)
+            runCatching { checkout?.stopLoading() }
+            runCatching { checkout?.destroy() }
+            // The ECHO page checks only its own authenticated server order.
+            if (::web.isInitialized && !isFinishing) {
+                web.evaluateJavascript(
+                    "window.dispatchEvent(new Event('echo:robokassa-returned'))", null
+                )
+            }
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     private fun createWebView() {
         web = WebView(this).apply {
@@ -219,6 +332,10 @@ class EchoWebActivity : ComponentActivity() {
                     view: WebView, request: WebResourceRequest
                 ): Boolean {
                     if (trusted(request.url)) return false
+                    if (request.isForMainFrame && isRobokassaCheckout(request.url)) {
+                        showRobokassaPayment(request.url.toString())
+                        return true
+                    }
                     if (request.isForMainFrame &&
                         request.url.scheme in listOf("https", "http")) {
                         runCatching {
@@ -577,6 +694,7 @@ class EchoWebActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        closeRobokassaPayment()
         dismissArenaExitDialog()
         if (::web.isInitialized) {
             runCatching { web.stopLoading() }
