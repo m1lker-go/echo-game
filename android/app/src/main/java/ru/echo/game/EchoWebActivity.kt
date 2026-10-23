@@ -45,6 +45,7 @@ class EchoWebActivity : ComponentActivity() {
     }
     private lateinit var root: FrameLayout
     private lateinit var web: WebView
+    private lateinit var nativeNav: EchoNavButton
     private lateinit var loading: EchoWebLoadingView
     private lateinit var auth: EchoAuthSession
     private var page = Page.ARENA
@@ -53,6 +54,7 @@ class EchoWebActivity : ComponentActivity() {
     private var latestError = ""
     private var loadSequence = 0
     private var failureDialogOpen = false
+    private var packDialogOpen = false
     private val requestedUrl get() = if (page == Page.ARENA) BASE + "?play=1" else BASE
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
@@ -82,11 +84,11 @@ class EchoWebActivity : ComponentActivity() {
 
         // main/client/fullscreen.css: one square top-right control per page.
         // Arena = close X, menu subpages = back chevron. No fullscreen control.
-        val nativeNav = EchoNavButton(
+        nativeNav = EchoNavButton(
             this, if (page == Page.ARENA) EchoNavButton.Mode.CLOSE
                   else EchoNavButton.Mode.BACK
         ).apply {
-            setOnClickListener { finish() }
+            setOnClickListener { navigateBack() }
             if ((applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
                 setOnLongClickListener { showDiagnostic(); true }
             }
@@ -106,9 +108,21 @@ class EchoWebActivity : ComponentActivity() {
             }
         )
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() { finish() }
+            override fun handleOnBackPressed() { navigateBack() }
         })
         web.loadUrl(requestedUrl)
+    }
+
+    // The pack-opening view has its own top-right Close button on the website.
+    // It replaces the shared Back arrow, rather than showing two overlapping icons.
+    private fun navigateBack() {
+        if (packDialogOpen && ::web.isInitialized) {
+            web.evaluateJavascript(
+                "document.getElementById('echo-pack-3d-close')?.click()", null
+            )
+        } else {
+            finish()
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -127,6 +141,17 @@ class EchoWebActivity : ComponentActivity() {
             settings.mediaPlaybackRequiresUserGesture = false
             webChromeClient = object : WebChromeClient() {
                 override fun onConsoleMessage(message: ConsoleMessage): Boolean {
+                    // DOM-only signal from the injected same-origin observer below.
+                    // No sensitive data crosses this channel.
+                    if (message.message() == "ECHO_ANDROID_PACK:open" ||
+                        message.message() == "ECHO_ANDROID_PACK:closed") {
+                        packDialogOpen = message.message().endsWith("open")
+                        nativeNav.setMode(
+                            if (packDialogOpen || page == Page.ARENA)
+                                EchoNavButton.Mode.CLOSE else EchoNavButton.Mode.BACK
+                        )
+                        return true
+                    }
                     if (message.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
                         latestError = message.message().take(220)
                         Log.e(TAG, "JS error in " + message.sourceId() +
@@ -155,6 +180,9 @@ class EchoWebActivity : ComponentActivity() {
 
                 override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                     super.onPageStarted(view, url, favicon)
+                    packDialogOpen = false
+                    nativeNav.setMode(if (page == Page.ARENA)
+                        EchoNavButton.Mode.CLOSE else EchoNavButton.Mode.BACK)
                     loadSequence++
                     loading.restart()
                     Log.i(TAG, "Native full-screen WebView loading: " + Uri.parse(url).path)
@@ -224,7 +252,21 @@ class EchoWebActivity : ComponentActivity() {
                             style.textContent =
                               '#echo-fullscreen-toggle,#game-exit,' +
                               '#character-back,#quests-back,#shop-back,#settings-back,' +
-                              '#placeholder-back{display:none!important;pointer-events:none!important}';
+                              '#placeholder-back{display:none!important;pointer-events:none!important}' +
+                              '#echo-pack-3d-close{visibility:hidden!important;pointer-events:none!important}';
+                            // When a pack opens, the native top-right control
+                            // switches Back → Close. Keep the original click handler.
+                            const pack = document.getElementById('echo-pack-3d');
+                            if (pack && !pack.dataset.echoNativeNavObserved) {
+                              pack.dataset.echoNativeNavObserved = '1';
+                              const report = () => console.info(
+                                'ECHO_ANDROID_PACK:' + (pack.hidden ? 'closed' : 'open')
+                              );
+                              new MutationObserver(report).observe(
+                                pack, {attributes:true,attributeFilter:['hidden']}
+                              );
+                              report();
+                            }
                             document.head.appendChild(style);
                           }
                           const opener = '$opener', secondary = '$secondary';
