@@ -169,7 +169,15 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
     // Only a provider-SIGNED callback can alter an existing payment record.
     // Historically this branch acknowledged refunds but never marked the
     // purchase refunded in ECHO's DB, making history misleading.
-    if (['refund','refunded','cancelled'].includes(body.status)) {
+    if (body.status === 'cancelled') {
+      // A cancellation is not proof that a previously paid order was
+      // refunded. Preserve its paid receipt until VK confirms a refund.
+      trace(type, 'cancel_acknowledged');
+      return res.json({response:{
+        order_id:Number(body.order_id),app_order_id:Number(body.order_id)
+      }});
+    }
+    if (['refund','refunded'].includes(body.status)) {
       try {
         const r = await pool.query(
           `UPDATE echo_vk_payments p
