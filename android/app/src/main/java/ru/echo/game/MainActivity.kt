@@ -121,8 +121,8 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
         }
     }
     val url = when (page) {
-        Page.ARENA -> WEB_BASE + "?play=1&apk=1"
-        else -> WEB_BASE + "?apk=1"
+        Page.ARENA -> WEB_BASE + "?play=1"
+        else -> WEB_BASE
     }
     val opener = when (page) {
         Page.HEROES, Page.HERO_VIEW -> "menu-character-button"
@@ -131,7 +131,11 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
         Page.ACCOUNT, Page.CODE_VIEW -> "menu-settings"
         else -> ""
     }
-    val additional = if (page == Page.CODE_VIEW) "settings-enter-code" else ""
+    val additional = when (page) {
+        Page.CODE_VIEW -> "settings-enter-code"
+        Page.ACCOUNT -> "echo-open-login"
+        else -> ""
+    }
     val music = audio.musicVolume
     val sfx = audio.sfxVolume
     val language = audio.language
@@ -276,7 +280,7 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                                       if (!document.getElementById('echo-android-style')) {
                                         var style = document.createElement('style');
                                         style.id = 'echo-android-style';
-                                        style.textContent = '#echo-fullscreen-toggle,#game-exit{display:none!important}';
+                                        style.textContent = '#echo-fullscreen-toggle,#game-exit,#character-back,#quests-back,#shop-back,#settings-back{display:none!important}' + '#menu-character,#menu-quests-screen,#menu-shop-screen,#menu-settings-screen{padding-bottom:64px!important}';
                                         document.head.appendChild(style);
                                       }
                                       var opener = '$opener', secondary = '$additional';
