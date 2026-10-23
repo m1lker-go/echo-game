@@ -162,33 +162,83 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                             }
                         }
                         webViewClient = object : WebViewClient() {
+                            private var mainFrameBroken = false
+
+                            private fun trusted(address: Uri): Boolean {
+                                return address.scheme == "https" &&
+                                    (address.host == "cat-fight.ru" || address.host == "www.cat-fight.ru") &&
+                                    (address.path == "/echo" || address.path.orEmpty().startsWith("/echo/"))
+                            }
+
+                            private fun fail(reason: String) {
+                                mainFrameBroken = true
+                                failureMessage = reason
+                                loaded = false
+                                failed = true
+                                Log.e("EchoWebView", reason)
+                            }
+
+                            override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+                                super.onPageStarted(view, url, favicon)
+                                mainFrameBroken = false
+                                failed = false
+                                loaded = false
+                                failureMessage = ""
+                                Log.d("EchoWebView", "Loading: " + url)
+                            }
+
                             override fun shouldOverrideUrlLoading(
                                 view: WebView, request: WebResourceRequest
                             ): Boolean {
                                 val target = request.url
-                                if (target.scheme == "https" &&
-                                    target.host.equals("cat-fight.ru", ignoreCase = true) &&
-                                    target.path.orEmpty().startsWith("/echo/")
-                                ) return false
-
-                                if (request.isForMainFrame &&
-                                    (target.scheme == "https" || target.scheme == "http")
-                                ) {
+                                if (trusted(target)) return false
+                                if (request.isForMainFrame && target.scheme in listOf("https", "http")) {
                                     runCatching {
                                         context.startActivity(Intent(Intent.ACTION_VIEW, target))
+                                    }.onFailure {
+                                        Log.e("EchoWebView", "External link failure: " + target, it)
                                     }
                                 }
                                 return true
                             }
 
+                            override fun onReceivedError(
+                                view: WebView, request: WebResourceRequest, error: WebResourceError
+                            ) {
+                                if (request.isForMainFrame) {
+                                    fail("Ошибка загрузки ECHO: " + error.description.toString() +
+                                        " (код " + error.errorCode + ")")
+                                } else {
+                                    Log.w("EchoWebView", "Resource error: " + request.url +
+                                        " / " + error.description)
+                                }
+                            }
+
+                            override fun onReceivedHttpError(
+                                view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse
+                            ) {
+                                if (request.isForMainFrame && errorResponse.statusCode >= 400) {
+                                    fail("Сервер ECHO вернул HTTP " + errorResponse.statusCode)
+                                }
+                            }
+
+                            override fun onReceivedSslError(
+                                view: WebView, handler: SslErrorHandler, error: SslError
+                            ) {
+                                handler.cancel()
+                                fail("Ошибка сертификата HTTPS ECHO: " + error.primaryError)
+                            }
+
                             override fun onPageFinished(view: WebView, url: String) {
                                 super.onPageFinished(view, url)
-                                if (!url.startsWith(WEB_BASE)) return
-                                failed = false
-                                loaded = true
-                                // Only inject into the trusted ECHO website.
-                                // Keep its existing game engine, authentication
-                                // and all three original WebView animations.
+                                // onPageFinished runs even after network/SSL errors. Never
+                                // turn an error page into an unexplained black screen.
+                                if (mainFrameBroken) return
+                                val finalUri = Uri.parse(url)
+                                if (!trusted(finalUri)) {
+                                    fail("ECHO перенаправила на неподдерживаемый адрес: " + finalUri.host)
+                                    return
+                                }
                                 val script = """
                                     (function () {
                                       if (window.__echoAndroidBootstrapped) return;
@@ -225,7 +275,7 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                                         var task = setInterval(function () {
                                           attempts++;
                                           var btn = document.getElementById(opener);
-                                          if (btn) {
+                                          if (btn && typeof window.ECHO_SELECTED_MODEL === 'string') {
                                             btn.click();
                                             clearInterval(task);
                                             if (secondary) setTimeout(function () {
@@ -238,17 +288,44 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                                     })();
                                 """.trimIndent()
                                 view.evaluateJavascript(script, null)
-                            }
 
-                            override fun onReceivedError(
-                                view: WebView,
-                                request: WebResourceRequest,
-                                error: WebResourceError
-                            ) {
-                                if (request.isForMainFrame) {
-                                    failed = true
-                                    loaded = false
+                                // Don't treat "onPageFinished" as proof that JS/Three.js
+                                // ran. Check the requested screen, not just HTML download.
+                                val visibleTarget = when (page) {
+                                    Page.ARENA ->
+                                        "document.getElementById('world')?.width > 0 && document.getElementById('main-menu')?.classList.contains('is-hidden') === true"
+                                    Page.HEROES, Page.HERO_VIEW ->
+                                        "document.getElementById('menu-character')?.hidden === false"
+                                    Page.SHOP, Page.PACK_VIEW ->
+                                        "document.getElementById('menu-shop-screen')?.hidden === false"
+                                    Page.QUESTS ->
+                                        "document.getElementById('menu-quests-screen')?.hidden === false"
+                                    else ->
+                                        "document.getElementById('menu-settings-screen')?.hidden === false"
                                 }
+                                val check = "(function(){return document.readyState==='complete' " +
+                                    "&& typeof window.ECHO_SELECTED_MODEL==='string' && (" +
+                                    visibleTarget + ");})()"
+
+                                fun probe(attempt: Int) {
+                                    if (mainFrameBroken || !view.isAttachedToWindow) return
+                                    view.evaluateJavascript(check) { result ->
+                                        if (mainFrameBroken) return@evaluateJavascript
+                                        if (result == "true") {
+                                            loaded = true
+                                            failed = false
+                                            failureMessage = ""
+                                            Log.d("EchoWebView", "ECHO ready: " + page)
+                                        } else if (attempt < 45) {
+                                            view.postDelayed({ probe(attempt + 1) }, 300)
+                                        } else {
+                                            fail("Страница ECHO открылась, но экран " +
+                                                page + " не запустился. Проверь Logcat → EchoWebView. " +
+                                                "Возможно, не загрузился JavaScript или WebGL.")
+                                        }
+                                    }
+                                }
+                                view.postDelayed({ probe(0) }, 300)
                             }
                         }
                         loadUrl(url)
