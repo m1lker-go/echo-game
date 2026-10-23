@@ -84,6 +84,7 @@
     "special_expires": "Code refreshes in: ",
     "special_copy": "Copy code",
     "special_open": "Open Cat Fighting",
+    "special_open_failed": "Could not launch Cat Fighting. Open it from VK Apps.",
     "special_check": "Check",
     "special_go": "Go to game",
     "special_completed": "Quest completed. Your reward is permanently claimed.",

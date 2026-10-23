@@ -42,7 +42,7 @@ test('Special quest uses the existing Cat Fighting image and black-white styling
   assert.match(js, /assets\/icons\/icon_cf\.webp/);
   assert.doesNotMatch(js, /'echo-special-logo', 'CF'/);
   assert.match(html, /special-quests\.css\?v=6/);
-  assert.match(html, /special-quests\.js\?v=5/);
+  assert.match(html, /special-quests\.js\?v=6/);
 });
 
 test('Special quest has a permanent icon-only visit link, code/copy row, and no extra hints', () => {
@@ -120,4 +120,19 @@ test('Special quest check shares reward row and instruction follows smaller code
   assert.match(css, /\.echo-special-code\s*\{[^}]*font-size:\s*clamp\(12px,\s*2\.8vw,\s*20px\)/s);
   assert.equal(ru.menu.special_instruction, 'Введи код в настройках Cat Fighting');
   assert.equal(en.menu.special_instruction, 'Enter the code in Cat Fighting settings');
+});
+
+
+test('VK Mini App opens the separate Cat Fighting application, browser opens the website', () => {
+  const js = fs.readFileSync(path.join(client, 'special-quests.js'), 'utf8');
+  const ru = JSON.parse(fs.readFileSync(path.join(client, 'locales/ru.json'), 'utf8'));
+  const en = JSON.parse(fs.readFileSync(path.join(client, 'locales/en.json'), 'utf8'));
+  assert.match(js, /CAT_FIGHT_VK_APP_ID = 54671077/);
+  assert.match(js, /VKWebAppOpenApp', \{ app_id: CAT_FIGHT_VK_APP_ID \}/);
+  assert.match(js, /window\.isVKMiniApp \? CAT_FIGHT_VK_URL : safeLink\(\)/);
+  assert.match(js, /event\.preventDefault\(\)/);
+  assert.match(js, /window\.ECHOVKBridgeReady/);
+  assert.match(js, /link\.target = '_blank'/);
+  assert.ok(ru.menu.special_open_failed);
+  assert.ok(en.menu.special_open_failed);
 });

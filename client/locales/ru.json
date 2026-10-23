@@ -84,6 +84,7 @@
     "special_expires": "Код сменится через: ",
     "special_copy": "Копировать код",
     "special_open": "Открыть Cat Fighting",
+    "special_open_failed": "Не удалось открыть Cat Fighting. Найди игру в приложениях ВКонтакте.",
     "special_check": "Проверка",
     "special_go": "Перейти",
     "special_completed": "Задание выполнено. Награда получена навсегда.",

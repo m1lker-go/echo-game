@@ -64,11 +64,25 @@
     if (!quest?.expiresAt || quest.verified) return null;
     return Math.max(0, Math.ceil((Date.parse(quest.expiresAt) - Date.now()) / 1000));
   }
+  // VK users must launch Cat Fighting as its own Mini App. A normal URL in
+  // ECHO's WebView inherits ECHO's landscape-sized viewport.
+  const CAT_FIGHT_VK_APP_ID = 54671077;
+  const CAT_FIGHT_VK_URL = 'https://vk.ru/app' + CAT_FIGHT_VK_APP_ID;
   function safeLink() {
     try {
       const link = new URL(quest?.gameUrl || '');
       return link.protocol === 'https:' ? link.href : 'https://cat-fight.ru/';
     } catch { return 'https://cat-fight.ru/'; }
+  }
+  async function openCatFightingInVK() {
+    try {
+      const bridge = window.vkBridge?.send ? window.vkBridge : await window.ECHOVKBridgeReady;
+      if (!bridge?.send) throw new Error('VK Bridge unavailable');
+      await bridge.send('VKWebAppOpenApp', { app_id: CAT_FIGHT_VK_APP_ID });
+    } catch (error) {
+      console.warn('[special-quests] VK Mini App launch failed:', error);
+      showToast(t('special_open_failed', 'Не удалось открыть Cat Fighting. Найди игру в приложениях ВКонтакте.'));
+    }
   }
   async function copy() {
     if (!quest?.code) return;
@@ -145,9 +159,15 @@
       node('span', '', t('special_join', 'Присоединиться к игре')));
     // Always show the square link in the title row, even after completion.
     const link = node('a', 'echo-special-visit');
-    link.href = safeLink();
+    link.href = window.isVKMiniApp ? CAT_FIGHT_VK_URL : safeLink();
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
+    link.addEventListener('click', event => {
+      if (!window.isVKMiniApp || event.button !== 0 ||
+          event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      void openCatFightingInVK();
+    });
     link.setAttribute('aria-label', quest.claimed
       ? t('special_go', 'Перейти')
       : t('special_open', 'Открыть Cat Fighting'));
