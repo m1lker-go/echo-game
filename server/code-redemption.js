@@ -2,7 +2,7 @@
 const express = require('express');
 const CF_CODE = /^CF-[A-HJ-NP-Z2-9]{12}$/;
 const URL = 'https://cat-fight.ru/codes/partner/redeem';
-function createCodeRedemption({sessionUser, secret=()=>process.env.ECHO_PARTNER_SHARED_SECRET || '',
+function createCodeRedemption({sessionUser, secret=require('./partner-code-secret').getPartnerSecret,
   redeem=async(code,echoAccountId,key)=>{
     const r=await fetch(URL,{method:'POST',headers:{'Content-Type':'application/json','x-echo-partner-secret':key},
       body:JSON.stringify({code,echoAccountId}),signal:AbortSignal.timeout(5000),redirect:'error'});

@@ -147,3 +147,6 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Locally generated shared secret for server-to-server partner codes.
+server/.partner-shared-secret

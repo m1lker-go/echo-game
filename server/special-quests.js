@@ -22,7 +22,7 @@ function partnerAuthorized(received, secret) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-function createSpecialQuests({ pool, sessionUser, grantPack, partnerSecret = process.env.ECHO_PARTNER_SHARED_SECRET || '',
+function createSpecialQuests({ pool, sessionUser, grantPack, partnerSecret = require('./partner-code-secret').getPartnerSecret(),
   now = () => new Date() }) {
   if (typeof grantPack !== 'function') throw new TypeError('A free-pack grant function is required');
   const router = express.Router();
