@@ -4,6 +4,7 @@ import android.content.Intent
 import android.graphics.Color as AndroidColor
 import android.graphics.drawable.ColorDrawable
 import android.graphics.Bitmap
+import android.content.pm.ApplicationInfo
 import android.net.Uri
 import android.net.http.SslError
 import android.util.Log
@@ -28,8 +29,10 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -49,6 +52,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -140,7 +145,8 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
     val sfx = audio.sfxVolume
     val language = audio.language
 
-    Box(Modifier.fillMaxSize().background(Background)) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(Background)) {
+        val nativeBackWidth = minOf(maxHeight, maxWidth - 36.dp)
         key(page, retry) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -403,17 +409,30 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
 
         Surface(
             onClick = { audio.click(); onBack() },
-            modifier = Modifier.align(Alignment.TopStart).padding(top = 8.dp, start = 10.dp),
-            color = Color(0xEA0C1016),
+            modifier = if (page == Page.ARENA) {
+                Modifier.align(Alignment.TopStart).padding(top = 10.dp, start = 10.dp)
+                    .width(44.dp).height(44.dp)
+            } else {
+                Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp)
+                    .width(nativeBackWidth).height(50.dp)
+            },
+            color = Color.Black,
             contentColor = Color.White,
-            shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, Color(0xFF8795A3))
+            shape = RoundedCornerShape(13.dp),
+            border = BorderStroke(1.dp, Color.White)
         ) {
-            Text(
-                if (language == "en") "← ANDROID MENU" else "← МЕНЮ ANDROID",
-                modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
-                fontSize = 12.sp, fontWeight = FontWeight.Bold
-            )
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    when {
+                        page == Page.ARENA -> "✕"
+                        language == "en" -> "BACK"
+                        else -> "НАЗАД"
+                    },
+                    fontFamily = FontFamily(Font(R.font.echo_superxp)),
+                    fontSize = if (page == Page.ARENA) 22.sp else 19.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
     }
 }
