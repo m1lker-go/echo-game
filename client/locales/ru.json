@@ -74,6 +74,8 @@
     "quests": "Задания",
     "shop_title": "МАГАЗИН",
     "purchase_title": "ИСТОРИЯ ПОКУПОК",
+    "purchase_refunded_at": "Дата возврата",
+    "purchase_disclaimer": "История отражает заказы и награды ECHO. Фискальный чек выдаёт платёжный сервис.",
     "purchase_votes": "голосов VK",
     "purchase_free": "Бесплатно",
     "purchase_free_pack": "Бесплатный пак",
