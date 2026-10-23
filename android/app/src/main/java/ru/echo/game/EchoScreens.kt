@@ -82,7 +82,12 @@ private fun tr(audio: EchoAudioEngine, ru: String, en: String) =
  * Do not show unconnected native collection/quest/payment placeholders.
  */
 @Composable
-internal fun EchoAndroidShell(audio: EchoAudioEngine) {
+internal fun EchoAndroidShell(
+    audio: EchoAudioEngine,
+    auth: EchoAuthSession,
+    onVkLogin: () -> Unit,
+    onLogout: () -> Unit
+) {
     var page by remember { mutableStateOf(Page.HOME) }
     LaunchedEffect(page) {
         audio.setWebActive(page != Page.HOME && page != Page.SETTINGS)
@@ -97,8 +102,9 @@ internal fun EchoAndroidShell(audio: EchoAudioEngine) {
         BackHandler(enabled = page != Page.HOME, onBack = back)
         when (page) {
             Page.HOME, Page.SETTINGS ->
-                EchoNativePage(page, audio, onNavigate = { page = it }, onBack = back)
-            else -> WebPage(page, back, audio)
+                EchoNativePage(page, audio, auth, onVkLogin, onLogout,
+                    onNavigate = { page = it }, onBack = back)
+            else -> WebPage(page, back, audio, auth)
         }
     }
 }
@@ -234,6 +240,7 @@ private fun EchoButton(
 @Composable
 private fun EchoNativePage(
     page: Page, audio: EchoAudioEngine,
+    auth: EchoAuthSession, onVkLogin: () -> Unit, onLogout: () -> Unit,
     onNavigate: (Page) -> Unit, onBack: () -> Unit
 ) {
     EchoSpaceBackground {
@@ -319,7 +326,7 @@ private fun EchoNativePage(
                     )
                     Spacer(Modifier.height(10.dp))
                     Box(Modifier.weight(1f).fillMaxWidth()) {
-                        EchoSettings(css, audio, onNavigate)
+                        EchoSettings(css, audio, auth, onVkLogin, onLogout, onNavigate)
                     }
                     Spacer(Modifier.height(7.dp))
                     EchoButton(tr(audio, "НАЗАД", "BACK"), Modifier.fillMaxWidth(),
@@ -332,7 +339,11 @@ private fun EchoNativePage(
 }
 
 @Composable
-private fun EchoSettings(css: EchoCss, audio: EchoAudioEngine, onNavigate: (Page) -> Unit) {
+private fun EchoSettings(
+    css: EchoCss, audio: EchoAudioEngine, auth: EchoAuthSession,
+    onVkLogin: () -> Unit, onLogout: () -> Unit,
+    onNavigate: (Page) -> Unit
+) {
     var confirmCache by remember { mutableStateOf(false) }
     var cacheMessage by remember { mutableStateOf("") }
     val context = LocalContext.current
@@ -346,9 +357,26 @@ private fun EchoSettings(css: EchoCss, audio: EchoAudioEngine, onNavigate: (Page
         // action buttons have equal width/height and stretch across content column.
         EchoText(tr(audio, "АККАУНТ", "ACCOUNT"), css.settingsLabelFontSp, Secondary,
             Modifier.fillMaxWidth(), letterSpacingEm = .12f)
-        EchoButton(tr(audio, "ВОЙТИ В АККАУНТ", "SIGN IN"), Modifier.fillMaxWidth(),
-            height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp) {
-            onNavigate(Page.ACCOUNT)
+        if (auth.nickname == null) {
+            EchoButton(
+                if (auth.busy) tr(audio, "ПОДКЛЮЧАЕМ VK...", "CONNECTING VK...")
+                else tr(audio, "ВОЙТИ ЧЕРЕЗ VK", "SIGN IN WITH VK"),
+                Modifier.fillMaxWidth(),
+                height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp
+            ) {
+                if (!auth.busy) onVkLogin()
+            }
+        } else {
+            EchoText(auth.nickname ?: "", css.settingsValueFontSp, White,
+                Modifier.fillMaxWidth(), centered = true)
+            EchoButton(tr(audio, "ВЫЙТИ ИЗ АККАУНТА", "SIGN OUT"), Modifier.fillMaxWidth(),
+                height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp) {
+                onLogout()
+            }
+        }
+        if (auth.message != null) {
+            EchoText(auth.message ?: "", css.settingsNoteFontSp, Secondary,
+                Modifier.fillMaxWidth(), centered = true)
         }
         Spacer(Modifier.height(6.dp))
         EchoText(tr(audio, "ЯЗЫК", "LANGUAGE"), css.settingsLabelFontSp, Secondary,
