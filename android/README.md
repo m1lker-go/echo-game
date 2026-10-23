@@ -1,4 +1,4 @@
-# ECHO Android — APK branch (0.3.7)
+# ECHO Android — APK branch (0.3.8)
 
 Independent Android Studio project. Main website and server are unchanged.
 
@@ -200,3 +200,23 @@ the Android Settings screen from `echo.android.preferences`:
 This text, including the screen reader description, is refreshed whenever the
 WebView loading overlay restarts. No animation, authentication or website
 changes were needed.
+
+## Shared Cat Fighting Robokassa merchant (0.3.8)
+
+ECHO's `apk` branch now stages payment using the **existing**
+Cat Fighting Robokassa merchant, identifiers, and passwords (configured
+in the *ECHO server process* environment, never in APK/GitHub).
+The existing Cat Fighting `/payment/result` route remains the merchant's
+only configured ResultURL. A separate, reviewable Cat Fighting branch
+`echo-robokassa-relay` contains a minimal handler for the ECHO-specific
+signed `Shp_type=echo_premium_pack` payment callback.
+
+The Android checkout handles return to any `https://cat-fight.ru`
+merchant return page by closing only the Robokassa overlay and asking the
+ECHO server to verify the paid order. Success/failure redirects cannot
+grant any cards.
+
+See `android/ROBOKASSA_SHARED_MERCHANT.md` for exact deployment order.
+**The purchase route is not active in the installed APK solely after
+Git Pull:** the separate ECHO server + served web JS and the Cat Fighting
+callback-branch change must be deliberately deployed first.
