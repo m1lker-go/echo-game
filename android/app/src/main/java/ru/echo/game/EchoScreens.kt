@@ -35,7 +35,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -107,7 +110,7 @@ private fun EchoSpaceBackground(content: @Composable () -> Unit) {
     // y += cos(time * drift + phase) * 22 px;
     // particles have independent randomized position, phase and speeds.
     val particles = remember {
-        val random = Random(82141)
+        val random = Random.Default
         List(46) {
             EchoParticle(
                 x = random.nextFloat(), y = random.nextFloat(),
@@ -118,12 +121,16 @@ private fun EchoSpaceBackground(content: @Composable () -> Unit) {
             )
         }
     }
-    val transition = rememberInfiniteTransition(label = "echo-moving-particles")
-    val clock by transition.animateFloat(
-        initialValue = 0f, targetValue = 120000f,
-        animationSpec = infiniteRepeatable(tween(120000, easing = LinearEasing)),
-        label = "time-ms"
-    )
+    var clock by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(Unit) {
+        val start = withFrameNanos { it }
+        while (true) {
+            withFrameNanos { now ->
+                // Continuous animation clock (no jumping back to zero after 2 minutes).
+                clock = (now - start) / 1_000_000f
+            }
+        }
+    }
     Box(Modifier.fillMaxSize().background(Black)) {
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width
