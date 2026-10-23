@@ -126,7 +126,11 @@
     }
     const article = node('article', 'echo-special-card' + (quest.claimed ? ' is-complete' : ''));
     const head = node('div', 'echo-special-head');
-    const logo = node('span', 'echo-special-logo', 'CF');
+    const logo = node('span', 'echo-special-logo');
+    const logoImage = node('img', 'echo-special-logo-image');
+    logoImage.src = './assets/icons/icon_cf.webp';
+    logoImage.alt = '';
+    logo.append(logoImage);
     logo.setAttribute('aria-hidden', 'true');
     const heading = node('div', 'echo-special-heading');
     heading.append(node('strong', '', t('special_catfight', 'CAT FIGHTING')),
