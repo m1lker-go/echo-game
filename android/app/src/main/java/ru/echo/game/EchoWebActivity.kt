@@ -5,8 +5,6 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
 import android.graphics.Color
-import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.net.http.SslError
 import android.os.Bundle
@@ -26,13 +24,13 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
-import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import org.json.JSONObject
+import androidx.compose.ui.unit.dp
 
 /**
  * Render WebGL in a platform WebView directly attached to the Activity window.
@@ -81,44 +79,36 @@ class EchoWebActivity : ComponentActivity() {
         ))
         loading.restart()
 
-        val back = TextView(this).apply {
-            text = if (page == Page.ARENA) "✕" else "НАЗАД"
-            gravity = Gravity.CENTER
-            textSize = if (page == Page.ARENA) 22f else 19f
-            setTextColor(Color.WHITE)
-            typeface = runCatching { resources.getFont(R.font.echo_superxp) }
-                .getOrNull() ?: Typeface.DEFAULT_BOLD
-            background = panelBackground()
+
+        // main/client/fullscreen.css: one square top-right control per page.
+        // Arena = close X, menu subpages = back chevron. No fullscreen control.
+        val nativeNav = EchoNavButton(
+            this, if (page == Page.ARENA) EchoNavButton.Mode.CLOSE
+                  else EchoNavButton.Mode.BACK
+        ).apply {
             setOnClickListener { finish() }
-            // Preserve WebGL diagnostics for Android Studio builds without
-            // showing a stray '?' where the original close control belongs.
             if ((applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
                 setOnLongClickListener { showDiagnostic(); true }
             }
         }
-        val backParams = if (page == Page.ARENA) {
-            FrameLayout.LayoutParams(dp(44), dp(44), Gravity.TOP or Gravity.END).apply {
-                topMargin = dp(10); rightMargin = dp(10)
+        val metrics = resources.displayMetrics
+        val density = metrics.density
+        val viewportWidth = (metrics.widthPixels / density).dp
+        val css = EchoCss((metrics.heightPixels / density).dp)
+        val navSize = (css.navigationSize(viewportWidth).value * density).toInt()
+        val navRight = (css.navigationRight(viewportWidth).value * density).toInt()
+        val navTop = (css.navigationTop.value * density).toInt()
+        root.addView(
+            nativeNav,
+            FrameLayout.LayoutParams(navSize, navSize, Gravity.TOP or Gravity.END).apply {
+                rightMargin = navRight
+                topMargin = navTop
             }
-        } else {
-            val metrics = resources.displayMetrics
-            FrameLayout.LayoutParams(
-                minOf(metrics.heightPixels, metrics.widthPixels - dp(40)),
-                dp(50), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            ).apply { bottomMargin = dp(8) }
-        }
-        root.addView(back, backParams)
+        )
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { finish() }
         })
         web.loadUrl(requestedUrl)
-    }
-
-    private fun panelBackground() = GradientDrawable().apply {
-        shape = GradientDrawable.RECTANGLE
-        setColor(Color.BLACK)
-        setStroke(dp(1), Color.WHITE)
-        cornerRadius = dp(13).toFloat()
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -229,10 +219,12 @@ class EchoWebActivity : ComponentActivity() {
                           if (!document.getElementById('echo-android-style')) {
                             const style = document.createElement('style');
                             style.id = 'echo-android-style';
+                            // Native top-right icon replaces the web navigation;
+                            // bottom Back and browser fullscreen stay completely removed.
                             style.textContent =
-                              '#echo-fullscreen-toggle{display:none!important}' +
-                              '#game-exit,#character-back,#quests-back,#shop-back,#settings-back{' +
-                              'visibility:hidden!important;pointer-events:none!important}';
+                              '#echo-fullscreen-toggle,#game-exit,' +
+                              '#character-back,#quests-back,#shop-back,#settings-back,' +
+                              '#placeholder-back{display:none!important;pointer-events:none!important}';
                             document.head.appendChild(style);
                           }
                           const opener = '$opener', secondary = '$secondary';
