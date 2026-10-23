@@ -1,4 +1,4 @@
-# ECHO Android — APK branch (0.3.8)
+# ECHO Android — APK branch (0.3.9)
 
 Independent Android Studio project. Main website and server are unchanged.
 
@@ -220,3 +220,26 @@ See `android/ROBOKASSA_SHARED_MERCHANT.md` for exact deployment order.
 **The purchase route is not active in the installed APK solely after
 Git Pull:** the separate ECHO server + served web JS and the Cat Fighting
 callback-branch change must be deliberately deployed first.
+
+## Account purchase history (0.3.9)
+
+The ECHO Shop now includes a bilingual **История покупок / Purchase History**
+button. The shared web modal lists actual server-side transaction records:
+- 250 ₽ via the same Cat Fighting Robokassa merchant
+- 40 VK votes (including pre-existing verified purchase rows and future refunds)
+- 50 ECHO Coin ordinary packs
+- free ordinary/premium packs
+
+Receipts show order/provider ID, amount/currency, status, timestamps,
+five-card grants and a test-mode label. The list is server-authenticated,
+private per account, paginated and noncacheable. Opening a free/coin pack
+and logging that opening use one DB transaction. The shop marks internal
+history as **not a fiscal receipt**.
+
+Top-right native Back now closes an open ECHO modal (including history)
+instead of exiting Shop immediately. No browser fullscreen button added.
+
+**No APK build alone will activate this**: deploy the ECHO server and
+served website client assets from `apk` as outlined in
+`android/PURCHASE_HISTORY.md`. Full Android/web/server live integration
+has not been run on the VPS. The Cat Fighting production `main` is unchanged.
