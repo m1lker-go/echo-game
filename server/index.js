@@ -49,6 +49,7 @@ app.get('/health', async (_req, res) => {
       ok: true,
       service: 'echo-server',
       database: database ? 'connected' : 'unavailable',
+      partnerCodesReady: require('./partner-code-secret').getPartnerSecret().length >= 32,
       timestamp: new Date().toISOString(),
     });
   } catch (_error) {
