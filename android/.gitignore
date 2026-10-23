@@ -1,0 +1,12 @@
+# Generated local Android/Gradle state
+.gradle/
+.idea/
+build/
+**/build/
+local.properties
+*.iml
+*.apk
+*.aab
+captures/
+.externalNativeBuild/
+.cxx/
