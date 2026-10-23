@@ -478,34 +478,104 @@ private fun EchoAccount() {
 }
 
 @Composable
-private fun EchoSettings(onNavigate: (Page) -> Unit) {
+private fun EchoSettings(audio: EchoAudioEngine, onNavigate: (Page) -> Unit) {
+    var confirmCache by remember { mutableStateOf(false) }
+    var cacheMessage by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val english = audio.language == "en"
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
-        EchoText("АККАУНТ", 18, Secondary, Modifier.fillMaxWidth(), centered = true)
-        EchoButton("ВОЙТИ В АККАУНТ", Modifier.fillMaxWidth(), height = 44.dp) { onNavigate(Page.ACCOUNT) }
-        EchoText("ЯЗЫК", 17, Secondary, Modifier.fillMaxWidth(), centered = true)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            EchoButton("РУССКИЙ", Modifier.weight(1f), selected = true, height = 42.dp) {}
-            EchoButton("ENGLISH", Modifier.weight(1f), height = 42.dp) {}
+        EchoText(trans(audio, "АККАУНТ", "ACCOUNT"), 17, Secondary, Modifier.fillMaxWidth(), centered = true)
+        EchoButton(trans(audio, "ВОЙТИ В АККАУНТ", "SIGN IN"), Modifier.fillMaxWidth(), height = 42.dp) {
+            onNavigate(Page.ACCOUNT)
         }
-        EchoText("ЗВУК", 17, Secondary, Modifier.fillMaxWidth(), centered = true)
-        EchoSettingsTile("МУЗЫКА", "Настраивается на арене")
-        EchoSettingsTile("ЭФФЕКТЫ", "Настраиваются на арене")
-        EchoText("Android 0.1.0 · горизонтальный экран", 12, Secondary, Modifier.fillMaxWidth(), centered = true)
+        EchoText(trans(audio, "ЯЗЫК", "LANGUAGE"), 17, Secondary, Modifier.fillMaxWidth(), centered = true)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            EchoButton(trans(audio, "РУССКИЙ", "RUSSIAN"), Modifier.weight(1f), selected = !english, height = 42.dp) {
+                audio.setLanguage("ru")
+            }
+            EchoButton("ENGLISH", Modifier.weight(1f), selected = english, height = 42.dp) {
+                audio.setLanguage("en")
+            }
+        }
+        EchoText(trans(audio, "ЗВУК", "SOUND"), 17, Secondary, Modifier.fillMaxWidth(), centered = true)
+        EchoVolumeSlider(
+            trans(audio, "МУЗЫКА", "MUSIC"),
+            audio.musicVolume,
+            onChange = audio::setMusicVolume
+        )
+        EchoVolumeSlider(
+            trans(audio, "ЗВУКИ", "EFFECTS"),
+            audio.sfxVolume,
+            onChange = audio::setSfxVolume
+        )
+        EchoText(trans(audio, "ДРУГОЕ", "OTHER"), 17, Secondary, Modifier.fillMaxWidth(), centered = true)
+        EchoButton(trans(audio, "ВВЕСТИ КОД", "REDEEM CODE"), Modifier.fillMaxWidth(), height = 42.dp) {
+            onNavigate(Page.CODE_VIEW)
+        }
+        EchoButton(trans(audio, "ОЧИСТИТЬ КЭШ ИГРЫ", "CLEAR GAME CACHE"), Modifier.fillMaxWidth(), height = 42.dp) {
+            confirmCache = true
+        }
+        if (cacheMessage.isNotEmpty()) {
+            EchoText(cacheMessage, 12, Secondary, Modifier.fillMaxWidth(), centered = true)
+        }
+        EchoText(trans(audio, "Android · горизонтальный экран", "Android · landscape"), 11, Secondary,
+            Modifier.fillMaxWidth(), centered = true)
+    }
+    if (confirmCache) {
+        AlertDialog(
+            onDismissRequest = { confirmCache = false },
+            title = { EchoText(trans(audio, "СБРОС КЭША", "CLEAR CACHE"), 22) },
+            text = { EchoText(trans(audio, "Удалить временные файлы WebView? Вход и настройки сохранятся.", "Remove temporary WebView files? Login and settings will remain."), 16) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmCache = false
+                    runCatching {
+                        android.webkit.WebView(context).apply {
+                            clearCache(true)
+                            destroy()
+                        }
+                        cacheMessage = trans(audio, "Кэш очищен", "Cache cleared")
+                    }.onFailure {
+                        cacheMessage = trans(audio, "Не удалось очистить кэш", "Could not clear cache")
+                    }
+                }) { EchoText(trans(audio, "ДА", "YES"), 18) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmCache = false }) {
+                    EchoText(trans(audio, "НЕТ", "NO"), 18)
+                }
+            },
+            containerColor = Color(0xFF111820)
+        )
     }
 }
 
 @Composable
-private fun EchoSettingsTile(title: String, subtitle: String) {
+private fun EchoVolumeSlider(label: String, value: Float, onChange: (Float) -> Unit) {
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp))
-            .background(Black).border(1.dp, QuestBorder, RoundedCornerShape(13.dp))
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Black)
+            .border(1.dp, QuestBorder, RoundedCornerShape(12.dp))
+            .padding(horizontal = 14.dp, vertical = 5.dp)
     ) {
-        EchoText(title, 17)
-        EchoText(subtitle, 12, Secondary)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+            EchoText(label, 17)
+            EchoText((value * 100f).toInt().toString() + "%", 16)
+        }
+        Slider(
+            value = value, onValueChange = onChange, valueRange = 0f..1f,
+            modifier = Modifier.fillMaxWidth().height(29.dp),
+            colors = SliderDefaults.colors(
+                thumbColor = Cyan,
+                activeTrackColor = Cyan,
+                inactiveTrackColor = Color(0xFF30404C)
+            )
+        )
     }
 }
