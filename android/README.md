@@ -1,4 +1,4 @@
-# ECHO Android — APK branch (0.2.3)
+# ECHO Android — APK branch (0.3.0)
 
 Independent Android Studio project. Main website and server are unchanged.
 
@@ -19,11 +19,11 @@ Independent Android Studio project. Main website and server are unchanged.
 - Native UI click sounds, Russian/English switcher, and WebView cache clearing with confirmation.
 - Android pauses its native playlist during Arena/other web screens and when the app is backgrounded; the website handles in-game music.
 - Original ECHO Arena, Heroes, Shop and Quests run inside WebView so their real GLB previews, pack animation, account-backed collection, purchases and quest actions aren't replaced with fake offline placeholder data.
-- Account and code redemption open the existing website's settings/code UI in WebView.
+- VK ID account login is native, based on Cat Fighting's Android SDK callback pattern; code redemption uses the website's modal in WebView.
 
 ## Still to implement
 
-Native account/session integration and verified server data for native Heroes, Shop and Quests. Those screens intentionally use the live web implementation until native functionality is equivalent. Paid Android purchases still require platform-specific work. VK ID login may require external-browser handling on certain WebView/device combinations. Do not assume a VK Mini App account signs in automatically in Android.
+Native server data integration for fully native Heroes, Shop and Quests. Those screens intentionally use the live web implementation until native functionality is equivalent. Paid Android purchases still require platform-specific work. VK ID requires separate Android client configuration for ECHO app id 54832804 (package, SHA-1 and protected client key). See `VK_ID_AUTH.md`. Do not assume a VK Mini App account signs in automatically in Android.
 
 WebView also has its own session storage, but shares origin-based WebView cookies/localStorage between ECHO WebView screens. The game requires internet.
 
@@ -50,5 +50,4 @@ positioned at the bottom on menu pages; the Arena uses a top-left close symbol.
 The Android settings now use matching left-aligned section labels, language flags,
 equally sized action buttons and white-outlined audio sliders.
 
-Do not assume VK ID OAuth works inside Android WebView until verified on the phone.
-Its popup/callback flow may require further Android-specific integration.
+Android Settings now use the **native VK ID SDK** rather than WebView OAuth. The SDK callback is handled by MainActivity, and the resulting ECHO bearer session is persisted privately and synced into the ECHO WebView. The VK developer portal must be configured for this Android package and signing key. See `VK_ID_AUTH.md`.
