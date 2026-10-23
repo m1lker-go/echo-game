@@ -96,19 +96,19 @@ internal class EchoAudioEngine(private val context: Context) {
         updatePlayback()
     }
 
-    fun setMusicVolume(volume: Float) {
+    fun updateMusicVolume(volume: Float) {
         musicVolume = volume.coerceIn(0f, 1f)
         preferences.edit().putFloat("musicVolume", musicVolume).apply()
         player?.setVolume(musicVolume, musicVolume)
         updatePlayback()
     }
 
-    fun setSfxVolume(volume: Float) {
+    fun updateSfxVolume(volume: Float) {
         sfxVolume = volume.coerceIn(0f, 1f)
         preferences.edit().putFloat("sfxVolume", sfxVolume).apply()
     }
 
-    fun setLanguage(value: String) {
+    fun updateLanguage(value: String) {
         if (value != "ru" && value != "en") return
         language = value
         preferences.edit().putString("language", value).apply()
