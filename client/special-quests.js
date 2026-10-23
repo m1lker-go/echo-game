@@ -22,6 +22,19 @@
   let lastExpiryAttempt = 0;
 
   function showToast(message) { window.ECHOToast?.show(message); }
+  const specialPackIcon = './assets/packs/icon_echocard_special.webp';
+  // Same toast markup used by daily quests: label and 25px reward icon.
+  function showPackRewardToast(quantity) {
+    const message = node('span', 'echo-quest-reward-toast');
+    const label = node('span', '', t('special_reward_received', 'Вы получили') + ' +' + quantity);
+    const image = node('img');
+    image.src = specialPackIcon;
+    image.alt = t('special_reward_pack_name', 'Специальный набор');
+    image.width = 25;
+    image.height = 25;
+    message.append(label, image);
+    window.ECHOToast?.show(message);
+  }
   function node(tag, cls, value) {
     const element = document.createElement(tag);
     if (cls) element.className = cls;
@@ -94,12 +107,10 @@
       const data = await response.json();
       quest = data.quest;
       if (data.claimedNow) {
-        showToast(t('special_reward_received', 'Награда получена: ') + '+' + quest.rewardCoins + ' ECHO Coin');
-        window.dispatchEvent(new Event('echo:balance-refresh'));
+        showPackRewardToast(data.reward?.quantity || 1);
+        window.dispatchEvent(new Event('echo:shop-balance-refresh'));
       } else if (data.status === 'completed') {
         showToast(t('special_already_done', 'Задание уже выполнено'));
-      } else if (data.status === 'reward_unconfigured') {
-        showToast(t('special_reward_pending', 'Переход подтверждён. Награда пока не настроена'));
       } else {
         showToast(t('special_not_verified', 'Код ещё не введён в Cat Fighting'));
       }
@@ -153,6 +164,16 @@
     link.append(visitIcon);
     head.append(logo, heading, link);
     article.append(head);
+    const rewardLine = node('div', 'echo-special-reward');
+    const rewardLabel = node('span', 'echo-special-reward-label', t('special_reward_title', 'Награда:'));
+    const rewardIcon = node('img', 'echo-special-reward-icon');
+    rewardIcon.src = specialPackIcon;
+    rewardIcon.alt = t('special_reward_pack_name', 'Специальный набор');
+    rewardIcon.width = 36;
+    rewardIcon.height = 36;
+    const rewardQuantity = node('span', 'echo-special-reward-quantity', t('special_reward_quantity', '1 шт.'));
+    rewardLine.append(rewardLabel, rewardIcon, rewardQuantity);
+    article.append(rewardLine);
     if (quest.claimed) {
       article.append(node('p', 'echo-special-description', t('special_completed', 'Задание выполнено. Награда получена навсегда.')));
     } else {
@@ -186,9 +207,6 @@
       }
       const canCheck = Boolean(quest.verified || copiedCode === quest.code);
       if (canCheck) article.append(action(t('special_check', 'Проверка'), check, 'echo-special-check'));
-      if (quest.verified && !quest.rewardConfigured) {
-        article.append(node('p', 'echo-special-hint', t('special_reward_pending', 'Переход подтверждён. Награда пока не настроена')));
-      }
     }
     specialList.append(article);
   }

@@ -41,8 +41,8 @@ test('Special quest uses the existing Cat Fighting image and black-white styling
   assert.match(css, /\.echo-special-logo-image\s*\{[^}]*object-fit:\s*contain/s);
   assert.match(js, /assets\/icons\/icon_cf\.webp/);
   assert.doesNotMatch(js, /'echo-special-logo', 'CF'/);
-  assert.match(html, /special-quests\.css\?v=4/);
-  assert.match(html, /special-quests\.js\?v=3/);
+  assert.match(html, /special-quests\.css\?v=5/);
+  assert.match(html, /special-quests\.js\?v=4/);
 });
 
 test('Special quest has a permanent icon-only visit link, code/copy row, and no extra hints', () => {
@@ -84,4 +84,22 @@ test('Quest screen maintains fixed, symmetrical scrollbar gutters across tabs', 
   assert.match(css, /\.echo-quests-screen\s*\{[^}]*overflow-y:\s*scroll;[^}]*scrollbar-gutter:\s*stable both-edges;/s);
   const html = fs.readFileSync(path.join(client, 'index.html'), 'utf8');
   assert.match(html, /landscape-menu-layout\.css\?v=echo-quests-scrollbar-gutter-2/);
+});
+
+
+test('Special Cat Fighting mission shows a premium pack reward and daily-style toast', () => {
+  const css = fs.readFileSync(path.join(client, 'special-quests.css'), 'utf8');
+  const js = fs.readFileSync(path.join(client, 'special-quests.js'), 'utf8');
+  const daily = fs.readFileSync(path.join(client, 'daily-quests.js'), 'utf8');
+  const server = fs.readFileSync(path.join(__dirname, '../special-quests.js'), 'utf8');
+  assert.match(js, /assets\/packs\/icon_echocard_special\.webp/);
+  assert.match(js, /echo-special-reward-label/);
+  assert.match(js, /echo-special-reward-quantity/);
+  assert.match(js, /echo-quest-reward-toast/);
+  assert.match(daily, /echo-quest-reward-toast/);
+  assert.match(js, /echo:shop-balance-refresh/);
+  assert.doesNotMatch(js, /quest\.rewardCoins/);
+  assert.match(css, /\.echo-special-reward-icon\s*\{/);
+  assert.match(server, /await grantPack\(accountId,\s*'premium',\s*1,\s*client\)/);
+  assert.doesNotMatch(server, /INSERT INTO echo_wallets/);
 });

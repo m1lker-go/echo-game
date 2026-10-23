@@ -26,10 +26,11 @@ const SHARED_SECRET = 'local-test-secret-must-be-at-least-thirty-two-characters-
 const A = 'b7042f81-037a-4051-b983-7990e0cacabc';
 const B = '05b777a0-ac46-46cf-9d2a-46a155d89aa6';
 
-function harness(rewardCoins = 50) {
+function harness() {
   const clock = { time: Date.parse('2026-10-23T12:00:00.000Z') };
   const records = new Map();
-  const wallet = new Map();
+  const packs = new Map();
+  let grantFails = false;
   const database = {
     async query(sql, args = []) {
       const command = sql.trim();
@@ -66,10 +67,6 @@ function harness(rewardCoins = 50) {
         records.get(args[0]).claimed_at = new Date(clock.time);
         return { rows: [], rowCount: 1 };
       }
-      if (command.startsWith('INSERT INTO echo_wallets')) {
-        wallet.set(args[0], (wallet.get(args[0]) || 0) + args[1]);
-        return { rows: [], rowCount: 1 };
-      }
       throw new Error('Unexpected SQL: ' + command);
     },
     async connect() {
@@ -78,7 +75,16 @@ function harness(rewardCoins = 50) {
   };
   const special = createSpecialQuests({
     pool: database, sessionUser: async req => req.account ? {id:req.account} : null,
-    partnerSecret: SHARED_SECRET, rewardCoins, now:()=>new Date(clock.time)
+    partnerSecret: SHARED_SECRET, now:()=>new Date(clock.time),
+    grantPack: async (accountId, packType, quantity, client) => {
+      assert.equal(packType, 'premium');
+      assert.equal(quantity, 1);
+      assert.ok(client && typeof client.query === 'function', 'Grant shares quest transaction');
+      if (grantFails) throw new Error('Pack grant failed');
+      const count = (packs.get(accountId) || 0) + quantity;
+      packs.set(accountId, count);
+      return count;
+    }
   });
   async function call(method,path,{account,body={},secret}={}) {
     const layer = special.router.stack.find(l=>l.route?.path===path&&l.route.methods[method.toLowerCase()]);
@@ -94,7 +100,7 @@ function harness(rewardCoins = 50) {
     await layer.route.stack[0].handle(request,response);
     return response;
   }
-  return {call,clock,records,wallet,initialize:special.initialize};
+  return {call,clock,records,packs,initialize:special.initialize, failGrant(){ grantFails=true; }};
 }
 
 test('Personal codes are cryptographically generated and use the allowed alphabet',()=>{
@@ -135,30 +141,35 @@ test('Only the trusted partner may confirm, once per Cat Fighting account',async
   assert.equal((await h.call('POST','/partner/redeem',{body:{code:b,catFightUserId:17},secret:SHARED_SECRET})).statusCode,409);
 });
 
-test('Checking cannot pay twice and does not pay without partner verification',async()=>{
+test('Checking grants one premium pack, never before partner verification or twice',async()=>{
   const h=harness();
-  const a=(await h.call('GET','/',{account:A})).payload.quest.code;
+  const first=await h.call('GET','/',{account:A});
+  const a=first.payload.quest.code;
+  assert.deepEqual(first.payload.quest.reward,{type:'pack',packType:'premium',quantity:1});
   assert.equal((await h.call('POST','/check',{account:A})).payload.status,'waiting');
-  assert.equal(h.wallet.get(A),undefined);
+  assert.equal(h.packs.get(A),undefined);
   await h.call('POST','/partner/redeem',{body:{code:a,catFightUserId:31},secret:SHARED_SECRET});
   const paid=await h.call('POST','/check',{account:A});
   assert.equal(paid.payload.claimedNow,true);
   assert.equal(paid.payload.quest.claimed,true);
-  assert.equal(h.wallet.get(A),50);
+  assert.deepEqual(paid.payload.reward,{type:'pack',packType:'premium',quantity:1});
+  assert.equal(h.packs.get(A),1);
   const second=await h.call('POST','/check',{account:A});
   assert.equal(second.payload.claimedNow,false);
-  assert.equal(h.wallet.get(A),50);
+  assert.equal(second.payload.reward,null);
+  assert.equal(h.packs.get(A),1);
   assert.equal((await h.call('GET','/',{account:A})).payload.quest.code,null);
 });
 
-test('No reward is silently claimed before its value is configured',async()=>{
-  const h=harness(0);
-  const a=(await h.call('GET','/',{account:A})).payload.quest.code;
-  await h.call('POST','/partner/redeem',{body:{code:a,catFightUserId:31},secret:SHARED_SECRET});
-  const claim=await h.call('POST','/check',{account:A});
-  assert.equal(claim.payload.status,'reward_unconfigured');
-  assert.equal(claim.payload.quest.claimed,false);
-  assert.equal(h.wallet.size,0);
+test('If premium pack grant fails, quest remains unclaimed for safe retry',async()=>{
+  const h=harness();
+  const code=(await h.call('GET','/',{account:A})).payload.quest.code;
+  await h.call('POST','/partner/redeem',{body:{code,catFightUserId:51},secret:SHARED_SECRET});
+  h.failGrant();
+  const failed=await h.call('POST','/check',{account:A});
+  assert.equal(failed.statusCode,500);
+  assert.equal(h.packs.get(A),undefined);
+  assert.equal(h.records.get(A).claimed_at,null);
 });
 
 test('Requests without verified ECHO login cannot issue or check a code',async()=>{

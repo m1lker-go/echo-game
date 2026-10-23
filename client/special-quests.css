@@ -97,6 +97,28 @@
 #game #menu-quests-screen .echo-special-copy:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 #game #menu-quests-screen .echo-special-heading strong { font-size: clamp(19px, 3.5vh, 26px); line-height: 1.1; }
 #game #menu-quests-screen .echo-special-heading span { color: #ddd; font-size: clamp(14px, 2.6vh, 18px); }
+#game #menu-quests-screen .echo-special-reward {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 15px 0 2px;
+  color: #fff;
+}
+#game #menu-quests-screen .echo-special-reward-label {
+  font-size: clamp(14px, 2.5vh, 18px);
+  font-weight: 600;
+}
+#game #menu-quests-screen .echo-special-reward-icon {
+  display: block;
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+#game #menu-quests-screen .echo-special-reward-quantity {
+  font-size: clamp(14px, 2.5vh, 18px);
+  font-weight: 700;
+}
 #game #menu-quests-screen .echo-special-description { margin: 18px 0 14px; color: #ddd; font-size: clamp(14px, 2.6vh, 18px); line-height: 1.5; }
 #game #menu-quests-screen .echo-special-code-row {
   display: flex;

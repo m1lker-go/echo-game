@@ -22,10 +22,12 @@ function partnerAuthorized(received, secret) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-function createSpecialQuests({ pool, sessionUser, partnerSecret = process.env.ECHO_PARTNER_SHARED_SECRET || '',
-  rewardCoins = Number(process.env.ECHO_PARTNER_REWARD_COINS || 0), now = () => new Date() }) {
+function createSpecialQuests({ pool, sessionUser, grantPack, partnerSecret = process.env.ECHO_PARTNER_SHARED_SECRET || '',
+  now = () => new Date() }) {
+  if (typeof grantPack !== 'function') throw new TypeError('A free-pack grant function is required');
   const router = express.Router();
-  const reward = Number.isSafeInteger(rewardCoins) && rewardCoins > 0 && rewardCoins <= 10000 ? rewardCoins : 0;
+  // Reuse ECHO's existing special-edition premium pack inventory.
+  const rewardPack = Object.freeze({ type: 'pack', packType: 'premium', quantity: 1 });
 
   async function initialize() {
     await pool.query(`CREATE TABLE IF NOT EXISTS echo_partner_quest_codes (
@@ -50,8 +52,8 @@ function createSpecialQuests({ pool, sessionUser, partnerSecret = process.env.EC
       expiresAt: row.claimed_at || row.redeemed_at ? null : row.expires_at,
       verified: Boolean(row.redeemed_at),
       claimed: Boolean(row.claimed_at),
-      rewardCoins: reward,
-      rewardConfigured: reward > 0,
+      reward: rewardPack,
+      rewardConfigured: true,
     };
   }
 
@@ -117,17 +119,16 @@ function createSpecialQuests({ pool, sessionUser, partnerSecret = process.env.EC
       }
 
       let claimedNow = false;
-      if (row.redeemed_at && !row.claimed_at && reward > 0) {
+      if (row.redeemed_at && !row.claimed_at) {
+        // Grant the pack and finalize the mission in ONE transaction.
+        await grantPack(accountId, 'premium', 1, client);
         await client.query('UPDATE echo_partner_quest_codes SET claimed_at=NOW() WHERE account_id=$1', [accountId]);
-        await client.query(
-          'INSERT INTO echo_wallets(profile_id,coins) VALUES($1,$2) ON CONFLICT(profile_id) DO UPDATE SET coins=echo_wallets.coins+EXCLUDED.coins',
-          [accountId, reward]);
         row.claimed_at = now();
         claimedNow = true;
       }
       await client.query('COMMIT');
       res.set('Cache-Control', 'no-store');
-      res.json({ quest: state(row), claimedNow, status: row.claimed_at ? 'completed' : row.redeemed_at ? 'reward_unconfigured' : 'waiting' });
+      res.json({ quest: state(row), claimedNow, reward: claimedNow ? rewardPack : null, status: row.claimed_at ? 'completed' : 'waiting' });
     } catch (error) {
       if (client) await client.query('ROLLBACK').catch(() => {});
       console.error('[special-quests] check failed:', error.message);
