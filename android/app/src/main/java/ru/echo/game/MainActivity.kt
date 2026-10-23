@@ -107,8 +107,9 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
         else -> WEB_BASE + "?apk=1"
     }
     val opener = when (page) {
-        Page.HERO_VIEW -> "menu-character-button"
-        Page.PACK_VIEW -> "menu-shop"
+        Page.HEROES, Page.HERO_VIEW -> "menu-character-button"
+        Page.SHOP, Page.PACK_VIEW -> "menu-shop"
+        Page.QUESTS -> "menu-quests"
         Page.ACCOUNT, Page.CODE_VIEW -> "menu-settings"
         else -> ""
     }
