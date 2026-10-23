@@ -481,8 +481,8 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                             "\nAndroid API: " + Build.VERSION.SDK_INT +
                             "\nWebView: " + (WebView.getCurrentWebViewPackage()?.versionName ?: "unknown") +
                             "\n" + debugDetails +
-                            if (lastConsoleError.isNotBlank())
-                                "\nJS error: " + lastConsoleError else ""
+                            (if (lastConsoleError.isNotBlank())
+                                "\nJS error: " + lastConsoleError else "")
                     )
                 },
                 confirmButton = {
