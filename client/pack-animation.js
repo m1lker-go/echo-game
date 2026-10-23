@@ -115,9 +115,85 @@ if(root){
   }
   return null;
  }
+ const ROBO_ORDER_KEY='echo.robokassaPendingOrder';
+ let roboChecking=false;
+ async function checkRobokassaStatus(orderId,token){
+  const r=await fetch('/echo/api/payments/robokassa/status/'+encodeURIComponent(orderId),{
+   headers:{Authorization:'Bearer '+token},cache:'no-store'
+  });
+  if(!r.ok)throw new Error(r.status===401?'auth':r.status===404?'missing':'status');
+  return r.json();
+ }
+ async function reconcileRobokassa(){
+  if(roboChecking)return;
+  const id=localStorage.getItem(ROBO_ORDER_KEY);
+  const token=localStorage.getItem('echo.authToken');
+  if(!token||!id||!/^[1-9]\d{0,17}$/.test(id))return;
+  roboChecking=true;
+  try{
+   for(let i=0;i<90;i++){
+    if(localStorage.getItem(ROBO_ORDER_KEY)!==id ||
+       localStorage.getItem('echo.authToken')!==token)break;
+    const data=await checkRobokassaStatus(id,token);
+    if(data.status==='paid'&&Array.isArray(data.cards)&&data.cards.length===5){
+     localStorage.removeItem(ROBO_ORDER_KEY);
+     showAwardedPack('premium',data.cards);
+     window.ECHOToast?.show(tr('pack_payment_verified','Оплата подтверждена. Карты получены!'));
+     return;
+    }
+    if(data.status!=='pending')break;
+    await new Promise(resolve=>setTimeout(resolve,2000));
+   }
+  }catch(error){
+   if(error.message==='missing'||error.message==='auth'){
+    localStorage.removeItem(ROBO_ORDER_KEY);
+   }
+   console.warn('[ECHO Robokassa] status check unavailable',error.message);
+  }finally{roboChecking=false;}
+ }
+ async function buyRobokassaPack(token){
+  purchaseBusy=true;
+  const button=document.querySelector('[data-echo-preview-pack="premium"]');
+  if(button)button.disabled=true;
+  try{
+   const response=await fetch('/echo/api/payments/robokassa/create',{
+    method:'POST',
+    headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+    body:'{}'
+   });
+   if(!response.ok)throw new Error(response.status===503?'not_configured':
+    response.status===401?'auth':'server');
+   const order=await response.json();
+   const url=new URL(order.checkoutUrl);
+   if(url.protocol!=='https:'||url.hostname!=='auth.robokassa.ru'||
+      !/^[1-9]\d{0,17}$/.test(String(order.orderId)))throw new Error('invalid_url');
+   localStorage.setItem(ROBO_ORDER_KEY,String(order.orderId));
+   // ECHO Android intercepts gateway navigation into an in-app payment view.
+   // In a regular browser the same URL opens normally; pending ID survives.
+   window.location.assign(url.toString());
+   void reconcileRobokassa();
+  }catch(error){
+   window.ECHOToast?.show(error.message==='not_configured'
+    ?tr('pack_payment_pending','Оплата через сайт пока не подключена')
+    :error.message==='auth'?tr('pack_login_required','Для покупки пака войдите в аккаунт')
+    :tr('pack_payment_error','Не удалось создать оплату. Попробуйте позже.'));
+  }finally{
+   purchaseBusy=false;
+   if(button)button.disabled=false;
+  }
+ }
+ // A browser reload after returning from the gateway can pick up a
+ // server-confirmed order and show the original animated premium pack.
+ window.addEventListener('pageshow',()=>{void reconcileRobokassa();});
+ window.addEventListener('focus',()=>{void reconcileRobokassa();});
+ window.addEventListener('echo:robokassa-returned',()=>{void reconcileRobokassa();});
+ document.addEventListener('echo:auth-changed',event=>{
+  if(event.detail?.authenticated)void reconcileRobokassa();
+ });
+ if(localStorage.getItem(ROBO_ORDER_KEY))setTimeout(()=>void reconcileRobokassa(),1500);
  async function buyPremiumPack(token){
   if(!isVKPurchasePlatform()){
-   window.ECHOToast?.show(tr('pack_payment_pending','Оплата через сайт пока не подключена'));
+   await buyRobokassaPack(token);
    return;
   }
   if(!window.vkBridge?.send){
