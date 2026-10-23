@@ -25,5 +25,6 @@ test('Both VPS deploy attempts install the pinned browser assets', () => {
   assert.match(script, /three@0\.180\.0/);
   assert.match(script, /socket\.io@4\.8\.1/);
   assert.match(script, /@fortawesome\/fontawesome-free@6\.7\.2/);
+  assert.match(script, /node --input-type=module --check/);
   assert.match(script, /node --check/);
 });

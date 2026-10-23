@@ -42,9 +42,9 @@ mkdir -p "$TMP_DIR/staged/fontawesome/css"
 cp package/css/all.min.css "$TMP_DIR/staged/fontawesome/css/all.min.css"
 cp -R package/webfonts "$TMP_DIR/staged/fontawesome/webfonts"
 
-node --check "$TMP_DIR/staged/three/build/three.module.js"
-node --check "$TMP_DIR/staged/three/examples/jsm/loaders/GLTFLoader.js"
-node --check "$TMP_DIR/staged/three/examples/jsm/utils/SkeletonUtils.js"
+node --input-type=module --check < "$TMP_DIR/staged/three/build/three.module.js"
+node --input-type=module --check < "$TMP_DIR/staged/three/examples/jsm/loaders/GLTFLoader.js"
+node --input-type=module --check < "$TMP_DIR/staged/three/examples/jsm/utils/SkeletonUtils.js"
 node --check "$TMP_DIR/staged/socket.io-4.8.1.min.js"
 test -s "$TMP_DIR/staged/fontawesome/webfonts/fa-solid-900.woff2"
 
