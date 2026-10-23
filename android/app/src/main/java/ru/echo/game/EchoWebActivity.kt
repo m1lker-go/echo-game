@@ -315,7 +315,7 @@ class EchoWebActivity : ComponentActivity() {
      * Keep the native full-screen loading surface up until that click succeeds.
      */
     private fun pollPageReady(view: WebView, sequence: Int, attempt: Int) {
-        if (isFinishing || isDestroyed || crashed ||
+        if (isFinishing || isDestroyed || crashed || failureDialogOpen ||
             sequence != loadSequence || loading.visibility != View.VISIBLE) return
         val target = when (page) {
             Page.ARENA -> "arena"
@@ -387,14 +387,25 @@ class EchoWebActivity : ComponentActivity() {
         latestError = message
         Log.e(TAG, message)
         runOnUiThread {
-            if (isFinishing || isDestroyed) return@runOnUiThread
+            if (isFinishing || isDestroyed || failureDialogOpen) return@runOnUiThread
+            failureDialogOpen = true
+            loadSequence++ // Cancel any pending successful readiness probe.
+            loading.restart()
             android.app.AlertDialog.Builder(this)
                 .setTitle("ECHO WebView")
                 .setMessage(message)
                 .setPositiveButton("ПОВТОРИТЬ") { _, _ ->
+                    failureDialogOpen = false
                     if (!crashed) web.loadUrl(requestedUrl) else recreate()
                 }
-                .setNegativeButton("НАЗАД") { _, _ -> finish() }
+                .setNegativeButton("НАЗАД") { _, _ ->
+                    failureDialogOpen = false
+                    finish()
+                }
+                .setOnCancelListener {
+                    failureDialogOpen = false
+                    finish()
+                }
                 .show()
         }
     }
