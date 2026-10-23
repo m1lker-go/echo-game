@@ -23,6 +23,8 @@ const allowedOrigin = process.env.CORS_ORIGIN || '*';
 app.use(cors({ origin: allowedOrigin === '*' ? true : allowedOrigin.split(',').map(v => v.trim()) }));
 app.use(express.json());
 app.use('/api/auth', echoAuth.router);
+const specialQuests = require('./special-quests').createSpecialQuests({ pool, sessionUser: echoAuth.sessionUser });
+app.use('/api/special-quests', specialQuests.router);
 
 const io = new Server(server, {
   cors: {
@@ -1327,6 +1329,7 @@ server.listen(port, '0.0.0.0', async () => {
     await pool.query('CREATE TABLE IF NOT EXISTS echo_daily_quest_claims (profile_id TEXT NOT NULL, quest_date DATE NOT NULL, quest_id TEXT NOT NULL, claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (profile_id, quest_date, quest_id))');
     await roundRewards.initialize(pool);
     await echoAuth.initialize();
+    await specialQuests.initialize();
     await freePacks.initialize();
     await vkPayments.initialize();
     rewardsReady = true;

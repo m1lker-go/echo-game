@@ -1,0 +1,119 @@
+/* Daily / Special quest navigation. Scoped so in-game quest HUD stays unchanged. */
+#game #menu-quests-screen .echo-quests-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(10px, 2vw, 16px);
+  width: min(100%, 650px);
+  margin: 2px auto 8px;
+  flex: 0 0 auto;
+}
+#game #menu-quests-screen .echo-quests-tab {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: clamp(42px, 7vh, 56px);
+  padding: 9px 10px;
+  border: 1px solid rgba(235, 248, 255, .58);
+  border-radius: 12px;
+  background: #060b12;
+  color: #b8ccdc;
+  font: 600 clamp(15px, 2.65vh, 20px)/1.1 Inter, system-ui, sans-serif;
+  text-align: center;
+  cursor: pointer;
+}
+#game #menu-quests-screen .echo-quests-tab.is-active {
+  color: #07121b;
+  background: #e8f6ff;
+  border-color: #fff;
+  box-shadow: 0 0 18px rgba(189, 229, 250, .12);
+}
+#game #menu-quests-screen .echo-quests-tab:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+#game #menu-quests-screen #quests-special-list[hidden],
+#game #menu-quests-screen #quests-list[hidden],
+#game #menu-quests-screen #quests-status[hidden],
+#game #menu-quests-screen #quests-special-status[hidden] { display: none !important; }
+
+#game #menu-quests-screen .echo-special-list {
+  width: min(100%, 650px);
+  display: grid;
+  gap: 14px;
+  margin-left: auto;
+  margin-right: auto;
+}
+#game #menu-quests-screen .echo-special-card {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(183, 222, 250, .58);
+  border-radius: 16px;
+  padding: clamp(16px, 3vw, 24px);
+  background: radial-gradient(circle at 20% 0%, rgba(55, 104, 140, .18), transparent 58%), #060b13;
+  color: #f1f8ff;
+  text-align: left;
+  box-shadow: 0 14px 35px rgba(0, 0, 0, .25);
+}
+#game #menu-quests-screen .echo-special-head { display: flex; align-items: center; gap: 14px; }
+#game #menu-quests-screen .echo-special-logo {
+  width: 60px;
+  height: 60px;
+  flex: 0 0 60px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(189, 225, 246, .75);
+  border-radius: 15px;
+  background: linear-gradient(145deg, #203f5b, #060c15 65%);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 750;
+  letter-spacing: .02em;
+}
+#game #menu-quests-screen .echo-special-heading { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+#game #menu-quests-screen .echo-special-heading strong { font-size: clamp(19px, 3.5vh, 26px); line-height: 1.1; }
+#game #menu-quests-screen .echo-special-heading span { color: #c7deef; font-size: clamp(14px, 2.6vh, 18px); }
+#game #menu-quests-screen .echo-special-description { margin: 18px 0 14px; color: #c7d8e5; font-size: clamp(14px, 2.6vh, 18px); line-height: 1.5; }
+#game #menu-quests-screen .echo-special-code {
+  padding: 12px 8px;
+  border: 1px solid rgba(234, 248, 255, .9);
+  border-radius: 12px;
+  background: #02070e;
+  color: #fff;
+  font-size: clamp(19px, 3.7vh, 28px);
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-align: center;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+#game #menu-quests-screen .echo-special-expiry,
+#game #menu-quests-screen .echo-special-hint { margin: 8px 0 12px; color: #92acbe; font-size: clamp(12px, 2.2vh, 15px); text-align: center; line-height: 1.4; }
+#game #menu-quests-screen .echo-special-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+#game #menu-quests-screen .echo-special-action {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 8px;
+  border: 1px solid #deeffb;
+  border-radius: 12px;
+  background: transparent;
+  color: #e8f7ff;
+  font: 600 clamp(13px, 2.4vh, 17px)/1.25 Inter, system-ui, sans-serif;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+#game #menu-quests-screen .echo-special-action.is-primary { background: #dceefa; color: #07121b; }
+#game #menu-quests-screen .echo-special-action:disabled { opacity: .55; cursor: wait; }
+#game #menu-quests-screen .echo-special-action:not(:disabled):hover { box-shadow: 0 0 17px rgba(173, 222, 249, .22); }
+#game #menu-quests-screen .echo-special-check,
+#game #menu-quests-screen .echo-special-goto { margin-top: 12px; }
+#game #menu-quests-screen .echo-special-verified { color: #a7f5d3; font-size: clamp(13px, 2.4vh, 17px); text-align: center; }
+#game #menu-quests-screen .echo-special-card.is-complete { border-color: rgba(119, 217, 167, .8); }
+#game #menu-quests-screen .echo-special-status { width: min(100%, 650px); font-size: clamp(14px, 2.5vh, 18px); color: #d6e6f4; margin: 0; }
+@media (max-width: 480px) {
+  #game #menu-quests-screen .echo-special-logo { width: 48px; height: 48px; flex-basis: 48px; font-size: 19px; }
+  #game #menu-quests-screen .echo-special-card { padding: 13px; }
+  #game #menu-quests-screen .echo-special-actions { gap: 7px; }
+}
