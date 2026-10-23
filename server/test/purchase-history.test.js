@@ -88,3 +88,23 @@ test('pack ledger entries accept only fixed coin/free prices and 5 server cards'
  await assert.rejects(recordPackOpening(db,USER,'coin','coin',cards.slice(0,3)),TypeError);
  assert.equal(calls.length,2);
 });
+
+test('shop has a single working purchase history entrypoint with localized labels',()=>{
+ const fs=require('node:fs'),path=require('node:path');
+ const client=path.join(__dirname,'../../client');
+ const html=fs.readFileSync(path.join(client,'index.html'),'utf8');
+ const js=fs.readFileSync(path.join(client,'purchase-history.js'),'utf8');
+ const css=fs.readFileSync(path.join(client,'shop.css'),'utf8');
+ assert.match(html,/id="echo-purchase-history"/);
+ assert.match(html,/purchase-history\.js/);
+ assert.match(js,/\/echo\/api\/purchases\?limit=20&offset=/);
+ assert.match(js,/Authorization: 'Bearer ' \+ token/);
+ assert.match(js,/ECHOModal\?\.open/);
+ assert.match(js,/fiscal receipt/);
+ assert.match(css,/\.echo-history-record/);
+ for(const language of ['ru','en']){
+  const data=JSON.parse(fs.readFileSync(path.join(client,'locales',language+'.json'),'utf8'));
+  for(const key of ['purchase_title','purchase_status','purchase_number','purchase_refunded','purchase_disclaimer'])
+   assert.equal(typeof data.menu[key],'string');
+ }
+});
