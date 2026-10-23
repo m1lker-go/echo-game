@@ -252,15 +252,15 @@ private fun EchoSettings(audio: EchoAudioEngine, onNavigate: (Page) -> Unit) {
         EchoText(tr(audio, "ЯЗЫК", "LANGUAGE"), 17, Secondary, Modifier.fillMaxWidth(), centered = true)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             EchoButton(tr(audio, "РУССКИЙ", "RUSSIAN"), Modifier.weight(1f), selected = !english, height = 42.dp) {
-                audio.setLanguage("ru")
+                audio.updateLanguage("ru")
             }
             EchoButton("ENGLISH", Modifier.weight(1f), selected = english, height = 42.dp) {
-                audio.setLanguage("en")
+                audio.updateLanguage("en")
             }
         }
         EchoText(tr(audio, "ЗВУК", "SOUND"), 17, Secondary, Modifier.fillMaxWidth(), centered = true)
-        EchoVolumeSlider(tr(audio, "МУЗЫКА", "MUSIC"), audio.musicVolume, audio::setMusicVolume)
-        EchoVolumeSlider(tr(audio, "ЗВУКИ", "EFFECTS"), audio.sfxVolume, audio::setSfxVolume)
+        EchoVolumeSlider(tr(audio, "МУЗЫКА", "MUSIC"), audio.musicVolume, audio::updateMusicVolume)
+        EchoVolumeSlider(tr(audio, "ЗВУКИ", "EFFECTS"), audio.sfxVolume, audio::updateSfxVolume)
         EchoText(tr(audio, "ДРУГОЕ", "OTHER"), 17, Secondary, Modifier.fillMaxWidth(), centered = true)
         EchoButton(tr(audio, "ВВЕСТИ КОД", "REDEEM CODE"), Modifier.fillMaxWidth(), height = 42.dp) {
             onNavigate(Page.CODE_VIEW)
