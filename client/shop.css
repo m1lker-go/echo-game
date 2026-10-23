@@ -147,3 +147,5 @@
 }
 .echo-history-more[hidden]{display:none!important}
 @media(max-height:520px){.echo-history-list{max-height:43dvh}.echo-history-record{padding:9px 12px}}
+
+.echo-history-disclaimer{margin:12px 0 0;color:#a5afbe;text-align:center;font:400 11px/1.5 Inter,system-ui,sans-serif}
