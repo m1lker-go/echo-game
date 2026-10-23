@@ -1,11 +1,6 @@
 name: Build ECHO Android APK
 
 on:
-  push:
-    branches: [ apk ]
-    paths:
-      - 'android/**'
-      - '.github/workflows/android-apk.yml'
   workflow_dispatch:
 
 permissions:
