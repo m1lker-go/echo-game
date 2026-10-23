@@ -463,7 +463,7 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                 },
                 modifier = Modifier.align(Alignment.TopEnd)
                     .padding(top = 9.dp, end = 9.dp),
-                color = Black, contentColor = Accent,
+                color = Color.Black, contentColor = Accent,
                 border = BorderStroke(1.dp, Color.White),
                 shape = RoundedCornerShape(10.dp)
             ) {
