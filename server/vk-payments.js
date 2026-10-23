@@ -77,6 +77,7 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
     // Preserve existing purchases, and allow a valid VK callback even when
     // its browser-side animation intent has been lost.
     await pool.query('ALTER TABLE echo_vk_payments ALTER COLUMN intent_id DROP NOT NULL');
+    await pool.query('ALTER TABLE echo_vk_payments ADD COLUMN IF NOT EXISTS refunded_at TIMESTAMPTZ');
     schemaReady = true;
   }
 
@@ -165,12 +166,32 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
       trace(type, 'invalid_order_id');
       return vkError(res, 1, 'Invalid order ID');
     }
-    // Cat Fighting acknowledges refunds/cancellations without granting an item.
+    // Only a provider-SIGNED callback can alter an existing payment record.
+    // Historically this branch acknowledged refunds but never marked the
+    // purchase refunded in ECHO's DB, making history misleading.
     if (['refund','refunded','cancelled'].includes(body.status)) {
-      trace(type, 'refund_or_cancel_acknowledged');
-      return res.json({response:{
-        order_id:Number(body.order_id),app_order_id:Number(body.order_id)
-      }});
+      try {
+        const r = await pool.query(
+          `UPDATE echo_vk_payments p
+           SET status='refunded',refunded_at=COALESCE(p.refunded_at,NOW())
+           WHERE p.order_id=$1 AND p.is_test=$2
+             AND p.status IN ('paid','refunded')
+             AND EXISTS (
+               SELECT 1 FROM echo_accounts a
+               WHERE a.id=p.account_id AND a.provider='vkid' AND a.provider_id=$3
+             )
+           RETURNING p.app_order_id`,
+          [String(body.order_id),isTest,String(body.user_id)]
+        );
+        trace(type,r.rowCount?'refund_recorded':'refund_unmatched');
+        return res.json({response:{
+          order_id:Number(body.order_id),
+          app_order_id:Number(r.rows[0]?.app_order_id??body.order_id)
+        }});
+      }catch(error){
+        console.error('[echo vk payment] refund status update failed:',error.message);
+        return vkError(res,2,'Temporarily unavailable',false);
+      }
     }
     if (body.status !== 'chargeable') {
       trace(type, 'unsupported_payment_status');
