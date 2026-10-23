@@ -75,27 +75,74 @@
   object-fit: contain;
   border-radius: inherit;
 }
-#game #menu-quests-screen .echo-special-heading { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+#game #menu-quests-screen .echo-special-heading { display: flex; flex: 1 1 auto; flex-direction: column; gap: 4px; min-width: 0; }
+#game #menu-quests-screen .echo-special-visit {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  flex: 0 0 60px;
+  margin-left: auto;
+  border: 1px solid #fff;
+  border-radius: 15px;
+  background: #fff;
+  color: #000;
+  text-decoration: none;
+  cursor: pointer;
+}
+#game #menu-quests-screen .echo-special-visit svg { width: 38px; height: 38px; }
+#game #menu-quests-screen .echo-special-visit:hover { background: #ddd; }
+#game #menu-quests-screen .echo-special-visit:focus-visible,
+#game #menu-quests-screen .echo-special-copy:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 #game #menu-quests-screen .echo-special-heading strong { font-size: clamp(19px, 3.5vh, 26px); line-height: 1.1; }
 #game #menu-quests-screen .echo-special-heading span { color: #ddd; font-size: clamp(14px, 2.6vh, 18px); }
 #game #menu-quests-screen .echo-special-description { margin: 18px 0 14px; color: #ddd; font-size: clamp(14px, 2.6vh, 18px); line-height: 1.5; }
-#game #menu-quests-screen .echo-special-code {
-  padding: 12px 8px;
-  border: 1px solid rgba(255, 255, 255, .9);
+#game #menu-quests-screen .echo-special-code-row {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  min-height: 58px;
+  border: 1px solid #fff;
   border-radius: 12px;
   background: #000;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+#game #menu-quests-screen .echo-special-code {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 6px;
   color: #fff;
-  font-size: clamp(19px, 3.7vh, 28px);
+  font-size: clamp(13px, 3.2vw, 24px);
   font-weight: 700;
-  letter-spacing: .06em;
+  letter-spacing: .055em;
   text-align: center;
   overflow-wrap: anywhere;
   user-select: text;
   -webkit-user-select: text;
 }
-#game #menu-quests-screen .echo-special-expiry,
+#game #menu-quests-screen .echo-special-copy {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  flex: 0 0 58px;
+  width: 58px;
+  border: 0;
+  border-left: 1px solid #fff;
+  border-radius: 0;
+  background: #000;
+  color: #fff;
+  cursor: pointer;
+}
+#game #menu-quests-screen .echo-special-copy svg { width: 25px; height: 25px; }
+#game #menu-quests-screen .echo-special-copy:hover { background: #222; }
+#game #menu-quests-screen .echo-special-copy:disabled { opacity: .55; cursor: wait; }
 #game #menu-quests-screen .echo-special-hint { margin: 8px 0 12px; color: #aaa; font-size: clamp(12px, 2.2vh, 15px); text-align: center; line-height: 1.4; }
-#game #menu-quests-screen .echo-special-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
 #game #menu-quests-screen .echo-special-action {
   display: flex;
   width: 100%;
@@ -117,13 +164,15 @@
 #game #menu-quests-screen .echo-special-action.is-primary { background: #fff; color: #000; }
 #game #menu-quests-screen .echo-special-action:disabled { opacity: .55; cursor: wait; }
 #game #menu-quests-screen .echo-special-action:not(:disabled):hover { box-shadow: 0 0 17px rgba(255, 255, 255, .2); }
-#game #menu-quests-screen .echo-special-check,
-#game #menu-quests-screen .echo-special-goto { margin-top: 12px; }
+#game #menu-quests-screen .echo-special-check { margin-top: 12px; }
 #game #menu-quests-screen .echo-special-verified { color: #fff; font-size: clamp(13px, 2.4vh, 17px); text-align: center; }
 #game #menu-quests-screen .echo-special-card.is-complete { border-color: rgba(255, 255, 255, .8); }
 #game #menu-quests-screen .echo-special-status { width: min(100%, 100dvh, 650px); font-size: clamp(14px, 2.5vh, 18px); color: #ddd; margin: 0; }
 @media (max-width: 480px) {
   #game #menu-quests-screen .echo-special-logo { width: 48px; height: 48px; flex-basis: 48px; font-size: 19px; }
+  #game #menu-quests-screen .echo-special-visit { width: 48px; height: 48px; flex-basis: 48px; }
+  #game #menu-quests-screen .echo-special-visit svg { width: 32px; height: 32px; }
+  #game #menu-quests-screen .echo-special-copy { width: 48px; flex-basis: 48px; }
   #game #menu-quests-screen .echo-special-card { padding: 13px; }
-  #game #menu-quests-screen .echo-special-actions { gap: 7px; }
+  #game #menu-quests-screen .echo-special-head { gap: 9px; }
 }

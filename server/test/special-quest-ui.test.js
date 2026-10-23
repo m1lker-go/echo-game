@@ -41,6 +41,19 @@ test('Special quest uses the existing Cat Fighting image and black-white styling
   assert.match(css, /\.echo-special-logo-image\s*\{[^}]*object-fit:\s*contain/s);
   assert.match(js, /assets\/icons\/icon_cf\.webp/);
   assert.doesNotMatch(js, /'echo-special-logo', 'CF'/);
-  assert.match(html, /special-quests\.css\?v=2/);
-  assert.match(html, /special-quests\.js\?v=2/);
+  assert.match(html, /special-quests\.css\?v=3/);
+  assert.match(html, /special-quests\.js\?v=3/);
+});
+
+test('Special quest has a permanent icon-only visit link, code/copy row, and no extra hints', () => {
+  const css = fs.readFileSync(path.join(client, 'special-quests.css'), 'utf8');
+  const js = fs.readFileSync(path.join(client, 'special-quests.js'), 'utf8');
+  assert.match(js, /head\.append\(logo, heading, link\)/);
+  assert.match(js, /codeRow\.append\(code, copyButton\)/);
+  assert.match(js, /copyButton\.setAttribute\('aria-label'/);
+  assert.match(js, /link\.setAttribute\('aria-label'/);
+  assert.doesNotMatch(js, /special_copy_first/);
+  assert.doesNotMatch(js, /special_expires/);
+  assert.match(css, /\.echo-special-code-row\s*\{[^}]*display:\s*flex/s);
+  assert.match(css, /\.echo-special-copy\s*\{[^}]*border-left:\s*1px solid #fff/s);
 });

@@ -51,9 +51,6 @@
     if (!quest?.expiresAt || quest.verified) return null;
     return Math.max(0, Math.ceil((Date.parse(quest.expiresAt) - Date.now()) / 1000));
   }
-  function timeString(seconds) {
-    return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
-  }
   function safeLink() {
     try {
       const link = new URL(quest?.gameUrl || '');
@@ -135,39 +132,60 @@
     const heading = node('div', 'echo-special-heading');
     heading.append(node('strong', '', t('special_catfight', 'CAT FIGHTING')),
       node('span', '', t('special_join', 'Присоединиться к игре')));
-    head.append(logo, heading);
+    // Always show the square link in the title row, even after completion.
+    const link = node('a', 'echo-special-visit');
+    link.href = safeLink();
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.setAttribute('aria-label', quest.claimed
+      ? t('special_go', 'Перейти')
+      : t('special_open', 'Открыть Cat Fighting'));
+    link.title = t('special_open', 'Открыть Cat Fighting');
+    const visitIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    visitIcon.setAttribute('viewBox', '0 0 24 24');
+    visitIcon.setAttribute('fill', 'none');
+    visitIcon.setAttribute('stroke', 'currentColor');
+    visitIcon.setAttribute('stroke-width', '2.1');
+    visitIcon.setAttribute('stroke-linecap', 'round');
+    visitIcon.setAttribute('stroke-linejoin', 'round');
+    visitIcon.setAttribute('aria-hidden', 'true');
+    visitIcon.innerHTML = '<path d="M4 9V4.5A1.5 1.5 0 0 1 5.5 3h13A1.5 1.5 0 0 1 20 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19.5V15"/><path d="M2 12h13m-5-5 5 5-5 5"/>';
+    link.append(visitIcon);
+    head.append(logo, heading, link);
     article.append(head);
     if (quest.claimed) {
       article.append(node('p', 'echo-special-description', t('special_completed', 'Задание выполнено. Награда получена навсегда.')));
-      const link = node('a', 'echo-special-action is-primary echo-special-goto', t('special_go', 'Перейти'));
-      link.href = safeLink();
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      article.append(link);
     } else {
       article.append(node('p', 'echo-special-description', t('special_instruction', 'Скопируй код и вставь его в настройках Cat Fighting.')));
       if (quest.code) {
+        // The code and copy icon share one bordered row, like nickname/edit.
+        const codeRow = node('div', 'echo-special-code-row');
         const code = node('div', 'echo-special-code', quest.code);
         code.setAttribute('aria-label', t('special_code', 'Персональный код'));
-        article.append(code);
-        const seconds = timeLeft();
-        if (seconds !== null) article.append(node('p', 'echo-special-expiry',
-          t('special_expires', 'Код сменится через: ') + timeString(seconds)));
-        const actions = node('div', 'echo-special-actions');
-        actions.append(action(t('special_copy', 'Копировать код'), copy));
-        const link = node('a', 'echo-special-action is-primary', t('special_open', 'Открыть Cat Fighting'));
-        link.href = safeLink();
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        actions.append(link);
-        article.append(actions);
+        const copyButton = node('button', 'echo-special-copy');
+        copyButton.type = 'button';
+        copyButton.disabled = busy;
+        copyButton.setAttribute('aria-label', t('special_copy', 'Копировать код'));
+        copyButton.title = t('special_copy', 'Копировать код');
+        const copyIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        copyIcon.setAttribute('viewBox', '0 0 24 24');
+        copyIcon.setAttribute('fill', 'none');
+        copyIcon.setAttribute('stroke', 'currentColor');
+        copyIcon.setAttribute('stroke-width', '1.9');
+        copyIcon.setAttribute('stroke-linecap', 'round');
+        copyIcon.setAttribute('stroke-linejoin', 'round');
+        copyIcon.setAttribute('aria-hidden', 'true');
+        copyIcon.innerHTML = '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>';
+        copyButton.append(copyIcon);
+        copyButton.addEventListener('click', copy);
+        codeRow.append(code, copyButton);
+        article.append(codeRow);
       }
       if (quest.verified) {
         article.append(node('p', 'echo-special-verified', t('special_verified', 'Код принят в Cat Fighting. Нажми «Проверка».')));
       }
       const canCheck = Boolean(quest.verified || copiedCode === quest.code);
       if (canCheck) article.append(action(t('special_check', 'Проверка'), check, 'echo-special-check'));
-      else article.append(node('p', 'echo-special-hint', t('special_copy_first', 'После копирования кода появится кнопка проверки.')));
       if (quest.verified && !quest.rewardConfigured) {
         article.append(node('p', 'echo-special-hint', t('special_reward_pending', 'Переход подтверждён. Награда пока не настроена')));
       }
@@ -220,9 +238,6 @@
     if (quest && left === 0 && !busy && Date.now() - lastExpiryAttempt > 10000) {
       lastExpiryAttempt = Date.now();
       void refresh();
-    } else if (left !== null) {
-      const countdown = specialList.querySelector('.echo-special-expiry');
-      if (countdown) countdown.textContent = t('special_expires', 'Код сменится через: ') + timeString(left);
     }
   }, 1000);
   selectTab('daily');
