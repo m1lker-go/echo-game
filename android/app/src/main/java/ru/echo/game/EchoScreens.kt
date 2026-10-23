@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import android.content.Intent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -89,6 +90,7 @@ internal fun EchoAndroidShell(
     onLogout: () -> Unit
 ) {
     var page by remember { mutableStateOf(Page.HOME) }
+    val context = LocalContext.current
     LaunchedEffect(page) {
         audio.setWebActive(page != Page.HOME && page != Page.SETTINGS)
     }
@@ -104,7 +106,21 @@ internal fun EchoAndroidShell(
             Page.HOME, Page.SETTINGS ->
                 EchoNativePage(page, audio, auth, onVkLogin, onLogout,
                     onNavigate = { page = it }, onBack = back)
-            else -> WebPage(page, back, audio, auth)
+            else -> {
+                // Avoid embedding WebGL inside Compose AndroidView on MIUI:
+                // dedicate the Activity's native Android view hierarchy to it.
+                LaunchedEffect(page) {
+                    val destination = page
+                    context.startActivity(
+                        Intent(context, EchoWebActivity::class.java)
+                            .putExtra(EchoWebActivity.EXTRA_PAGE, destination.name)
+                    )
+                    page = when (destination) {
+                        Page.CODE_VIEW, Page.ACCOUNT -> Page.SETTINGS
+                        else -> Page.HOME
+                    }
+                }
+            }
         }
     }
 }
