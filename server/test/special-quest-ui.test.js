@@ -42,7 +42,7 @@ test('Special quest uses the existing Cat Fighting image and black-white styling
   assert.match(js, /assets\/icons\/icon_cf\.webp/);
   assert.doesNotMatch(js, /'echo-special-logo', 'CF'/);
   assert.match(html, /special-quests\.css\?v=6/);
-  assert.match(html, /special-quests\.js\?v=6/);
+  assert.match(html, /special-quests\.js\?v=7/);
 });
 
 test('Special quest has a permanent icon-only visit link, code/copy row, and no extra hints', () => {
@@ -135,4 +135,18 @@ test('VK Mini App opens the separate Cat Fighting application, browser opens the
   assert.match(js, /link\.target = '_blank'/);
   assert.ok(ru.menu.special_open_failed);
   assert.ok(en.menu.special_open_failed);
+});
+
+
+test('Claimed Cat Fighting quest keeps only the game header and link', () => {
+  const js = fs.readFileSync(path.join(client, 'special-quests.js'), 'utf8');
+  const html = fs.readFileSync(path.join(client, 'index.html'), 'utf8');
+  const claimGuard = js.indexOf('if (!quest.claimed) {', js.indexOf('head.append(logo, heading, link)'));
+  const reward = js.indexOf("const rewardLine = node('div', 'echo-special-reward')", claimGuard);
+  const code = js.indexOf('if (quest.code) {', reward);
+  assert.ok(claimGuard >= 0 && reward > claimGuard && code > reward);
+  assert.doesNotMatch(js, /article\.append\(node\('p', 'echo-special-description', t\('special_completed'/);
+  assert.match(js, /head\.append\(logo, heading, link\)/);
+  assert.match(js, /link\.setAttribute\('aria-label', quest\.claimed/);
+  assert.match(html, /special-quests\.js\?v=7/);
 });

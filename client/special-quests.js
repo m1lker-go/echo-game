@@ -184,21 +184,19 @@
     link.append(visitIcon);
     head.append(logo, heading, link);
     article.append(head);
-    const rewardLine = node('div', 'echo-special-reward');
-    const rewardLabel = node('span', 'echo-special-reward-label', t('special_reward_title', 'Награда:'));
-    const rewardIcon = node('img', 'echo-special-reward-icon');
-    rewardIcon.src = specialPackIcon;
-    rewardIcon.alt = t('special_reward_pack_name', 'Специальный набор');
-    rewardIcon.width = 36;
-    rewardIcon.height = 36;
-    const rewardQuantity = node('span', 'echo-special-reward-quantity', t('special_reward_quantity', '1 шт.'));
-    rewardLine.append(rewardLabel, rewardIcon, rewardQuantity);
-    const canCheck = !quest.claimed && Boolean(quest.verified || (quest.code && copiedCode === quest.code));
-    if (canCheck) rewardLine.append(action(t('special_check', 'Проверка'), check, 'echo-special-check'));
-    article.append(rewardLine);
-    if (quest.claimed) {
-      article.append(node('p', 'echo-special-description', t('special_completed', 'Задание выполнено. Награда получена навсегда.')));
-    } else {
+    if (!quest.claimed) {
+      const rewardLine = node('div', 'echo-special-reward');
+      const rewardLabel = node('span', 'echo-special-reward-label', t('special_reward_title', 'Награда:'));
+      const rewardIcon = node('img', 'echo-special-reward-icon');
+      rewardIcon.src = specialPackIcon;
+      rewardIcon.alt = t('special_reward_pack_name', 'Специальный набор');
+      rewardIcon.width = 36;
+      rewardIcon.height = 36;
+      const rewardQuantity = node('span', 'echo-special-reward-quantity', t('special_reward_quantity', '1 шт.'));
+      rewardLine.append(rewardLabel, rewardIcon, rewardQuantity);
+      const canCheck = !quest.claimed && Boolean(quest.verified || (quest.code && copiedCode === quest.code));
+      if (canCheck) rewardLine.append(action(t('special_check', 'Проверка'), check, 'echo-special-check'));
+      article.append(rewardLine);
       if (quest.code) {
         // The code and copy icon share one bordered row, like nickname/edit.
         const codeRow = node('div', 'echo-special-code-row');
