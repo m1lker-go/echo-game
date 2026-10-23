@@ -173,11 +173,12 @@
     rewardIcon.height = 36;
     const rewardQuantity = node('span', 'echo-special-reward-quantity', t('special_reward_quantity', '1 шт.'));
     rewardLine.append(rewardLabel, rewardIcon, rewardQuantity);
+    const canCheck = !quest.claimed && Boolean(quest.verified || (quest.code && copiedCode === quest.code));
+    if (canCheck) rewardLine.append(action(t('special_check', 'Проверка'), check, 'echo-special-check'));
     article.append(rewardLine);
     if (quest.claimed) {
       article.append(node('p', 'echo-special-description', t('special_completed', 'Задание выполнено. Награда получена навсегда.')));
     } else {
-      article.append(node('p', 'echo-special-description', t('special_instruction', 'Скопируй код и вставь его в настройках Cat Fighting.')));
       if (quest.code) {
         // The code and copy icon share one bordered row, like nickname/edit.
         const codeRow = node('div', 'echo-special-code-row');
@@ -202,11 +203,10 @@
         codeRow.append(code, copyButton);
         article.append(codeRow);
       }
+      article.append(node('p', 'echo-special-instruction', t('special_instruction', 'Введи код в настройках Cat Fighting')));
       if (quest.verified) {
         article.append(node('p', 'echo-special-verified', t('special_verified', 'Код принят в Cat Fighting. Нажми «Проверка».')));
       }
-      const canCheck = Boolean(quest.verified || copiedCode === quest.code);
-      if (canCheck) article.append(action(t('special_check', 'Проверка'), check, 'echo-special-check'));
     }
     specialList.append(article);
   }

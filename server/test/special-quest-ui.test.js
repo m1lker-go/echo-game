@@ -41,8 +41,8 @@ test('Special quest uses the existing Cat Fighting image and black-white styling
   assert.match(css, /\.echo-special-logo-image\s*\{[^}]*object-fit:\s*contain/s);
   assert.match(js, /assets\/icons\/icon_cf\.webp/);
   assert.doesNotMatch(js, /'echo-special-logo', 'CF'/);
-  assert.match(html, /special-quests\.css\?v=5/);
-  assert.match(html, /special-quests\.js\?v=4/);
+  assert.match(html, /special-quests\.css\?v=6/);
+  assert.match(html, /special-quests\.js\?v=5/);
 });
 
 test('Special quest has a permanent icon-only visit link, code/copy row, and no extra hints', () => {
@@ -102,4 +102,22 @@ test('Special Cat Fighting mission shows a premium pack reward and daily-style t
   assert.match(css, /\.echo-special-reward-icon\s*\{/);
   assert.match(server, /await grantPack\(accountId,\s*'premium',\s*1,\s*client\)/);
   assert.doesNotMatch(server, /INSERT INTO echo_wallets/);
+});
+
+
+test('Special quest check shares reward row and instruction follows smaller code', () => {
+  const js = fs.readFileSync(path.join(client, 'special-quests.js'), 'utf8');
+  const css = fs.readFileSync(path.join(client, 'special-quests.css'), 'utf8');
+  const ru = JSON.parse(fs.readFileSync(path.join(client, 'locales/ru.json'), 'utf8'));
+  const en = JSON.parse(fs.readFileSync(path.join(client, 'locales/en.json'), 'utf8'));
+  assert.match(js, /if \(canCheck\) rewardLine\.append\(action\(t\('special_check'/);
+  assert.doesNotMatch(js, /article\.append\(action\(t\('special_check'/);
+  const code = js.indexOf('article.append(codeRow)');
+  const instruction = js.indexOf("article.append(node('p', 'echo-special-instruction'");
+  assert.ok(code >= 0 && instruction > code, 'Instruction is below the code row');
+  assert.match(css, /\.echo-special-reward\s*\{[^}]*flex-wrap:\s*nowrap/s);
+  assert.match(css, /\.echo-special-reward \.echo-special-check\s*\{[^}]*margin:\s*0 0 0 auto/s);
+  assert.match(css, /\.echo-special-code\s*\{[^}]*font-size:\s*clamp\(12px,\s*2\.8vw,\s*20px\)/s);
+  assert.equal(ru.menu.special_instruction, 'Введи код в настройках Cat Fighting');
+  assert.equal(en.menu.special_instruction, 'Enter the code in Cat Fighting settings');
 });
