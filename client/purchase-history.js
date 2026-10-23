@@ -65,6 +65,10 @@
       addDetail(details, t('purchase_confirmed_at', 'Дата подтверждения', 'Confirmed at'),
         formatDate(record.completedAt));
     }
+    if (record.refundedAt) {
+      addDetail(details, t('purchase_refunded_at', 'Дата возврата', 'Refund date'),
+        formatDate(record.refundedAt));
+    }
     if (record.status === 'paid') {
       addDetail(details, t('purchase_cards', 'Карточек персонажей', 'Character cards'),
         String(record.cardModels));
@@ -97,7 +101,11 @@
       t('purchase_more', 'Показать ещё', 'Show more'));
     more.type = 'button';
     more.hidden = true;
-    content.append(hint, list, more);
+    const note = element('p', 'echo-history-disclaimer',
+      t('purchase_disclaimer',
+        'История отражает заказы и награды ECHO. Фискальный чек выдаёт платёжный сервис.',
+        'This is ECHO’s order and reward history. Your payment provider issues the fiscal receipt.'));
+    content.append(hint, list, more, note);
     const modal = window.ECHOModal?.open({
       title: t('purchase_title', 'ИСТОРИЯ ПОКУПОК', 'PURCHASE HISTORY'),
       contentElement: content,
@@ -114,6 +122,7 @@
       if (busy) return;
       busy = true;
       more.hidden = true;
+      more.textContent = t('purchase_more', 'Показать ещё', 'Show more');
       hint.hidden = false;
       hint.textContent = t('purchase_loading', 'Загружаем историю…', 'Loading purchases…');
       try {
