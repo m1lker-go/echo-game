@@ -1,7 +1,8 @@
 'use strict';
 // Unified read-only financial history from the ORIGINAL VK/Robokassa order tables.
 // Non-cash pack openings are recorded in a small transactional ledger.
-const express=require('express');
+// Router constructor stays lazy, so unit tests can inject a lightweight mock.
+
 const SOURCES=new Set(['coin','free']), PACKS=new Set(['coin','premium']);
 async function recordPackOpening(db,accountId,source,packType,cards) {
   if(!db?.query || !accountId || !SOURCES.has(source) || !PACKS.has(packType) ||
@@ -13,7 +14,7 @@ async function recordPackOpening(db,accountId,source,packType,cards) {
      source==='coin'?'ECHO_COIN':'FREE',JSON.stringify(cards)]
   );
 }
-function createPurchaseHistory({pool,sessionUser,createRouter=()=>express.Router()}){
+function createPurchaseHistory({pool,sessionUser,createRouter=()=>require('express').Router()}){
  const router=createRouter();
  async function initialize(){
   await pool.query("CREATE TABLE IF NOT EXISTS echo_pack_openings (id BIGSERIAL PRIMARY KEY, account_id UUID NOT NULL REFERENCES echo_accounts(id), source TEXT NOT NULL CHECK(source IN ('coin','free')), pack_type TEXT NOT NULL CHECK(pack_type IN ('coin','premium')), amount INTEGER NOT NULL CHECK(amount>=0), currency TEXT NOT NULL CHECK(currency IN ('ECHO_COIN','FREE')), cards JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
