@@ -1,4 +1,4 @@
-# ECHO Android — APK branch (0.3.6)
+# ECHO Android — APK branch (0.3.7)
 
 Independent Android Studio project. Main website and server are unchanged.
 
@@ -188,3 +188,15 @@ Test: sign in -> Settings -> Sign Out -> No (remains signed in), then
 Yes (logs out). Arena -> cross -> No (continue playing), then cross ->
 Yes (return home). Repeat with Android system Back. Verify Pack Close
 and the ordinary subpage Back icons remain unchanged.
+
+## Loading screen localization (0.3.7)
+
+The native starfield/loader caption now reads the same language setting as
+the Android Settings screen from `echo.android.preferences`:
+
+- Russian: `Загрузка страницы`
+- English: `Loading page`
+
+This text, including the screen reader description, is refreshed whenever the
+WebView loading overlay restarts. No animation, authentication or website
+changes were needed.
