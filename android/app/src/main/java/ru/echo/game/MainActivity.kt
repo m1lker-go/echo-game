@@ -8,6 +8,12 @@ import android.content.pm.ApplicationInfo
 import android.net.Uri
 import android.net.http.SslError
 import android.util.Log
+import android.widget.Toast
+import com.vk.id.VKID
+import com.vk.id.AccessToken
+import com.vk.id.auth.VKIDAuthCallback
+import com.vk.id.VKIDAuthFail
+import org.json.JSONObject
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -77,10 +83,23 @@ internal enum class Page {
 
 class MainActivity : ComponentActivity() {
     private lateinit var echoAudio: EchoAudioEngine
+    private lateinit var echoAuth: EchoAuthSession
+    private var vkLoginInProgress = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         echoAudio = EchoAudioEngine(applicationContext)
+        echoAuth = EchoAuthSession(applicationContext)
+        echoAuth.token()?.let { previous ->
+            Thread {
+                runCatching { echoAuth.checkSession(previous) }.onSuccess { freshName ->
+                    // Token may have been logged out while this request was in flight.
+                    if (echoAuth.token() == previous && freshName.isNotBlank()) runOnUiThread {
+                        if (echoAuth.token() == previous) echoAuth.updateNickname(freshName)
+                    }
+                }
+            }.start()
+        }
         window.setBackgroundDrawable(ColorDrawable(AndroidColor.BLACK))
         WindowCompat.setDecorFitsSystemWindows(window, false)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -94,7 +113,66 @@ class MainActivity : ComponentActivity() {
             systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
-        setContent { MaterialTheme { EchoAndroidShell(echoAudio) } }
+        setContent {
+            MaterialTheme {
+                EchoAndroidShell(echoAudio, echoAuth, onVkLogin = ::startVkLogin,
+                    onLogout = ::logoutEcho)
+            }
+        }
+    }
+
+
+    private fun startVkLogin() {
+        if (vkLoginInProgress || echoAuth.busy) return
+        if (!BuildConfig.ECHO_VK_CONFIGURED) {
+            echoAuth.message = "Для входа VK настрой ECHO_VK_CLIENT_SECRET в Android Studio (не ключ Cat Fighting)."
+            return
+        }
+        vkLoginInProgress = true
+        echoAuth.busy = true
+        echoAuth.message = null
+        try {
+            VKID.instance.authorize(this, vkAuthCallback)
+        } catch (error: Exception) {
+            vkLoginInProgress = false
+            echoAuth.busy = false
+            echoAuth.message = "VK ID не запустился: " + (error.message ?: "ошибка")
+            Log.e("EchoVKID", "VK ID authorize failed", error)
+        }
+    }
+
+    private val vkAuthCallback = object : VKIDAuthCallback {
+        override fun onAuth(accessToken: AccessToken) {
+            // Unlike Web VK ID widget, the native SDK calls back to the Activity,
+            // not to the ordinary browser at https://cat-fight.ru/echo/.
+            val vkToken = accessToken.token
+            Thread {
+                val result = runCatching { echoAuth.exchangeVkToken(vkToken) }
+                runOnUiThread {
+                    vkLoginInProgress = false
+                    echoAuth.busy = false
+                    result.onSuccess {
+                        echoAuth.accept(it)
+                        Toast.makeText(this@MainActivity, "Вы вошли в ECHO", Toast.LENGTH_SHORT).show()
+                    }.onFailure {
+                        echoAuth.message = it.message ?: "Не удалось войти в ECHO через VK"
+                        Log.e("EchoVKID", "ECHO session exchange failed (no tokens logged)", it)
+                    }
+                }
+            }.start()
+        }
+
+        override fun onFail(fail: VKIDAuthFail) {
+            vkLoginInProgress = false
+            echoAuth.busy = false
+            echoAuth.message = "Вход через VK отменён или не выполнен"
+        }
+    }
+
+    private fun logoutEcho() {
+        val existing = echoAuth.token()
+        echoAuth.clearSession()
+        if (existing != null) Thread { echoAuth.logoutServer(existing) }.start()
     }
 
     override fun onResume() {
@@ -114,7 +192,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
+internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine, auth: EchoAuthSession) {
     val context = LocalContext.current
     var failed by remember(page) { mutableStateOf(false) }
     var loaded by remember(page) { mutableStateOf(false) }
