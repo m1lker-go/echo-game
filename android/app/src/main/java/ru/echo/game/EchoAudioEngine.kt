@@ -112,7 +112,6 @@ internal class EchoAudioEngine(private val context: Context) {
         if (value != "ru" && value != "en") return
         language = value
         preferences.edit().putString("language", value).apply()
-        click()
     }
 
     fun click() {
