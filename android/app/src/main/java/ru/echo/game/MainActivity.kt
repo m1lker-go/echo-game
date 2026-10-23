@@ -342,9 +342,10 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                     }
                 },
                 onRelease = { view ->
-                    view.stopLoading()
-                    view.loadUrl("about:blank")
-                    view.destroy()
+                    // A crashed renderer may reject further load/stop operations.
+                    runCatching { view.stopLoading() }
+                    runCatching { view.loadUrl("about:blank") }
+                    runCatching { view.destroy() }
                 }
             )
         }
