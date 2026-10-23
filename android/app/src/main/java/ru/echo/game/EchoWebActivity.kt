@@ -131,14 +131,28 @@ class EchoWebActivity : ComponentActivity() {
             dismissArenaExitDialog()
             return
         }
-        if (packDialogOpen && ::web.isInitialized) {
-            web.evaluateJavascript(
-                "document.getElementById('echo-pack-3d-close')?.click()", null
-            )
+        if (page == Page.ARENA) {
+            showArenaExitDialog()
             return
         }
-        if (page == Page.ARENA) showArenaExitDialog()
-        else finish()
+        if (!::web.isInitialized) {
+            finish()
+            return
+        }
+        // The top-right Android Back icon is above the WebView modal layer.
+        // Dismiss an open ECHO dialog (including Purchase History) before
+        // navigating away from the Shop. Pack Close remains a separate action.
+        web.evaluateJavascript(
+            "(function(){const m=document.querySelector('.echo-modal-overlay:not([hidden])');" +
+            "if(m){window.ECHOModal?.close(false);return true;}return false;})()"
+        ) { consumed ->
+            if (consumed == "true" || isFinishing || isDestroyed) return@evaluateJavascript
+            if (packDialogOpen) {
+                web.evaluateJavascript(
+                    "document.getElementById('echo-pack-3d-close')?.click()", null
+                )
+            } else finish()
+        }
     }
 
     private fun showArenaExitDialog() {
