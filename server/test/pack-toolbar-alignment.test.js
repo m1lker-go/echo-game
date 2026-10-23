@@ -30,7 +30,7 @@ test('pack fullscreen and Close controls share nav coordinates instead of fixed 
 });
 
 test('new fullscreen stylesheet version is loaded in both browser and VK Mini Apps',()=>{
- assert.match(html,/fullscreen\.css\?v=echo-pack-toolbar-align-1/);
+ assert.match(html,/fullscreen\.css\?v=echo-vk-mobile-fullscreen-1/);
  assert.match(html,/id="echo-pack-3d-close"/);
  assert.match(html,/id="echo-fullscreen-toggle"/);
 });
