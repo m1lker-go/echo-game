@@ -40,6 +40,12 @@ internal class EchoAuthSession(context: Context) {
         message = null
     }
 
+    fun updateNickname(name: String) {
+        if (token() == null || name.isBlank()) return
+        preferences.edit().putString("nickname", name).apply()
+        nickname = name
+    }
+
     fun clearSession() {
         preferences.edit()
             .remove("token")
