@@ -71,7 +71,7 @@ internal object EchoHeroWebBootstrap {
               }
             })();
         """.trimIndent()
-            .replace("__ECHO_TOKEN_LITERAL__", sessionToken?.let(JSONObject::quote) ?: "null")
+            .replace("__ECHO_TOKEN_LITERAL__", sessionToken?.let { JSONObject.quote(it) } ?: "null")
             .replace("__ECHO_LOGOUT_FLAG__", auth.clearWebSession.toString())
 
         return runCatching {
