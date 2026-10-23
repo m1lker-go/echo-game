@@ -1,9 +1,26 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {
-  createSpecialQuests, generateCode, CODE_PATTERN, CODE_LIFETIME_MS, partnerAuthorized
-} = require('../special-quests');
+// CI validates the source before npm install. Stub only Express's Router here.
+const Module = require('node:module');
+const originalLoad = Module._load;
+Module._load = function(request, parent, isMain) {
+  if (request === 'express') return { Router() {
+    const router = { stack: [] };
+    for (const method of ['get', 'post']) router[method] = (path, handler) => {
+      router.stack.push({ route: { path, methods: { [method]: true }, stack: [{ handle: handler }] } });
+    };
+    return router;
+  } };
+  return originalLoad.call(this, request, parent, isMain);
+};
+let specialModule;
+try {
+  specialModule = require('../special-quests');
+} finally {
+  Module._load = originalLoad;
+}
+const { createSpecialQuests, generateCode, CODE_PATTERN, CODE_LIFETIME_MS, partnerAuthorized } = specialModule;
 
 const SHARED_SECRET = 'local-test-secret-must-be-at-least-thirty-two-characters-long';
 const A = 'b7042f81-037a-4051-b983-7990e0cacabc';
