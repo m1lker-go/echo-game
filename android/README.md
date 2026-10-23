@@ -1,4 +1,4 @@
-# ECHO Android — APK branch (0.3.3)
+# ECHO Android — APK branch (0.3.4)
 
 Independent Android Studio project. Main website and server are unchanged.
 
@@ -110,3 +110,20 @@ targeted GPU/view-composition hypothesis and is not yet device-proven.
   the existing diagnostics. Nothing labeled '?' is displayed.
 - No modifications were made to main's CSS, production server, VK auth or
   GitHub Action build automation.
+
+## Native cache-reset confirmation (0.3.4)
+
+Android Settings -> "Очистить кэш игры" now opens a **native ECHO-styled
+confirmation modal**, replacing the basic Material AlertDialog. It recreates
+main/client/style.css's .echo-modal-overlay and .echo-modal design:
+- translucent dark full-screen overlay with the same 46 moving/twinkling stars
+  as the native menu and browser ECHOModal
+- centered black panel with 1dp white border, 13dp rounded corners
+- responsive title "СБРОС КЭША", original browser prompt, and equal
+  NO (dark) / YES (white) buttons
+- landscape-safe scrolling, backdrop taps do not accidentally confirm
+- YES clears WebView HTTP/image cache, leaving native VK account/session,
+  WebView localStorage, cookies and app settings untouched; NO only closes it
+
+Only the `apk` branch has changed. The web client, server, VK auth and
+automatic GitHub builds remain untouched.
