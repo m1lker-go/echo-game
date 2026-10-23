@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -44,6 +45,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -188,6 +191,7 @@ private fun EchoButton(
     modifier: Modifier = Modifier,
     selected: Boolean = false,
     height: androidx.compose.ui.unit.Dp = 48.dp,
+    flag: Int? = null,
     onClick: () -> Unit
 ) {
     val audio = LocalEchoAudio.current
@@ -200,11 +204,24 @@ private fun EchoButton(
             .clickable { audio?.click(); onClick() },
         contentAlignment = Alignment.Center
     ) {
-        EchoText(
-            text, 19, if (selected) Black else White,
-            modifier = Modifier.padding(horizontal = 8.dp),
-            centered = true, weight = FontWeight.Medium
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        ) {
+            if (flag != null) {
+                Image(
+                    painter = painterResource(flag), contentDescription = null,
+                    modifier = Modifier.width(28.dp).height(20.dp),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(Modifier.width(9.dp))
+            }
+            EchoText(
+                text, 19, if (selected) Black else White,
+                centered = true, weight = FontWeight.Medium
+            )
+        }
     }
 }
 
@@ -261,7 +278,7 @@ private fun EchoNativePage(
                         EchoSettings(audio, onNavigate)
                     }
                     Spacer(Modifier.height(7.dp))
-                    EchoButton(tr(audio, "НАЗАД", "BACK"), Modifier.fillMaxWidth(), height = 44.dp, onClick = onBack)
+                    EchoButton(tr(audio, "НАЗАД", "BACK"), Modifier.fillMaxWidth(), height = 50.dp, onClick = onBack)
                 }
             }
         }
@@ -275,33 +292,45 @@ private fun EchoSettings(audio: EchoAudioEngine, onNavigate: (Page) -> Unit) {
     val context = LocalContext.current
     val english = audio.language == "en"
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(7.dp)
+        verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
-        EchoText(tr(audio, "АККАУНТ", "ACCOUNT"), 17, Secondary, Modifier.fillMaxWidth(), centered = true)
-        EchoButton(tr(audio, "ВОЙТИ В АККАУНТ", "SIGN IN"), Modifier.fillMaxWidth(), height = 42.dp) {
+        // Reflects main's Settings hierarchy: headers are LEFT aligned;
+        // action buttons have equal width/height and stretch across content column.
+        EchoText(tr(audio, "АККАУНТ", "ACCOUNT"), 16, Secondary, Modifier.fillMaxWidth())
+        EchoButton(tr(audio, "ВОЙТИ В АККАУНТ", "SIGN IN"), Modifier.fillMaxWidth(), height = 50.dp) {
             onNavigate(Page.ACCOUNT)
         }
-        EchoText(tr(audio, "ЯЗЫК", "LANGUAGE"), 17, Secondary, Modifier.fillMaxWidth(), centered = true)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            EchoButton(tr(audio, "РУССКИЙ", "RUSSIAN"), Modifier.weight(1f), selected = !english, height = 42.dp) {
+        Spacer(Modifier.height(6.dp))
+        EchoText(tr(audio, "ЯЗЫК", "LANGUAGE"), 16, Secondary, Modifier.fillMaxWidth())
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            EchoButton(tr(audio, "РУССКИЙ", "RUSSIAN"), Modifier.weight(1f),
+                selected = !english, height = 50.dp, flag = R.drawable.echo_flag_ru) {
                 audio.updateLanguage("ru")
             }
-            EchoButton("ENGLISH", Modifier.weight(1f), selected = english, height = 42.dp) {
+            EchoButton("ENGLISH", Modifier.weight(1f),
+                selected = english, height = 50.dp, flag = R.drawable.echo_flag_en) {
                 audio.updateLanguage("en")
             }
         }
-        EchoText(tr(audio, "ЗВУК", "SOUND"), 17, Secondary, Modifier.fillMaxWidth(), centered = true)
+        Spacer(Modifier.height(6.dp))
+        EchoText(tr(audio, "ЗВУК", "SOUND"), 16, Secondary, Modifier.fillMaxWidth())
         EchoVolumeSlider(tr(audio, "МУЗЫКА", "MUSIC"), audio.musicVolume, audio::updateMusicVolume)
         EchoVolumeSlider(tr(audio, "ЗВУКИ", "EFFECTS"), audio.sfxVolume, audio::updateSfxVolume)
-        EchoText(tr(audio, "ДРУГОЕ", "OTHER"), 17, Secondary, Modifier.fillMaxWidth(), centered = true)
-        EchoButton(tr(audio, "ВВЕСТИ КОД", "REDEEM CODE"), Modifier.fillMaxWidth(), height = 42.dp) {
+        Spacer(Modifier.height(6.dp))
+        EchoText(tr(audio, "ДРУГОЕ", "OTHER"), 16, Secondary, Modifier.fillMaxWidth())
+        EchoButton(tr(audio, "ВВЕСТИ КОД", "REDEEM CODE"), Modifier.fillMaxWidth(), height = 50.dp) {
             onNavigate(Page.CODE_VIEW)
         }
-        EchoButton(tr(audio, "ОЧИСТИТЬ КЭШ ИГРЫ", "CLEAR GAME CACHE"), Modifier.fillMaxWidth(), height = 42.dp) {
+        EchoButton(tr(audio, "ОЧИСТИТЬ КЭШ ИГРЫ", "CLEAR GAME CACHE"), Modifier.fillMaxWidth(), height = 50.dp) {
             confirmCache = true
         }
+        EchoText(
+            tr(audio, "Перезагрузит ECHO и запросит свежие файлы. Профиль и выбранный персонаж сохранятся.",
+                "Reloads ECHO files. Profile and selected character are preserved."),
+            12, Secondary, Modifier.fillMaxWidth(), centered = true
+        )
         if (cacheMessage.isNotEmpty()) {
             EchoText(cacheMessage, 12, Secondary, Modifier.fillMaxWidth(), centered = true)
         }
@@ -341,8 +370,8 @@ private fun EchoVolumeSlider(label: String, value: Float, onChange: (Float) -> U
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(Black)
-            .border(1.dp, Border, RoundedCornerShape(12.dp))
-            .padding(horizontal = 14.dp, vertical = 5.dp)
+            .border(1.dp, White, RoundedCornerShape(12.dp))
+            .padding(horizontal = 16.dp, vertical = 9.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
