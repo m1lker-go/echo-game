@@ -81,7 +81,8 @@ private fun trans(audio: EchoAudioEngine, ru: String, en: String) =
 internal fun EchoAndroidShell(audio: EchoAudioEngine) {
     var page by remember { mutableStateOf(Page.HOME) }
     LaunchedEffect(page) {
-        audio.setWebActive(page == Page.ARENA || page == Page.HERO_VIEW ||
+        audio.setWebActive(page == Page.ARENA || page == Page.HEROES ||
+            page == Page.SHOP || page == Page.QUESTS || page == Page.HERO_VIEW ||
             page == Page.PACK_VIEW || page == Page.ACCOUNT || page == Page.CODE_VIEW)
     }
     val back: () -> Unit = {
@@ -95,7 +96,8 @@ internal fun EchoAndroidShell(audio: EchoAudioEngine) {
     CompositionLocalProvider(LocalEchoAudio provides audio) {
         BackHandler(enabled = page != Page.HOME, onBack = back)
         when (page) {
-            Page.ARENA, Page.HERO_VIEW, Page.PACK_VIEW, Page.ACCOUNT, Page.CODE_VIEW ->
+            Page.ARENA, Page.HEROES, Page.SHOP, Page.QUESTS,
+            Page.HERO_VIEW, Page.PACK_VIEW, Page.ACCOUNT, Page.CODE_VIEW ->
                 WebPage(page, back, audio)
             else -> EchoNativePage(page, audio, onNavigate = { page = it }, onBack = back)
         }
