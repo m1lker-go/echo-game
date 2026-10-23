@@ -3,18 +3,26 @@ package ru.echo.game
 import android.content.Intent
 import android.graphics.Color as AndroidColor
 import android.graphics.drawable.ColorDrawable
+import android.graphics.Bitmap
+import android.net.Uri
+import android.net.http.SslError
+import android.util.Log
 import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.WindowManager
+import android.webkit.ConsoleMessage
+import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -46,6 +54,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import kotlinx.coroutines.delay
 
 private const val WEB_BASE = "https://cat-fight.ru/echo/"
 private val Background = Color(0xFF000000)
@@ -102,6 +111,14 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
     var failed by remember(page) { mutableStateOf(false) }
     var loaded by remember(page) { mutableStateOf(false) }
     var retry by remember(page) { mutableIntStateOf(0) }
+    var failureMessage by remember(page) { mutableStateOf("") }
+    LaunchedEffect(page, retry) {
+        delay(20000)
+        if (!loaded && !failed) {
+            failureMessage = "ECHO не завершила загрузку за 20 секунд. Проверь интернет и WebView."
+            failed = true
+        }
+    }
     val url = when (page) {
         Page.ARENA -> WEB_BASE + "?play=1&apk=1"
         else -> WEB_BASE + "?apk=1"
@@ -125,7 +142,8 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                 factory = {
                     WebView(context).apply {
                         setBackgroundColor(AndroidColor.BLACK)
-                        setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                        // Android hardware acceleration is already enabled in the manifest.
+                        // Forcing a WebView layer can cause black output on some GPUs.
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         settings.allowFileAccess = false
@@ -134,7 +152,15 @@ internal fun WebPage(page: Page, onBack: () -> Unit, audio: EchoAudioEngine) {
                         settings.javaScriptCanOpenWindowsAutomatically = false
                         settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                         settings.mediaPlaybackRequiresUserGesture = false
-                        webChromeClient = WebChromeClient()
+                        webChromeClient = object : WebChromeClient() {
+                            override fun onConsoleMessage(message: ConsoleMessage): Boolean {
+                                val detail = message.message()
+                                if (message.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
+                                    Log.e("EchoWebView", "JS: " + detail + " (" + message.sourceId() + ":" + message.lineNumber() + ")")
+                                }
+                                return super.onConsoleMessage(message)
+                            }
+                        }
                         webViewClient = object : WebViewClient() {
                             override fun shouldOverrideUrlLoading(
                                 view: WebView, request: WebResourceRequest
