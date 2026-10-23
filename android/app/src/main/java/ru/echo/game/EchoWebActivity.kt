@@ -26,6 +26,8 @@ import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -56,6 +58,8 @@ class EchoWebActivity : ComponentActivity() {
     private var loadSequence = 0
     private var failureDialogOpen = false
     private var packDialogOpen = false
+    private var arenaExitDialogOpen = false
+    private var arenaExitDialogHost: ComposeView? = null
     private val requestedUrl get() = if (page == Page.ARENA) BASE + "?play=1" else BASE
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
@@ -114,15 +118,60 @@ class EchoWebActivity : ComponentActivity() {
         web.loadUrl(requestedUrl)
     }
 
-    // The pack-opening view has its own top-right Close button on the website.
-    // It replaces the shared Back arrow, rather than showing two overlapping icons.
+    // Keep pack closing independent; only leaving the actual arena needs
+    // the confirmation implemented in main/client/game.js.
     private fun navigateBack() {
+        if (arenaExitDialogOpen) {
+            dismissArenaExitDialog()
+            return
+        }
         if (packDialogOpen && ::web.isInitialized) {
             web.evaluateJavascript(
                 "document.getElementById('echo-pack-3d-close')?.click()", null
             )
-        } else {
-            finish()
+            return
+        }
+        if (page == Page.ARENA) showArenaExitDialog()
+        else finish()
+    }
+
+    private fun showArenaExitDialog() {
+        if (arenaExitDialogOpen || isFinishing || isDestroyed) return
+        arenaExitDialogOpen = true
+        val lang = getSharedPreferences("echo.android.preferences", MODE_PRIVATE)
+            .getString("language", "ru")
+        val english = lang == "en"
+        val host = ComposeView(this).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+        }
+        arenaExitDialogHost = host
+        // Compose Dialog creates its own modal window; the 1px host is only
+        // needed to attach it to this ComponentActivity's lifecycle.
+        root.addView(host, FrameLayout.LayoutParams(1, 1))
+        host.setContent {
+            EchoConfirmDialog(
+                title = if (english) "EXIT GAME" else "ВЫХОД ИЗ ИГРЫ",
+                message = if (english) "Do you really want to leave the game?"
+                          else "Вы действительно хотите покинуть игру?",
+                cancelLabel = if (english) "NO" else "НЕТ",
+                confirmLabel = if (english) "YES" else "ДА",
+                onDismiss = { dismissArenaExitDialog() },
+                onConfirm = {
+                    dismissArenaExitDialog()
+                    // Finishing the WebView Activity disconnects the arena and
+                    // returns to the native home, matching main's leave game.
+                    finish()
+                }
+            )
+        }
+    }
+
+    private fun dismissArenaExitDialog() {
+        arenaExitDialogOpen = false
+        arenaExitDialogHost?.let { host ->
+            arenaExitDialogHost = null
+            if (::root.isInitialized) root.removeView(host)
+            // DisposeOnDetachedFromWindow ensures the Dialog disappears too.
         }
     }
 
@@ -528,6 +577,7 @@ class EchoWebActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        dismissArenaExitDialog()
         if (::web.isInitialized) {
             runCatching { web.stopLoading() }
             runCatching { root.removeView(web) }
