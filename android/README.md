@@ -1,4 +1,4 @@
-# ECHO Android — APK branch (0.2.2)
+# ECHO Android — APK branch (0.2.3)
 
 Independent Android Studio project. Main website and server are unchanged.
 
