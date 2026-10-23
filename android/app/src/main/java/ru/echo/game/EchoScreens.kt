@@ -248,90 +248,93 @@ private fun EchoNativePage(
             val css = EchoCss(maxHeight)
             val width = css.contentWidth(maxWidth)
 
-            if (page == Page.HOME) {
-                // Client/main: .menu-main-screen and .menu-buttons are flex columns.
-                // Buttons fill the remaining height rather than each being 48dp.
-                val logoSize = css.logoFontSp
-                val gap = css.mainButtonsGap
-                val logoGap = css.mainLogoGap
-                val heightLeft = maxHeight.value - 32f -
-                    (logoSize * 1.22f) - logoGap.value - 4f * gap.value
-                val buttonHeight = (heightLeft / 5f).coerceAtLeast(34f).dp
-                Column(
-                    modifier = Modifier.align(Alignment.Center).width(width)
-                        .fillMaxHeight().verticalScroll(rememberScrollState())
-                        .padding(vertical = 16.dp),
-                    verticalArrangement = Arrangement.Top,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "ЭХО.",
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center,
-                        color = White,
-                        style = TextStyle(
+            // A viewport-wide scroll container receives gestures even at the
+            // empty left/right edges. The visible content remains CSS-width.
+            // Previously only the central narrow Column was scrollable.
+            val scroll = rememberScrollState()
+            Column(
+                modifier = Modifier.fillMaxSize().verticalScroll(scroll),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Top
+            ) {
+                if (page == Page.HOME) {
+                    val logoSize = css.logoFontSp
+                    val gap = css.mainButtonsGap
+                    val logoGap = css.mainLogoGap
+                    val heightLeft = maxHeight.value - 32f -
+                        (logoSize * 1.22f) - logoGap.value - 4f * gap.value
+                    val buttonHeight = (heightLeft / 5f).coerceAtLeast(34f).dp
+                    Column(
+                        modifier = Modifier.width(width).padding(vertical = 16.dp),
+                        verticalArrangement = Arrangement.Top,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "ЭХО.",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center,
+                            color = White,
+                            style = TextStyle(
+                                fontFamily = EchoFont,
+                                fontSize = logoSize.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.38.em,
+                                shadow = Shadow(
+                                    color = Color(0x29EBF6FF),
+                                    offset = Offset.Zero,
+                                    blurRadius = 24f
+                                )
+                            ),
+                            maxLines = 1
+                        )
+                        Spacer(Modifier.height(logoGap))
+                        EchoButton(tr(audio, "НАЧАТЬ ИГРУ", "START GAME"), Modifier.fillMaxWidth(),
+                            height = buttonHeight, fontSize = css.menuFontSp) {
+                            onNavigate(Page.ARENA)
+                        }
+                        Spacer(Modifier.height(gap))
+                        EchoButton(tr(audio, "ПЕРСОНАЖ", "CHARACTER"), Modifier.fillMaxWidth(),
+                            height = buttonHeight, fontSize = css.menuFontSp) {
+                            onNavigate(Page.HEROES)
+                        }
+                        Spacer(Modifier.height(gap))
+                        EchoButton(tr(audio, "МАГАЗИН", "SHOP"), Modifier.fillMaxWidth(),
+                            height = buttonHeight, fontSize = css.menuFontSp) {
+                            onNavigate(Page.SHOP)
+                        }
+                        Spacer(Modifier.height(gap))
+                        EchoButton(tr(audio, "ЗАДАНИЯ", "QUESTS"), Modifier.fillMaxWidth(),
+                            height = buttonHeight, fontSize = css.menuFontSp) {
+                            onNavigate(Page.QUESTS)
+                        }
+                        Spacer(Modifier.height(gap))
+                        EchoButton(tr(audio, "НАСТРОЙКИ", "SETTINGS"), Modifier.fillMaxWidth(),
+                            height = buttonHeight, fontSize = css.menuFontSp) {
+                            onNavigate(Page.SETTINGS)
+                        }
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier.width(width).padding(top = 16.dp, bottom = 9.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = tr(audio, "НАСТРОЙКИ", "SETTINGS"),
+                            color = White,
                             fontFamily = EchoFont,
-                            fontSize = logoSize.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.38.em,
-                            shadow = Shadow(
-                                color = Color(0x29EBF6FF),
-                                offset = Offset.Zero,
-                                blurRadius = 24f
-                            )
-                        ),
-                        maxLines = 1
-                    )
-                    Spacer(Modifier.height(logoGap))
-                    EchoButton(tr(audio, "НАЧАТЬ ИГРУ", "START GAME"), Modifier.fillMaxWidth(),
-                        height = buttonHeight, fontSize = css.menuFontSp) {
-                        onNavigate(Page.ARENA)
-                    }
-                    Spacer(Modifier.height(gap))
-                    EchoButton(tr(audio, "ПЕРСОНАЖ", "CHARACTER"), Modifier.fillMaxWidth(),
-                        height = buttonHeight, fontSize = css.menuFontSp) {
-                        onNavigate(Page.HEROES)
-                    }
-                    Spacer(Modifier.height(gap))
-                    EchoButton(tr(audio, "МАГАЗИН", "SHOP"), Modifier.fillMaxWidth(),
-                        height = buttonHeight, fontSize = css.menuFontSp) {
-                        onNavigate(Page.SHOP)
-                    }
-                    Spacer(Modifier.height(gap))
-                    EchoButton(tr(audio, "ЗАДАНИЯ", "QUESTS"), Modifier.fillMaxWidth(),
-                        height = buttonHeight, fontSize = css.menuFontSp) {
-                        onNavigate(Page.QUESTS)
-                    }
-                    Spacer(Modifier.height(gap))
-                    EchoButton(tr(audio, "НАСТРОЙКИ", "SETTINGS"), Modifier.fillMaxWidth(),
-                        height = buttonHeight, fontSize = css.menuFontSp) {
-                        onNavigate(Page.SETTINGS)
-                    }
-                }
-            } else {
-                Column(
-                    modifier = Modifier.align(Alignment.Center).width(width)
-                        .fillMaxHeight().padding(top = 16.dp, bottom = 9.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = tr(audio, "НАСТРОЙКИ", "SETTINGS"),
-                        color = White,
-                        fontFamily = EchoFont,
-                        fontSize = css.settingsTitleSp.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 0.16.em,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                            fontSize = css.settingsTitleSp.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.16.em,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(10.dp))
                         EchoSettings(css, audio, auth, onVkLogin, onLogout, onNavigate)
+                        Spacer(Modifier.height(7.dp))
+                        EchoButton(tr(audio, "НАЗАД", "BACK"), Modifier.fillMaxWidth(),
+                            height = css.settingsButtonHeight,
+                            fontSize = css.settingsButtonFontSp, onClick = onBack)
                     }
-                    Spacer(Modifier.height(7.dp))
-                    EchoButton(tr(audio, "НАЗАД", "BACK"), Modifier.fillMaxWidth(),
-                        height = css.settingsButtonHeight,
-                        fontSize = css.settingsButtonFontSp, onClick = onBack)
                 }
             }
         }
@@ -349,7 +352,7 @@ private fun EchoSettings(
     val context = LocalContext.current
     val english = audio.language == "en"
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 2.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
