@@ -74,6 +74,8 @@
     "quests": "Quests",
     "shop_title": "SHOP",
     "purchase_title": "PURCHASE HISTORY",
+    "purchase_refunded_at": "Refund date",
+    "purchase_disclaimer": "This is ECHO’s order and reward history. Your payment provider issues the fiscal receipt.",
     "purchase_votes": "VK votes",
     "purchase_free": "Free",
     "purchase_free_pack": "Free pack",
