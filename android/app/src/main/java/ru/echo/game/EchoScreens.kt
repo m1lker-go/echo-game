@@ -22,17 +22,16 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -56,6 +55,8 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.text.style.TextAlign
@@ -133,7 +134,10 @@ private data class EchoParticle(
 )
 
 @Composable
-private fun EchoSpaceBackground(content: @Composable () -> Unit) {
+private fun EchoSpaceBackground(
+    backgroundColor: Color = Black,
+    content: @Composable () -> Unit
+) {
     // Identical motion model to client/menu.js in main:
     // x += sin(time * speed + phase) * 28 px;
     // y += cos(time * drift + phase) * 22 px;
@@ -160,7 +164,7 @@ private fun EchoSpaceBackground(content: @Composable () -> Unit) {
             }
         }
     }
-    Box(Modifier.fillMaxSize().background(Black)) {
+    Box(Modifier.fillMaxSize().background(backgroundColor)) {
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
@@ -461,31 +465,150 @@ private fun EchoSettings(
             EchoText(cacheMessage, 12, Secondary, Modifier.fillMaxWidth(), centered = true)
         }
     }
+
     if (confirmCache) {
-        AlertDialog(
-            onDismissRequest = { confirmCache = false },
-            title = { EchoText(tr(audio, "СБРОС КЭША", "CLEAR CACHE"), 22) },
-            text = { EchoText(tr(audio, "Удалить временные файлы WebView? Вход и настройки сохранятся.", "Remove temporary WebView files? Login and settings remain."), 16) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmCache = false
-                    runCatching {
-                        android.webkit.WebView(context).apply {
-                            clearCache(true)
-                            destroy()
-                        }
-                        cacheMessage = tr(audio, "Кэш очищен", "Cache cleared")
-                    }.onFailure {
-                        cacheMessage = tr(audio, "Не удалось очистить кэш", "Could not clear cache")
+        EchoCacheConfirmDialog(
+            audio = audio,
+            onDismiss = { confirmCache = false },
+            onConfirm = {
+                confirmCache = false
+                // Same intended behavior as the browser cache reset:
+                // drop downloaded WebView resources without touching cookies,
+                // WebStorage/localStorage, native account or user preferences.
+                runCatching {
+                    android.webkit.WebView(context).apply {
+                        clearCache(true)
+                        destroy()
                     }
-                }) { EchoText(tr(audio, "ДА", "YES"), 18) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmCache = false }) {
-                    EchoText(tr(audio, "НЕТ", "NO"), 18)
+                    cacheMessage = tr(audio, "Кэш очищен", "Cache cleared")
+                }.onFailure {
+                    cacheMessage = tr(audio, "Не удалось очистить кэш", "Could not clear cache")
                 }
-            },
-            containerColor = Color(0xFF111820)
+            }
+        )
+    }
+}
+
+/**
+ * Compose counterpart of main/client/style.css .echo-modal-overlay/.echo-modal
+ * and client/cache-reset.js ECHOModal.confirm.
+ *
+ * The dialog is native, so it appears immediately in Android Settings and
+ * never launches the website's main menu just to ask for confirmation.
+ */
+@Composable
+private fun EchoCacheConfirmDialog(
+    audio: EchoAudioEngine,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnClickOutside = false,
+            dismissOnBackPress = true,
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        // Browser: rgba(0,0,0,.82), 46 animated ice-blue particles.
+        EchoSpaceBackground(backgroundColor = Color(0xD1000000)) {
+            BoxWithConstraints(
+                modifier = Modifier.fillMaxSize().padding(20.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                val availableWidth = maxWidth
+                val availableHeight = maxHeight
+                val compact = availableHeight <= 520.dp
+                val panelShape = RoundedCornerShape(13.dp)
+                val panelPadding = if (compact) 22.dp else 42.dp
+                Column(
+                    modifier = Modifier
+                        .width(minOf(availableWidth, 680.dp))
+                        .heightIn(max = availableHeight)
+                        .clip(panelShape)
+                        .background(Color.Black)
+                        .border(1.dp, Color.White, panelShape)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = panelPadding, vertical = if (compact) 24.dp else 34.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = tr(audio, "СБРОС КЭША", "CLEAR CACHE"),
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color.White,
+                        fontFamily = FontFamily.SansSerif,
+                        fontSize = if (availableWidth < 600.dp) 22.sp else 28.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = .14.em,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 36.sp
+                    )
+                    Spacer(Modifier.height(if (compact) 18.dp else 30.dp))
+                    Text(
+                        text = tr(
+                            audio,
+                            "Вы уверены, что хотите сбросить кэш?",
+                            "Are you sure you want to clear the cache?"
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color.White,
+                        fontFamily = FontFamily.SansSerif,
+                        fontSize = 14.sp,
+                        lineHeight = 24.sp,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(if (compact) 20.dp else 36.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        EchoModalAction(
+                            label = tr(audio, "НЕТ", "NO"),
+                            primary = false,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            audio.click()
+                            onDismiss()
+                        }
+                        EchoModalAction(
+                            label = tr(audio, "ДА", "YES"),
+                            primary = true,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            audio.click()
+                            onConfirm()
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EchoModalAction(
+    label: String, primary: Boolean, modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(13.dp)
+    Box(
+        modifier = modifier.height(48.dp)
+            .clip(shape)
+            .background(if (primary) Color.White else Color.Black)
+            .border(1.dp, Color.White, shape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            color = if (primary) Color.Black else Color.White,
+            fontFamily = FontFamily.SansSerif,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 12.sp,
+            letterSpacing = .1.em,
+            textAlign = TextAlign.Center
         )
     }
 }
