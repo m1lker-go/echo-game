@@ -64,7 +64,7 @@ private val Panel = Color(0xFF111D29)
 private val Accent = Color(0xFF90E5FF)
 private val Muted = Color(0xFF96A8B7)
 
-private enum class Page {
+internal enum class Page {
     HOME, HEROES, SHOP, QUESTS, ACCOUNT, SETTINGS,
     ARENA, HERO_VIEW, PACK_VIEW
 }
@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
             systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
-        setContent { MaterialTheme { EchoApplication() } }
+        setContent { MaterialTheme { EchoAndroidShell() } }
     }
 }
 
@@ -335,7 +335,7 @@ private fun ContentPage(
 }
 
 @Composable
-private fun WebPage(page: Page, onBack: () -> Unit) {
+internal fun WebPage(page: Page, onBack: () -> Unit) {
     val context = LocalContext.current
     var failed by remember(page) { mutableStateOf(false) }
     var loaded by remember(page) { mutableStateOf(false) }
