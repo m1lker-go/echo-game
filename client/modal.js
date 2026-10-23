@@ -118,7 +118,7 @@
         return;
       }
       if (event.key === 'Tab') {
-        const focusable = [...panel.querySelectorAll('button:not(:disabled)')];
+        const focusable = [...panel.querySelectorAll('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled)')];
         if (!focusable.length) {
           event.preventDefault();
           panel.focus();
