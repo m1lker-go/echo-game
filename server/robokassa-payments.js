@@ -21,8 +21,12 @@ function secureSameSignature(expected,provided){
   return crypto.timingSafeEqual(Buffer.from(expected),Buffer.from(provided.toUpperCase()));
 }
 function toCents(raw){
-  const m=/^([0-9]{1,8})(?:\.([0-9]{1,2}))?$/.exec(String(raw ?? ''));
-  return m?Number(m[1])*100+Number((m[2]||'').padEnd(2,'0')):null;
+  // Robokassa can return six decimal places for production OutSum.
+  const m=/^([0-9]{1,8})(?:\.([0-9]{1,6}))?$/.exec(String(raw ?? ''));
+  if(!m)return null;
+  const fractional=(m[2]||'').padEnd(2,'0');
+  if(fractional.slice(2).replace(/0/g,'')!=='')return null;
+  return Number(m[1])*100+Number(fractional.slice(0,2));
 }
 const validId=x=>/^[1-9]\d{0,17}$/.test(String(x??''));
 
