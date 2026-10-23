@@ -19,6 +19,7 @@ function createPurchaseHistory({pool,sessionUser,createRouter=()=>require('expre
  async function initialize(){
   await pool.query("CREATE TABLE IF NOT EXISTS echo_pack_openings (id BIGSERIAL PRIMARY KEY, account_id UUID NOT NULL REFERENCES echo_accounts(id), source TEXT NOT NULL CHECK(source IN ('coin','free')), pack_type TEXT NOT NULL CHECK(pack_type IN ('coin','premium')), amount INTEGER NOT NULL CHECK(amount>=0), currency TEXT NOT NULL CHECK(currency IN ('ECHO_COIN','FREE')), cards JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
   await pool.query('CREATE INDEX IF NOT EXISTS echo_pack_openings_by_user ON echo_pack_openings (account_id,created_at DESC,id DESC)');
+  await pool.query('CREATE INDEX IF NOT EXISTS echo_vk_payments_by_account_date ON echo_vk_payments (account_id,created_at DESC,app_order_id DESC)');
  }
  router.get('/',async(req,res)=>{
   res.set('Cache-Control','no-store');
