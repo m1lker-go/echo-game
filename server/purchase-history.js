@@ -33,22 +33,23 @@ function createPurchaseHistory({pool,sessionUser,createRouter=()=>require('expre
    const limit=Number(rawLimit),offset=Number(rawOffset);
    const sql=[
     'SELECT provider,order_id,pack_type,amount,currency,status,is_test,',
-    '  created_at,completed_at,card_models FROM (',
+    '  created_at,completed_at,refunded_at,card_models FROM (',
     " SELECT 'robokassa'::text AS provider, (r.id+2000000000)::text AS order_id,",
     " 'premium'::text AS pack_type,r.amount::text AS amount,",
     " 'RUB'::text AS currency,r.status::text AS status,",
     ' r.is_test,r.created_at,r.paid_at AS completed_at,',
+    ' NULL::timestamptz AS refunded_at,',
     ' CASE WHEN r.cards IS NOT NULL THEN jsonb_array_length(r.cards) ELSE 0 END AS card_models',
     ' FROM echo_robokassa_orders r WHERE r.account_id=$1',
     ' UNION ALL',
     " SELECT 'vk'::text,v.order_id::text,'premium'::text,",
     " v.price::text,'VK_VOTES'::text,v.status::text,",
-    ' v.is_test,v.created_at,v.created_at,jsonb_array_length(v.cards)',
+    ' v.is_test,v.created_at,v.created_at,v.refunded_at,jsonb_array_length(v.cards)',
     ' FROM echo_vk_payments v WHERE v.account_id=$1',
     ' UNION ALL',
     " SELECT o.source::text,('P-'||o.id::text)::text,o.pack_type::text,",
     " o.amount::text,o.currency::text,'paid'::text,",
-    ' false,o.created_at,o.created_at,jsonb_array_length(o.cards)',
+    ' false,o.created_at,o.created_at,NULL::timestamptz,jsonb_array_length(o.cards)',
     ' FROM echo_pack_openings o WHERE o.account_id=$1',
     ' ) ledger ORDER BY created_at DESC,provider DESC,order_id DESC',
     ' LIMIT $2 OFFSET $3'
@@ -61,6 +62,7 @@ function createPurchaseHistory({pool,sessionUser,createRouter=()=>require('expre
        packType:row.pack_type,amount:String(row.amount),currency:row.currency,
        status:row.status,testMode:Boolean(row.is_test),
        createdAt:row.created_at,completedAt:row.completed_at,
+       refundedAt:row.refunded_at||null,
        cardModels:Number(row.card_models)||0
      })),
      hasMore,nextOffset:hasMore?offset+limit:null
