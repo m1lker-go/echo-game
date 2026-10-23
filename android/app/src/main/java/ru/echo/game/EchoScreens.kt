@@ -53,6 +53,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -191,11 +195,12 @@ private fun EchoButton(
     modifier: Modifier = Modifier,
     selected: Boolean = false,
     height: androidx.compose.ui.unit.Dp = 48.dp,
+    fontSize: Int = 19,
     flag: Int? = null,
     onClick: () -> Unit
 ) {
     val audio = LocalEchoAudio.current
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(13.dp)
     Box(
         modifier = modifier.height(height)
             .clip(shape)
@@ -218,7 +223,7 @@ private fun EchoButton(
                 Spacer(Modifier.width(9.dp))
             }
             EchoText(
-                text, 19, if (selected) Black else White,
+                text, fontSize, if (selected) Black else White,
                 centered = true, weight = FontWeight.Medium
             )
         }
@@ -232,53 +237,93 @@ private fun EchoNativePage(
 ) {
     EchoSpaceBackground {
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            // Matches client/menu-width.css: page content ≈ viewport height.
-            val contentWidth = minOf(maxHeight, maxWidth - 36.dp)
+            val css = EchoCss(maxHeight)
+            val width = css.contentWidth(maxWidth)
+
             if (page == Page.HOME) {
+                // Client/main: .menu-main-screen and .menu-buttons are flex columns.
+                // Buttons fill the remaining height rather than each being 48dp.
+                val logoSize = css.logoFontSp
+                val gap = css.mainButtonsGap
+                val logoGap = css.mainLogoGap
+                val heightLeft = maxHeight.value - 32f -
+                    (logoSize * 1.22f) - logoGap.value - 4f * gap.value
+                val buttonHeight = (heightLeft / 5f).coerceAtLeast(34f).dp
                 Column(
-                    Modifier.align(Alignment.Center).width(contentWidth)
+                    modifier = Modifier.align(Alignment.Center).width(width)
                         .fillMaxHeight().verticalScroll(rememberScrollState())
-                        .padding(vertical = 8.dp),
-                    verticalArrangement = Arrangement.Center,
+                        .padding(vertical = 16.dp),
+                    verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    EchoText("ЭХО.", 52, modifier = Modifier.fillMaxWidth(), centered = true,
-                        weight = FontWeight.Bold)
-                    Spacer(Modifier.height(17.dp))
-                    EchoButton(tr(audio, "НАЧАТЬ ИГРУ", "START GAME"), Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "ЭХО.",
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center,
+                        color = White,
+                        style = TextStyle(
+                            fontFamily = EchoFont,
+                            fontSize = logoSize.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = .38.em,
+                            shadow = Shadow(
+                                color = Color(0x29EBF6FF),
+                                offset = Offset.Zero,
+                                blurRadius = 24f
+                            )
+                        ),
+                        maxLines = 1
+                    )
+                    Spacer(Modifier.height(logoGap))
+                    EchoButton(tr(audio, "НАЧАТЬ ИГРУ", "START GAME"), Modifier.fillMaxWidth(),
+                        height = buttonHeight, fontSize = css.menuFontSp) {
                         onNavigate(Page.ARENA)
                     }
-                    Spacer(Modifier.height(8.dp))
-                    EchoButton(tr(audio, "ПЕРСОНАЖ", "CHARACTER"), Modifier.fillMaxWidth()) {
+                    Spacer(Modifier.height(gap))
+                    EchoButton(tr(audio, "ПЕРСОНАЖ", "CHARACTER"), Modifier.fillMaxWidth(),
+                        height = buttonHeight, fontSize = css.menuFontSp) {
                         onNavigate(Page.HEROES)
                     }
-                    Spacer(Modifier.height(8.dp))
-                    EchoButton(tr(audio, "МАГАЗИН", "SHOP"), Modifier.fillMaxWidth()) {
+                    Spacer(Modifier.height(gap))
+                    EchoButton(tr(audio, "МАГАЗИН", "SHOP"), Modifier.fillMaxWidth(),
+                        height = buttonHeight, fontSize = css.menuFontSp) {
                         onNavigate(Page.SHOP)
                     }
-                    Spacer(Modifier.height(8.dp))
-                    EchoButton(tr(audio, "ЗАДАНИЯ", "QUESTS"), Modifier.fillMaxWidth()) {
+                    Spacer(Modifier.height(gap))
+                    EchoButton(tr(audio, "ЗАДАНИЯ", "QUESTS"), Modifier.fillMaxWidth(),
+                        height = buttonHeight, fontSize = css.menuFontSp) {
                         onNavigate(Page.QUESTS)
                     }
-                    Spacer(Modifier.height(8.dp))
-                    EchoButton(tr(audio, "НАСТРОЙКИ", "SETTINGS"), Modifier.fillMaxWidth()) {
+                    Spacer(Modifier.height(gap))
+                    EchoButton(tr(audio, "НАСТРОЙКИ", "SETTINGS"), Modifier.fillMaxWidth(),
+                        height = buttonHeight, fontSize = css.menuFontSp) {
                         onNavigate(Page.SETTINGS)
                     }
                 }
             } else {
                 Column(
-                    Modifier.align(Alignment.Center).width(contentWidth)
-                        .fillMaxHeight().padding(vertical = 9.dp),
+                    modifier = Modifier.align(Alignment.Center).width(width)
+                        .fillMaxHeight().padding(top = 16.dp, bottom = 9.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    EchoText(tr(audio, "НАСТРОЙКИ", "SETTINGS"), 27, modifier = Modifier.fillMaxWidth(),
-                        centered = true, weight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = tr(audio, "НАСТРОЙКИ", "SETTINGS"),
+                        color = White,
+                        fontFamily = EchoFont,
+                        fontSize = css.settingsTitleSp.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = .16.em,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(10.dp))
                     Box(Modifier.weight(1f).fillMaxWidth()) {
-                        EchoSettings(audio, onNavigate)
+                        EchoSettings(css, audio, onNavigate)
                     }
                     Spacer(Modifier.height(7.dp))
-                    EchoButton(tr(audio, "НАЗАД", "BACK"), Modifier.fillMaxWidth(), height = 50.dp, onClick = onBack)
+                    EchoButton(tr(audio, "НАЗАД", "BACK"), Modifier.fillMaxWidth(),
+                        height = css.settingsButtonHeight,
+                        fontSize = css.settingsButtonFontSp, onClick = onBack)
                 }
             }
         }
@@ -286,7 +331,7 @@ private fun EchoNativePage(
 }
 
 @Composable
-private fun EchoSettings(audio: EchoAudioEngine, onNavigate: (Page) -> Unit) {
+private fun EchoSettings(css: EchoCss, audio: EchoAudioEngine, onNavigate: (Page) -> Unit) {
     var confirmCache by remember { mutableStateOf(false) }
     var cacheMessage by remember { mutableStateOf("") }
     val context = LocalContext.current
@@ -298,38 +343,45 @@ private fun EchoSettings(audio: EchoAudioEngine, onNavigate: (Page) -> Unit) {
     ) {
         // Reflects main's Settings hierarchy: headers are LEFT aligned;
         // action buttons have equal width/height and stretch across content column.
-        EchoText(tr(audio, "АККАУНТ", "ACCOUNT"), 16, Secondary, Modifier.fillMaxWidth())
-        EchoButton(tr(audio, "ВОЙТИ В АККАУНТ", "SIGN IN"), Modifier.fillMaxWidth(), height = 50.dp) {
+        EchoText(tr(audio, "АККАУНТ", "ACCOUNT"), css.settingsLabelFontSp, Secondary, Modifier.fillMaxWidth())
+        EchoButton(tr(audio, "ВОЙТИ В АККАУНТ", "SIGN IN"), Modifier.fillMaxWidth(),
+            height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp) {
             onNavigate(Page.ACCOUNT)
         }
         Spacer(Modifier.height(6.dp))
-        EchoText(tr(audio, "ЯЗЫК", "LANGUAGE"), 16, Secondary, Modifier.fillMaxWidth())
+        EchoText(tr(audio, "ЯЗЫК", "LANGUAGE"), css.settingsLabelFontSp, Secondary, Modifier.fillMaxWidth())
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             EchoButton(tr(audio, "РУССКИЙ", "RUSSIAN"), Modifier.weight(1f),
-                selected = !english, height = 50.dp, flag = R.drawable.echo_flag_ru) {
+                selected = !english, height = css.settingsButtonHeight,
+                fontSize = css.settingsButtonFontSp, flag = R.drawable.echo_flag_ru) {
                 audio.updateLanguage("ru")
             }
             EchoButton("ENGLISH", Modifier.weight(1f),
-                selected = english, height = 50.dp, flag = R.drawable.echo_flag_en) {
+                selected = english, height = css.settingsButtonHeight,
+                fontSize = css.settingsButtonFontSp, flag = R.drawable.echo_flag_en) {
                 audio.updateLanguage("en")
             }
         }
         Spacer(Modifier.height(6.dp))
-        EchoText(tr(audio, "ЗВУК", "SOUND"), 16, Secondary, Modifier.fillMaxWidth())
-        EchoVolumeSlider(tr(audio, "МУЗЫКА", "MUSIC"), audio.musicVolume, audio::updateMusicVolume)
-        EchoVolumeSlider(tr(audio, "ЗВУКИ", "EFFECTS"), audio.sfxVolume, audio::updateSfxVolume)
+        EchoText(tr(audio, "ЗВУК", "SOUND"), css.settingsLabelFontSp, Secondary, Modifier.fillMaxWidth())
+        EchoVolumeSlider(tr(audio, "МУЗЫКА", "MUSIC"), audio.musicVolume,
+            css.settingsValueFontSp, audio::updateMusicVolume)
+        EchoVolumeSlider(tr(audio, "ЗВУКИ", "EFFECTS"), audio.sfxVolume,
+            css.settingsValueFontSp, audio::updateSfxVolume)
         Spacer(Modifier.height(6.dp))
-        EchoText(tr(audio, "ДРУГОЕ", "OTHER"), 16, Secondary, Modifier.fillMaxWidth())
-        EchoButton(tr(audio, "ВВЕСТИ КОД", "REDEEM CODE"), Modifier.fillMaxWidth(), height = 50.dp) {
+        EchoText(tr(audio, "ДРУГОЕ", "OTHER"), css.settingsLabelFontSp, Secondary, Modifier.fillMaxWidth())
+        EchoButton(tr(audio, "ВВЕСТИ КОД", "REDEEM CODE"), Modifier.fillMaxWidth(),
+            height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp) {
             onNavigate(Page.CODE_VIEW)
         }
-        EchoButton(tr(audio, "ОЧИСТИТЬ КЭШ ИГРЫ", "CLEAR GAME CACHE"), Modifier.fillMaxWidth(), height = 50.dp) {
+        EchoButton(tr(audio, "ОЧИСТИТЬ КЭШ ИГРЫ", "CLEAR GAME CACHE"), Modifier.fillMaxWidth(),
+            height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp) {
             confirmCache = true
         }
         EchoText(
             tr(audio, "Перезагрузит ECHO и запросит свежие файлы. Профиль и выбранный персонаж сохранятся.",
                 "Reloads ECHO files. Profile and selected character are preserved."),
-            12, Secondary, Modifier.fillMaxWidth(), centered = true
+            css.settingsNoteFontSp, Secondary, Modifier.fillMaxWidth(), centered = true
         )
         if (cacheMessage.isNotEmpty()) {
             EchoText(cacheMessage, 12, Secondary, Modifier.fillMaxWidth(), centered = true)
@@ -365,7 +417,7 @@ private fun EchoSettings(audio: EchoAudioEngine, onNavigate: (Page) -> Unit) {
 }
 
 @Composable
-private fun EchoVolumeSlider(label: String, value: Float, onChange: (Float) -> Unit) {
+private fun EchoVolumeSlider(label: String, value: Float, fontSize: Int, onChange: (Float) -> Unit) {
     Column(
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
@@ -375,8 +427,8 @@ private fun EchoVolumeSlider(label: String, value: Float, onChange: (Float) -> U
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
-            EchoText(label, 17)
-            EchoText((value * 100f).toInt().toString() + "%", 16)
+            EchoText(label, fontSize)
+            EchoText((value * 100f).toInt().toString() + "%", fontSize)
         }
         Slider(
             value = value, onValueChange = onChange, valueRange = 0f..1f,
