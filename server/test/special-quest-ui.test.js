@@ -41,7 +41,7 @@ test('Special quest uses the existing Cat Fighting image and black-white styling
   assert.match(css, /\.echo-special-logo-image\s*\{[^}]*object-fit:\s*contain/s);
   assert.match(js, /assets\/icons\/icon_cf\.webp/);
   assert.doesNotMatch(js, /'echo-special-logo', 'CF'/);
-  assert.match(html, /special-quests\.css\?v=3/);
+  assert.match(html, /special-quests\.css\?v=4/);
   assert.match(html, /special-quests\.js\?v=3/);
 });
 
@@ -56,4 +56,32 @@ test('Special quest has a permanent icon-only visit link, code/copy row, and no 
   assert.doesNotMatch(js, /special_expires/);
   assert.match(css, /\.echo-special-code-row\s*\{[^}]*display:\s*flex/s);
   assert.match(css, /\.echo-special-copy\s*\{[^}]*border-left:\s*1px solid #fff/s);
+});
+
+
+test('Main menu buttons follow requested order', () => {
+  const html = fs.readFileSync(path.join(client, 'index.html'), 'utf8');
+  const opening = html.match(/<div id="menu-main"[\s\S]*?<div class="menu-buttons">([\s\S]*?)<\/div>/);
+  assert.ok(opening, 'Main menu buttons exist');
+  const order = [...opening[1].matchAll(/id="(menu-(?:start|character-button|shop|quests|settings))"/g)]
+    .map(match => match[1]);
+  assert.deepEqual(order, [
+    'menu-start', 'menu-character-button', 'menu-shop', 'menu-quests', 'menu-settings'
+  ]);
+});
+
+test('Special quest visit button uses black background and white icon/border', () => {
+  const css = fs.readFileSync(path.join(client, 'special-quests.css'), 'utf8');
+  const visit = css.match(/\.echo-special-visit\s*\{([^}]*)\}/);
+  assert.ok(visit, 'Visit button rule exists');
+  assert.match(visit[1], /border:\s*1px solid #fff/);
+  assert.match(visit[1], /background:\s*#000/);
+  assert.match(visit[1], /color:\s*#fff/);
+});
+
+test('Quest screen maintains fixed, symmetrical scrollbar gutters across tabs', () => {
+  const css = fs.readFileSync(path.join(client, 'landscape-menu-layout.css'), 'utf8');
+  assert.match(css, /\.echo-quests-screen\s*\{[^}]*overflow-y:\s*scroll;[^}]*scrollbar-gutter:\s*stable both-edges;/s);
+  const html = fs.readFileSync(path.join(client, 'index.html'), 'utf8');
+  assert.match(html, /landscape-menu-layout\.css\?v=echo-quests-scrollbar-gutter-2/);
 });

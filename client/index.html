@@ -17,14 +17,14 @@
   <link rel="stylesheet" href="./pack-card-fan.css?v=echo-card-intrinsic-scale-1" />
   <link rel="stylesheet" href="./shop.css?v=echo-free-packs-1" />
   <link rel="stylesheet" href="./daily-quests.css?v=7" />
-  <link rel="stylesheet" href="./special-quests.css?v=3" />
+  <link rel="stylesheet" href="./special-quests.css?v=4" />
   <link rel="stylesheet" href="./auth.css?v=echo-vk-mini-auto-2" />
   <link rel="stylesheet" href="./toast.css?v=2" />
   <link rel="preload" href="./assets/fonts/SchuelerSuperXP-Regular_0.otf" as="font" type="font/otf" crossorigin />
   <link rel="stylesheet" href="./echo-font.css?v=echo-global-font-1" />
   <link rel="stylesheet" href="./menu-width.css?v=1" />
   <link rel="stylesheet" href="./settings-refresh.css?v=9" />
-  <link rel="stylesheet" href="./landscape-menu-layout.css?v=echo-quests-reset-centered-1" />
+  <link rel="stylesheet" href="./landscape-menu-layout.css?v=echo-quests-scrollbar-gutter-2" />
   <link rel="stylesheet" href="./orientation.css?v=4" />
   <link rel="stylesheet" href="./character-cards.css?v=echo-hero-progress-1" />
   <link rel="stylesheet" href="./fullscreen.css?v=echo-vk-mobile-fullscreen-1" />
@@ -103,7 +103,7 @@
     <section id="defeat-screen" class="defeat-screen" hidden aria-label="Поражение" data-i18n-aria-label="game:defeat_aria_label"><div class="defeat-card"><div class="defeat-title" data-i18n="game:defeat_title">ВЫ ПРОИГРАЛИ</div><div class="defeat-subtitle" data-i18n="game:defeat_subtitle">Ваша энергия закончилась</div><div class="defeat-buttons"><button id="defeat-replay" class="menu-button" type="button" data-i18n="game:replay">Сыграть ещё</button><button id="defeat-menu" class="menu-button" type="button" data-i18n="game:back_to_menu">Назад в меню</button></div></div></section>
     <section id="main-menu" class="main-menu" aria-label="Главное меню" data-i18n-aria-label="menu:main_aria_label">
       <canvas id="menu-food" class="menu-food" aria-hidden="true"></canvas>
-      <div id="menu-main" class="menu-screen menu-main-screen" aria-label="Главный экран меню" data-i18n-aria-label="menu:main_screen_aria_label"><div class="menu-logo" data-i18n="menu:logo">ЭХО.</div><div class="menu-buttons"><button id="menu-start" class="menu-button" type="button" data-i18n="menu:start">Начать игру</button><button id="menu-character-button" class="menu-button" type="button" data-i18n="menu:character">Персонаж</button><button id="menu-settings" class="menu-button" type="button" data-i18n="menu:settings">Настройки</button><button id="menu-shop" class="menu-button" type="button" data-i18n="menu:shop">Магазин</button><button id="menu-quests" class="menu-button" type="button" data-i18n="menu:quests">Задания</button></div></div>
+      <div id="menu-main" class="menu-screen menu-main-screen" aria-label="Главный экран меню" data-i18n-aria-label="menu:main_screen_aria_label"><div class="menu-logo" data-i18n="menu:logo">ЭХО.</div><div class="menu-buttons"><button id="menu-start" class="menu-button" type="button" data-i18n="menu:start">Начать игру</button><button id="menu-character-button" class="menu-button" type="button" data-i18n="menu:character">Персонаж</button><button id="menu-shop" class="menu-button" type="button" data-i18n="menu:shop">Магазин</button><button id="menu-quests" class="menu-button" type="button" data-i18n="menu:quests">Задания</button><button id="menu-settings" class="menu-button" type="button" data-i18n="menu:settings">Настройки</button></div></div>
       <div id="menu-character" class="menu-screen character-screen" hidden aria-label="Выбор персонажа" data-i18n-aria-label="menu:character_screen_aria_label"><div class="menu-page-head"><h1 data-i18n="menu:choose_character_title">ПЕРСОНАЖ</h1><p data-i18n="menu:choose_character_hint">Выбери того, кто появится в игре</p></div><div id="character-grid" class="character-grid"></div><button id="character-back" class="menu-back" type="button" data-i18n="menu:back">Назад</button></div>
       <div id="menu-quests-screen" class="menu-screen echo-quests-screen" hidden><div class="menu-page-head"><h1 data-i18n="menu:quests_title">ЗАДАНИЯ</h1></div><p id="quests-reset" class="echo-quests-reset"></p><div id="quests-tabs" class="echo-quests-tabs" role="group" aria-label="Тип заданий" data-i18n-aria-label="menu:quests_tabs_aria"><button id="quests-tab-daily" type="button" class="echo-quests-tab is-active" aria-pressed="true" data-i18n="menu:quests_tab_daily">Ежедневные</button><button id="quests-tab-special" type="button" class="echo-quests-tab" aria-pressed="false" data-i18n="menu:quests_tab_special">Особые</button></div><div id="quests-list" class="echo-quests-list" aria-live="polite"></div><p id="quests-status" class="echo-quests-status" role="status"></p><div id="quests-special-list" class="echo-special-list" aria-live="polite" hidden></div><p id="quests-special-status" class="echo-special-status" role="status" hidden></p><button id="quests-back" class="menu-back" type="button" data-i18n="menu:back">Назад</button></div>
       <div id="menu-shop-screen" class="menu-screen echo-shop-screen" hidden aria-label="Магазин">

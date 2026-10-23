@@ -22,6 +22,13 @@
 #game #main-menu .echo-shop-screen .menu-page-head p,
 #game #main-menu .echo-quests-screen .menu-page-head p,
 #game #main-menu .character-screen .menu-page-head p{font-size:clamp(14px,2.7vh,19px)}
+/* Daily quests need scrolling, but Special may fit without it.
+   Reserve a symmetrical scrollbar gutter so header, reset text and tabs never
+   jump sideways when switching between the two tabs. */
+#game #main-menu .echo-quests-screen {
+  overflow-y: scroll;
+  scrollbar-gutter: stable both-edges;
+}
 /* Allow the shop to use landscape width rather than a single narrow menu column. */
 #game #main-menu .echo-shop-screen .echo-shop-packs{
  width:min(1050px,100%);max-width:100%;
