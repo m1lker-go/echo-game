@@ -187,10 +187,11 @@ class EchoWebActivity : ComponentActivity() {
         uri.path.orEmpty().startsWith("/Merchant/", ignoreCase = true)
 
     private fun isRobokassaReturn(uri: Uri): Boolean =
+        // This merchant's existing SuccessURL / FailURL are Cat Fighting
+        // URLs, not ECHO URLs. Close only the payment overlay on returning
+        // to our own origin; payment status is still server-verified by ECHO.
         uri.scheme == "https" &&
-        uri.host.equals("cat-fight.ru", ignoreCase = true) &&
-        (uri.path == "/echo/api/payments/robokassa/return" ||
-         uri.path == "/echo/api/payments/robokassa/fail")
+        uri.host.equals("cat-fight.ru", ignoreCase = true)
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun showRobokassaPayment(checkoutUrl: String) {
