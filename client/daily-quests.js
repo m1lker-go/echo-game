@@ -1,5 +1,5 @@
 // ECHO daily quests: server verified account, cumulative daily tiers.
-import {watchEchoRewardedVideo} from './rewarded-ads.js?v=echo-ads-2096987-1';
+import {watchEchoRewardedVideo} from './rewarded-ads.js?v=echo-ads-2096987-2';
 const list=document.querySelector('#quests-list');
 const status=document.querySelector('#quests-status');
 const reset=document.querySelector('#quests-reset');
