@@ -24,6 +24,12 @@ function harness() {
    sql.push(query);
    if(query.startsWith('CREATE TABLE')||query.startsWith('ALTER TABLE'))return {rowCount:0,rows:[]};
    if(query.startsWith('SELECT provider_id FROM echo_accounts'))return {rowCount:1,rows:[{provider_id:'12345'}]};
+   if(query.startsWith('UPDATE echo_vk_payments p')) {
+     const order=paid.get(params[0]+':'+params[1]);
+     if(!order||params[2]!=='12345')return {rowCount:0,rows:[]};
+     order.status='refunded';order.refunded_at=new Date();
+     return {rowCount:1,rows:[{app_order_id:order.app_order_id}]};
+   }
    if(query.startsWith('INSERT INTO echo_vk_payment_intents')) {
      intents.set(params[0],{status:'pending',cards:null});
      return {rowCount:1,rows:[]};
@@ -158,6 +164,8 @@ test('VK order test and live order IDs are separate and refund acknowledges with
  assert.equal((await h.call('order_status_change_test',{order_id:'300',status:'refunded'})).response.order_id,300);
  assert.equal(h.grants,10);
  assert.equal(h.questPremium,2);
+ assert.equal(h.paid.get('300:true').status,'refunded');
+ assert.equal(h.paid.get('300:false').status,undefined,'live charge remains paid');
 });
 test('VK callback signature checks correct app ID and secret',()=>{
  const x=sign();
