@@ -62,6 +62,7 @@ class EchoWebActivity : ComponentActivity() {
     private var arenaExitDialogHost: ComposeView? = null
     private var paymentOverlay: FrameLayout? = null
     private var paymentWeb: WebView? = null
+    private var rewardedAds: EchoRewardedAds? = null
     private val requestedUrl get() = if (page == Page.ARENA) BASE + "?play=1" else BASE
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
@@ -559,6 +560,13 @@ class EchoWebActivity : ComponentActivity() {
         }
         root.addView(web, 0, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        if (page == Page.QUESTS) {
+            // Only the Quests WebView may access the native rewarded SDK.
+            // Never expose this JS interface in checkout or other activities.
+            rewardedAds = EchoRewardedAds(this, web).also {
+                web.addJavascriptInterface(it, "EchoAndroidAds")
+            }
+        }
         // Install before the FIRST loadUrl(). ECHO's menu.js and game.js read
         // the chosen model synchronously, before onPageFinished ever fires.
         documentStartInstalled = EchoHeroWebBootstrap.install(web, auth)
@@ -709,6 +717,8 @@ class EchoWebActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        rewardedAds?.destroy()
+        rewardedAds = null
         closeRobokassaPayment()
         dismissArenaExitDialog()
         if (::web.isInitialized) {
