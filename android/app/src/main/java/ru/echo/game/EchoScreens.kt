@@ -90,7 +90,8 @@ internal fun EchoAndroidShell(
     audio: EchoAudioEngine,
     auth: EchoAuthSession,
     onVkLogin: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onDeleteAccount: () -> Unit
 ) {
     var page by remember { mutableStateOf(Page.HOME) }
     val context = LocalContext.current
@@ -107,7 +108,7 @@ internal fun EchoAndroidShell(
         BackHandler(enabled = page != Page.HOME, onBack = back)
         when (page) {
             Page.HOME, Page.SETTINGS ->
-                EchoNativePage(page, audio, auth, onVkLogin, onLogout,
+                EchoNativePage(page, audio, auth, onVkLogin, onLogout, onDeleteAccount,
                     onNavigate = { page = it }, onBack = back)
             else -> {
                 // Avoid embedding WebGL inside Compose AndroidView on MIUI:
@@ -263,7 +264,7 @@ private fun EchoButton(
 private fun EchoNativePage(
     page: Page, audio: EchoAudioEngine,
     auth: EchoAuthSession, onVkLogin: () -> Unit, onLogout: () -> Unit,
-    onNavigate: (Page) -> Unit, onBack: () -> Unit
+    onDeleteAccount: () -> Unit, onNavigate: (Page) -> Unit, onBack: () -> Unit
 ) {
     EchoSpaceBackground {
         BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -354,7 +355,7 @@ private fun EchoNativePage(
                             modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(Modifier.height(10.dp))
-                        EchoSettings(css, audio, auth, onVkLogin, onLogout, onNavigate)
+                        EchoSettings(css, audio, auth, onVkLogin, onLogout, onDeleteAccount, onNavigate)
                     }
                 }
             }
@@ -387,10 +388,11 @@ private fun EchoNativePage(
 private fun EchoSettings(
     css: EchoCss, audio: EchoAudioEngine, auth: EchoAuthSession,
     onVkLogin: () -> Unit, onLogout: () -> Unit,
-    onNavigate: (Page) -> Unit
+    onDeleteAccount: () -> Unit, onNavigate: (Page) -> Unit
 ) {
     var confirmCache by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     var cacheMessage by remember { mutableStateOf("") }
     val context = LocalContext.current
     val english = audio.language == "en"
@@ -417,7 +419,15 @@ private fun EchoSettings(
                 Modifier.fillMaxWidth(), centered = true)
             EchoButton(tr(audio, "ВЫЙТИ ИЗ АККАУНТА", "SIGN OUT"), Modifier.fillMaxWidth(),
                 height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp) {
-                confirmLogout = true
+                if (!auth.busy) confirmLogout = true
+            }
+            EchoButton(
+                if (auth.busy) tr(audio, "ВЫПОЛНЯЕТСЯ ОПЕРАЦИЯ...", "PLEASE WAIT...")
+                else tr(audio, "УДАЛИТЬ АККАУНТ", "DELETE ACCOUNT"),
+                Modifier.fillMaxWidth(),
+                height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp
+            ) {
+                if (!auth.busy) confirmDelete = true
             }
         }
         if (auth.message != null) {
@@ -465,6 +475,26 @@ private fun EchoSettings(
         if (cacheMessage.isNotEmpty()) {
             EchoText(cacheMessage, 12, Secondary, Modifier.fillMaxWidth(), centered = true)
         }
+    }
+
+    if (confirmDelete) {
+        EchoConfirmDialog(
+            title = tr(audio, "УДАЛЕНИЕ АККАУНТА", "DELETE ACCOUNT"),
+            message = tr(audio,
+                "Удалить аккаунт ЭХО навсегда? Все персонажи, ECHO Coin, задания и игровой прогресс будут потеряны. Восстановить аккаунт после удаления невозможно.",
+                "Permanently delete your ECHO account? Characters, ECHO Coins, quests and game progress will be lost. This cannot be undone."),
+            cancelLabel = tr(audio, "ОТМЕНА", "CANCEL"),
+            confirmLabel = tr(audio, "УДАЛИТЬ НАВСЕГДА", "DELETE FOREVER"),
+            onDismiss = {
+                audio.click()
+                confirmDelete = false
+            },
+            onConfirm = {
+                audio.click()
+                confirmDelete = false
+                if (!auth.busy) onDeleteAccount()
+            }
+        )
     }
 
     if (confirmLogout) {

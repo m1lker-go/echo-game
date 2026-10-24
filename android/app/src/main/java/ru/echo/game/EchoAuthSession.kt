@@ -114,6 +114,15 @@ internal class EchoAuthSession(context: Context) {
     fun checkSession(token: String): String =
         request("GET", "me", token = token).optString("nickname")
 
+    // Must run on a worker thread. Only the server response confirms deletion;
+    // never revoke the local token merely because a request timed out.
+    fun deleteAccount(token: String) {
+        require(TOKEN_PATTERN.matches(token)) { "Нужен действующий вход в ECHO" }
+        val confirmation = JSONObject().put("confirm", "DELETE").toString()
+        val result = request("DELETE", "account", body = confirmation, token = token)
+        check(result.optBoolean("ok", false)) { "Сервер не подтвердил удаление аккаунта" }
+    }
+
     fun logoutServer(token: String) {
         runCatching { request("POST", "logout", body = "{}", token = token) }
     }

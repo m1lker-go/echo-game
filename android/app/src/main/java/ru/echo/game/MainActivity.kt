@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
+import android.webkit.WebStorage
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
@@ -70,7 +71,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 EchoAndroidShell(echoAudio, echoAuth, onVkLogin = ::startVkLogin,
-                    onLogout = ::logoutEcho)
+                    onLogout = ::logoutEcho, onDeleteAccount = ::deleteEchoAccount)
                 if (networkUnavailable) {
                     val english = echoAudio.language == "en"
                     EchoConfirmDialog(
@@ -137,6 +138,38 @@ class MainActivity : ComponentActivity() {
             echoAuth.busy = false
             echoAuth.message = "Вход через VK отменён или не выполнен"
         }
+    }
+
+    private fun deleteEchoAccount() {
+        val existing = echoAuth.token() ?: run {
+            echoAuth.message = "Для удаления аккаунта войдите через VK"
+            return
+        }
+        if (echoAuth.busy) return
+        echoAuth.busy = true
+        echoAuth.message = null
+        Thread {
+            val result = runCatching { echoAuth.deleteAccount(existing) }
+            runOnUiThread {
+                if (echoAuth.token() != existing) return@runOnUiThread
+                echoAuth.busy = false
+                result.onSuccess {
+                    // All ECHO bearer sessions are now invalid on the server.
+                    echoAuth.clearSession()
+                    // Remove the previous account's WebView localStorage.
+                    // Other Android app data and sound/language preferences stay intact.
+                    WebStorage.getInstance().deleteOrigin("https://cat-fight.ru")
+                    getSharedPreferences("echo.android.battle-entries", MODE_PRIVATE)
+                        .edit().clear().apply()
+                    Toast.makeText(this@MainActivity, "Аккаунт ЭХО удалён", Toast.LENGTH_LONG).show()
+                }.onFailure { error ->
+                    // Never erase a local session without server confirmation.
+                    echoAuth.message = "Не удалось удалить аккаунт: " +
+                        (error.message ?: "проверь соединение")
+                    Log.e("EchoAccountDeletion", "Account deletion request failed", error)
+                }
+            }
+        }.start()
     }
 
     private fun logoutEcho() {
