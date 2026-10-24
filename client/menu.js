@@ -138,11 +138,27 @@ function openMenu() {
   syncSharedNav();
 }
 
-function startGame() {
-  window.ECHO_SELECTED_MODEL = selectedModel;
-  const url=new URL(window.location.href);
-  url.searchParams.set('play','1');
-  window.location.href=url.toString();
+let battleStartPending=false;
+async function startGame() {
+  if(battleStartPending)return;
+  battleStartPending=true;
+  startButton.disabled=true;
+  // Start is a natural transition: show an interstitial only on scheduled
+  // daily entries. All ad errors and no-fill results fall through to battle.
+  try{
+    const ads=await import('./battle-entry-ads.js?v=echo-interstitial-2097075-1');
+    await ads.showAdBeforeBattle();
+  }catch(error){
+    console.warn('[ECHO interstitial] continuing without ad',error);
+  }finally{
+    window.ECHO_SELECTED_MODEL = selectedModel;
+    const url=new URL(window.location.href);
+    url.searchParams.set('play','1');
+    window.location.href=url.toString();
+    // If location navigation is blocked, restore the menu button.
+    battleStartPending=false;
+    startButton.disabled=false;
+  }
 }
 
 function openPlaceholder(title) {
