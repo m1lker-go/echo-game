@@ -167,6 +167,9 @@ function rollSecurePack(type){
 const vkPayments = require('./vk-payments').createVKPayments({
   pool, sessionUser: echoAuth.sessionUser, rollSecurePack
 });
+const robokassaPayments = require('./robokassa-payments').createRobokassaPayments({
+  pool, sessionUser: echoAuth.sessionUser, rollSecurePack
+});
 const freePacks = require('./free-packs').createFreePacks({
   pool, sessionUser: echoAuth.sessionUser, rollSecurePack
 });
@@ -177,6 +180,7 @@ const specialQuests = require('./special-quests').createSpecialQuests({
 });
 app.use('/api/special-quests', specialQuests.router);
 app.use('/api/payments/vk', express.urlencoded({ extended: false }), vkPayments.router);
+app.use('/api/payments/robokassa', express.urlencoded({ extended: false }), robokassaPayments.router);
 app.use('/api/purchases',purchaseHistory.router);
 app.post('/api/packs/coin/open',async(req,res)=>{
  let client;
@@ -1340,6 +1344,7 @@ server.listen(port, '0.0.0.0', async () => {
     await freePacks.initialize();
     await specialQuests.initialize();
     await vkPayments.initialize();
+    await robokassaPayments.initialize();
     await purchaseHistory.initialize();
     rewardsReady = true;
     queueRewardWork(()=>roundRewards.finalizeOverdue(pool,Date.now()));
