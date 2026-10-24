@@ -527,7 +527,7 @@ private fun EchoSettings(
 internal fun EchoConfirmDialog(
     title: String,
     message: String,
-    cancelLabel: String,
+    cancelLabel: String?,
     confirmLabel: String,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
@@ -536,7 +536,7 @@ internal fun EchoConfirmDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
             dismissOnClickOutside = false,
-            dismissOnBackPress = true,
+            dismissOnBackPress = cancelLabel != null,
             usePlatformDefaultWidth = false,
             decorFitsSystemWindows = false
         )
@@ -590,12 +590,14 @@ internal fun EchoConfirmDialog(
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        EchoModalAction(
-                            label = cancelLabel,
-                            primary = false,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            onDismiss()
+                        if (cancelLabel != null) {
+                            EchoModalAction(
+                                label = cancelLabel,
+                                primary = false,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                onDismiss()
+                            }
                         }
                         EchoModalAction(
                             label = confirmLabel,

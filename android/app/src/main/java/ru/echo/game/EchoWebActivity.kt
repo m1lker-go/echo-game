@@ -26,6 +26,9 @@ import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.view.WindowCompat
@@ -57,6 +60,12 @@ class EchoWebActivity : ComponentActivity() {
     private var latestError = ""
     private var loadSequence = 0
     private var failureDialogOpen = false
+    private var connectivity: EchoConnectivityMonitor? = null
+    private var connectionDialogHost: ComposeView? = null
+    private var connectionMessage by mutableStateOf("")
+    private var offlineDialog = false
+    private var webPageReady = false
+    private var arenaEntryScheduled = false
     private var packDialogOpen = false
     private var arenaExitDialogOpen = false
     private var arenaExitDialogHost: ComposeView? = null
@@ -119,14 +128,92 @@ class EchoWebActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { navigateBack() }
         })
-        if (page == Page.ARENA) {
+        connectivity = EchoConnectivityMonitor(this) { online ->
+            if (!online) {
+                showConnectionFailure(offline = true)
+            } else if (offlineDialog && connectionDialogHost != null) {
+                // Socket.IO reconnects automatically: do not restart a live fight.
+                val pageWasReady = webPageReady
+                hideConnectionFailure()
+                if (!pageWasReady) openRequestedPage()
+            }
+        }.also { it.start() }
+        openRequestedPage()
+    }
+
+    private fun isOnline() = connectivity?.isOnline() == true
+
+    private fun openRequestedPage() {
+        if (!isOnline()) {
+            showConnectionFailure(offline = true)
+            return
+        }
+        if (page == Page.ARENA && !arenaEntryScheduled) {
+            arenaEntryScheduled = true
             battleInterstitial = EchoBattleInterstitial(this)
             battleInterstitial?.beforeBattle(auth.token()) {
-                if (!isFinishing && !isDestroyed) web.loadUrl(requestedUrl)
+                if (!isFinishing && !isDestroyed) {
+                    if (isOnline()) web.loadUrl(requestedUrl)
+                    else showConnectionFailure(offline = true)
+                }
             }
         } else {
             web.loadUrl(requestedUrl)
         }
+    }
+
+    private fun retryConnection() {
+        if (!isOnline()) {
+            showConnectionFailure(offline = true)
+            return
+        }
+        val wasOffline = offlineDialog
+        hideConnectionFailure()
+        if (crashed) {
+            recreate()
+            return
+        }
+        // Preserve the current fight on transient device connectivity loss.
+        if (!webPageReady || !wasOffline) {
+            web.stopLoading()
+            openRequestedPage()
+        }
+    }
+
+    private fun showConnectionFailure(offline: Boolean) {
+        if (isFinishing || isDestroyed) return
+        offlineDialog = offline
+        connectionMessage = if (offline)
+            "Нет подключения к интернету. Проверь сеть и попробуй снова."
+        else "Не удалось связаться с сервером ЭХО. Попробуй подключиться снова."
+        if (connectionDialogHost != null) return
+        loadSequence++ // Invalidate previous WebView readiness probes.
+        val host = ComposeView(this).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+        }
+        connectionDialogHost = host
+        root.addView(host, FrameLayout.LayoutParams(1, 1))
+        host.setContent {
+            val english = getSharedPreferences("echo.android.preferences", MODE_PRIVATE)
+                .getString("language", "ru") == "en"
+            EchoConfirmDialog(
+                title = if (english) "CONNECTION LOST" else "СОЕДИНЕНИЕ ПОТЕРЯНО",
+                message = if (english) {
+                    if (offlineDialog) "No internet connection. Check your network and try again."
+                    else "Could not reach the ECHO server. Please try again."
+                } else connectionMessage,
+                cancelLabel = if (english) "MAIN MENU" else "В МЕНЮ",
+                confirmLabel = if (english) "TRY AGAIN" else "ПОПРОБОВАТЬ СНОВА",
+                onDismiss = { finish() },
+                onConfirm = { retryConnection() }
+            )
+        }
+    }
+
+    private fun hideConnectionFailure() {
+        connectionDialogHost?.let { root.removeView(it) }
+        connectionDialogHost = null
+        offlineDialog = false
     }
 
     // Keep pack closing independent; only leaving the actual arena needs
@@ -387,6 +474,7 @@ class EchoWebActivity : ComponentActivity() {
                     nativeNav.setMode(if (page == Page.ARENA)
                         EchoNavButton.Mode.CLOSE else EchoNavButton.Mode.BACK)
                     loadSequence++
+                    webPageReady = false
                     loading.restart()
                     Log.i(TAG, "Native full-screen WebView loading: " + Uri.parse(url).path)
                 }
@@ -551,14 +639,28 @@ class EchoWebActivity : ComponentActivity() {
                 override fun onReceivedError(
                     view: WebView, request: WebResourceRequest, error: WebResourceError
                 ) {
-                    if (request.isForMainFrame) showFailure("Ошибка ECHO: " + error.description)
-                    else Log.w(TAG, "Resource failed: " + request.url.path)
+                    if (request.isForMainFrame) {
+                        val networkError = error.errorCode in setOf(
+                            WebViewClient.ERROR_HOST_LOOKUP,
+                            WebViewClient.ERROR_CONNECT,
+                            WebViewClient.ERROR_TIMEOUT,
+                            WebViewClient.ERROR_IO,
+                            WebViewClient.ERROR_UNKNOWN
+                        )
+                        if (networkError || !isOnline()) {
+                            Log.w(TAG, "Connection error: " + error.errorCode)
+                            showConnectionFailure(offline = !isOnline())
+                        } else showFailure("Ошибка ECHO: " + error.description)
+                    } else Log.w(TAG, "Resource failed: " + request.url.path)
                 }
 
                 override fun onReceivedHttpError(
                     view: WebView, request: WebResourceRequest, response: WebResourceResponse
                 ) {
-                    if (request.isForMainFrame && response.statusCode >= 400) {
+                    if (request.isForMainFrame && response.statusCode >= 500) {
+                        Log.w(TAG, "Server unavailable: HTTP " + response.statusCode)
+                        showConnectionFailure(offline = !isOnline())
+                    } else if (request.isForMainFrame && response.statusCode >= 400) {
                         showFailure("Сервер ECHO: HTTP " + response.statusCode)
                     }
                 }
@@ -656,6 +758,7 @@ class EchoWebActivity : ComponentActivity() {
                     if (!isFinishing && !isDestroyed && !crashed &&
                         sequence == loadSequence && loading.visibility == View.VISIBLE) {
                         loading.visibility = View.GONE
+                        webPageReady = true
                         Log.i(TAG, "Requested screen visible: " + page.name)
                     }
                 }, 180L)
@@ -730,6 +833,7 @@ class EchoWebActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         if (::web.isInitialized) web.onResume()
+        if (connectivity?.isOnline() == false) showConnectionFailure(offline = true)
     }
 
     override fun onPause() {
@@ -738,6 +842,9 @@ class EchoWebActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        connectivity?.stop()
+        connectivity = null
+        hideConnectionFailure()
         battleInterstitial?.destroy()
         battleInterstitial = null
         rewardedAds?.destroy()

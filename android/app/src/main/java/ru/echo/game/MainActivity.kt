@@ -9,6 +9,9 @@ import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.MaterialTheme
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -27,6 +30,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var echoAudio: EchoAudioEngine
     private lateinit var echoAuth: EchoAuthSession
     private var vkLoginInProgress = false
+    private var networkUnavailable by mutableStateOf(false)
+    private var connectivity: EchoConnectivityMonitor? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,8 +71,24 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 EchoAndroidShell(echoAudio, echoAuth, onVkLogin = ::startVkLogin,
                     onLogout = ::logoutEcho)
+                if (networkUnavailable) {
+                    val english = echoAudio.language == "en"
+                    EchoConfirmDialog(
+                        title = if (english) "CONNECTION LOST" else "СОЕДИНЕНИЕ ПОТЕРЯНО",
+                        message = if (english)
+                            "No internet connection. Check your network and try again."
+                        else "Нет подключения к интернету. Проверь сеть и попробуй снова.",
+                        cancelLabel = null,
+                        confirmLabel = if (english) "TRY AGAIN" else "ПОПРОБОВАТЬ СНОВА",
+                        onDismiss = {},
+                        onConfirm = { networkUnavailable = connectivity?.isOnline() != true }
+                    )
+                }
             }
         }
+        connectivity = EchoConnectivityMonitor(this) { online ->
+            networkUnavailable = !online
+        }.also { it.start() }
     }
 
 
@@ -135,6 +156,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        connectivity?.stop()
+        connectivity = null
         if (::echoAudio.isInitialized) echoAudio.release()
         super.onDestroy()
     }
