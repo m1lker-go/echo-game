@@ -63,6 +63,7 @@ class EchoWebActivity : ComponentActivity() {
     private var paymentOverlay: FrameLayout? = null
     private var paymentWeb: WebView? = null
     private var rewardedAds: EchoRewardedAds? = null
+    private var battleInterstitial: EchoBattleInterstitial? = null
     private val requestedUrl get() = if (page == Page.ARENA) BASE + "?play=1" else BASE
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
@@ -118,7 +119,14 @@ class EchoWebActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { navigateBack() }
         })
-        web.loadUrl(requestedUrl)
+        if (page == Page.ARENA) {
+            battleInterstitial = EchoBattleInterstitial(this)
+            battleInterstitial?.beforeBattle(auth.token()) {
+                if (!isFinishing && !isDestroyed) web.loadUrl(requestedUrl)
+            }
+        } else {
+            web.loadUrl(requestedUrl)
+        }
     }
 
     // Keep pack closing independent; only leaving the actual arena needs
@@ -347,6 +355,18 @@ class EchoWebActivity : ComponentActivity() {
                 override fun shouldOverrideUrlLoading(
                     view: WebView, request: WebResourceRequest
                 ): Boolean {
+                    if (request.isForMainFrame && page == Page.ARENA &&
+                        trusted(request.url) &&
+                        request.url.getQueryParameter("echo_interstitial") == "replay") {
+                        // A fresh Start after defeat counts even within the same round.
+                        // Intercept BEFORE WebView loads the new arena URL.
+                        battleInterstitial?.beforeBattle(auth.token()) {
+                            if (!isFinishing && !isDestroyed) {
+                                web.loadUrl(BASE + "?play=1")
+                            }
+                        } ?: web.loadUrl(BASE + "?play=1")
+                        return true
+                    }
                     if (trusted(request.url)) return false
                     if (request.isForMainFrame && isRobokassaCheckout(request.url)) {
                         showRobokassaPayment(request.url.toString())
@@ -421,6 +441,7 @@ class EchoWebActivity : ComponentActivity() {
                     val language = audio.getString("language", "ru") ?: "ru"
                     val script = """
                         (function() {
+                          window.ECHO_ANDROID_ARENA = ${page == Page.ARENA};
                           let attempts = 0, soundReady = false, localeReady = false;
                           const timer = setInterval(() => {
                             if (!localeReady && window.ECHOI18n) {
@@ -717,6 +738,8 @@ class EchoWebActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        battleInterstitial?.destroy()
+        battleInterstitial = null
         rewardedAds?.destroy()
         rewardedAds = null
         closeRobokassaPayment()
