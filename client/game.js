@@ -132,7 +132,31 @@ function resize(){
 }addEventListener('resize',resize,{passive:true});resize();
 function setConnection(s,l){connectionDot.classList.toggle('online',s==='online');connectionDot.classList.toggle('offline',s==='offline');connectionLabel.textContent=window.$t?window.$t(l,l):l;}function getPlayerPosition(id){if(!id)return null;if(id===state.socket?.id)return{x:state.x,y:state.y};const p=state.others.get(id);return p?{x:p.displayX??p.targetX,y:p.displayY??p.targetY}:null;}
 function beginCombatVisual(a,b,fid){const now=performance.now(),local=a===state.socket?.id||b===state.socket?.id,oid=a===state.socket?.id?b:a===state.socket?.id?a:null;if(!local){const x=state.others.get(a),y=state.others.get(b);if(x){x.combatUntil=now+FIGHT_DURATION;x.combatFightId=fid;x.fightingWith=b;}if(y){y.combatUntil=now+FIGHT_DURATION;y.combatFightId=fid;y.fightingWith=a;}return;}state.combatUntil=now+FIGHT_DURATION;state.combatOpponentId=oid;state.combatFightId=fid;state.vx=0;state.vy=0;const o=state.others.get(oid);if(o)o.combatUntil=now+FIGHT_DURATION;}
-function showDefeat(){state.defeated=true;state.combatUntil=0;state.combatOpponentId=null;state.vx=0;state.vy=0;energyText.textContent='0';defeatScreen.hidden=false;}function startNewGame(){const u=new URL(location.href);u.searchParams.set('play','1');location.href=u.toString();}defeatReplay?.addEventListener('click',startNewGame);defeatMenu?.addEventListener('click',returnToMenu);
+function showDefeat(){state.defeated=true;state.combatUntil=0;state.combatOpponentId=null;state.vx=0;state.vy=0;energyText.textContent='0';defeatScreen.hidden=false;}let battleReplayPending=false;
+async function startNewGame(){
+ if(battleReplayPending)return;
+ battleReplayPending=true;
+ if(defeatReplay)defeatReplay.disabled=true;
+ const u=new URL(location.href);
+ u.searchParams.set('play','1');
+ // In APK the native WebView intercepts this replay-only navigation,
+ // shows SDK interstitial if due, then proceeds to the actual game URL.
+ if(window.ECHO_ANDROID_ARENA===true){
+  u.searchParams.set('echo_interstitial','replay');
+  location.href=u.toString();
+  return;
+ }
+ try{
+  const ads=await import('./battle-entry-ads.js?v=echo-interstitial-2097075-1');
+  await ads.showAdBeforeBattle();
+ }catch(error){
+  console.warn('[ECHO interstitial] replay without ad',error);
+ }finally{
+  location.href=u.toString();
+  battleReplayPending=false;
+  if(defeatReplay)defeatReplay.disabled=false;
+ }
+}defeatReplay?.addEventListener('click',startNewGame);defeatMenu?.addEventListener('click',returnToMenu);
 function connectSocket(){if(!window.io){setConnection('offline','game:connection_local');return;}try{state.socket=window.io(window.ECHO_SERVER_URL||location.origin,{path:'/echo/socket.io/',transports:['websocket','polling'],reconnection:true,timeout:5000,auth:{skin:selectedModel,activityProfileId,playerName,accountToken:localStorage.getItem('echo.authToken')||null}});window.echoSocket=state.socket;document.dispatchEvent(new CustomEvent('echo:socket-ready',{detail:{socket:state.socket}}));state.socket.on('echo:world',world=>{window.echoWorld=world;if(world&&Array.isArray(world.trees))renderWorldTrees(world.trees);if(world&&Array.isArray(world.waters))renderWorldWaters(world.waters);});state.socket.on('connect',()=>{state.hasServerSpawn=false;state.shieldUntil=0;setConnection('online','game:connection_online');state.socket.emit('echo:hello',{version:1,skin:selectedModel,activityProfileId,playerName});lastDailyPing=-15000;sendDailyActivityPing();});state.socket.on('disconnect',()=>setConnection('offline','game:connection_offline'));state.socket.on('connect_error',error=>{
   if(error?.data?.code==='ACCOUNT_ALREADY_PLAYING'){
     setConnection('offline','game:connection_offline');
