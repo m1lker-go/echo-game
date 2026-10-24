@@ -143,10 +143,10 @@ async function startGame() {
   if(battleStartPending)return;
   battleStartPending=true;
   startButton.disabled=true;
-  // Start is a natural transition: show an interstitial only on scheduled
-  // daily entries. All ad errors and no-fill results fall through to battle.
+  // Temporary VK test: every battle entry from #3 requests interstitial.
+  // All ad errors and no-fill results fall through to battle.
   try{
-    const ads=await import('./battle-entry-ads.js?v=echo-interstitial-2097075-1');
+    const ads=await import('./battle-entry-ads.js?v=echo-interstitial-2097075-test-from-3-1');
     await ads.showAdBeforeBattle();
   }catch(error){
     console.warn('[ECHO interstitial] continuing without ad',error);
