@@ -481,7 +481,7 @@ class EchoWebActivity : ComponentActivity() {
 
                 override fun onPageFinished(view: WebView, url: String) {
                     super.onPageFinished(view, url)
-                    if (crashed || !trusted(Uri.parse(url))) return
+                    if (crashed || connectionDialogHost != null || !trusted(Uri.parse(url))) return
 
                     // On modern WebViews the trusted document-start bootstrap
                     // has already synchronized auth and protected hero choice.
@@ -703,7 +703,8 @@ class EchoWebActivity : ComponentActivity() {
      */
     private fun pollPageReady(view: WebView, sequence: Int, attempt: Int) {
         if (isFinishing || isDestroyed || crashed || failureDialogOpen ||
-            sequence != loadSequence || loading.visibility != View.VISIBLE) return
+            connectionDialogHost != null || sequence != loadSequence ||
+            loading.visibility != View.VISIBLE) return
         val target = when (page) {
             Page.ARENA -> "arena"
             Page.HEROES, Page.HERO_VIEW -> "character"
@@ -748,7 +749,7 @@ class EchoWebActivity : ComponentActivity() {
             })()
         """.trimIndent()
         view.evaluateJavascript(script) { result ->
-            if (isFinishing || isDestroyed || crashed ||
+            if (isFinishing || isDestroyed || crashed || connectionDialogHost != null ||
                 sequence != loadSequence || loading.visibility != View.VISIBLE) {
                 return@evaluateJavascript
             }
