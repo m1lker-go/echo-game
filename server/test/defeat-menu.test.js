@@ -28,6 +28,7 @@ function runExit(initiallyDefeated) {
     Event: class { constructor(type) { this.type = type; } },
     document: {
       querySelector: (selector) => ({
+        '#defeat-screen': defeatScreen,
         '#main-menu': {classList: {remove: cls => {
           if (cls === 'is-hidden') state.menuHidden = false;
         }}},

@@ -226,7 +226,8 @@ document.addEventListener('echo:auth-changed',event=>{
 let lastDailyPing=0;function sendDailyActivityPing(now=performance.now()){if(!state.socket?.connected||document.hidden||now-lastDailyPing<15000)return;lastDailyPing=now;state.socket.emit('echo:dailyPing',{activityProfileId});}document.addEventListener('visibilitychange',()=>{if(!state.socket?.connected)return;if(document.hidden){state.socket.emit('echo:dailyPing',{activityProfileId,active:false});}else{lastDailyPing=-15000;sendDailyActivityPing();}});function returnToMenu(){
   releaseGameSocket();
   // Defeat dialog has z-index 30 and would otherwise cover the menu (z-index 20).
-  if(defeatScreen)defeatScreen.hidden=true;
+  const defeatOverlay=document.querySelector('#defeat-screen');
+  if(defeatOverlay)defeatOverlay.hidden=true;
   document.querySelector('#main-menu')?.classList.remove('is-hidden');
   document.getElementById('game')?.classList.remove('echo-in-battle');
   document.querySelector('#menu-main')?.removeAttribute('hidden');
