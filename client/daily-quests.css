@@ -76,3 +76,47 @@
   top:max(56px,calc(env(safe-area-inset-top) + 56px))
  }
 }
+
+/* ECHO menu-style actions: claim and rewarded-video play share one capsule. */
+#main-menu .echo-quest .echo-quest-claim.is-claim-action,
+#main-menu .echo-quest .echo-quest-claim.is-video-play{
+  display:inline-flex;
+  justify-content:center;
+  align-items:center;
+  box-sizing:border-box;
+  width:clamp(106px,14vw,136px);
+  height:clamp(38px,6.3vh,46px);
+  min-height:38px;
+  padding:5px 12px;
+  border:1px solid #fff;
+  border-radius:11px;
+  background:#000;
+  color:#fff;
+  font-size:clamp(13px,2.35vh,17px);
+  font-weight:600;
+  line-height:1.1;
+  white-space:nowrap;
+  cursor:pointer;
+  transition:background .15s ease,transform .15s ease,border-color .15s ease;
+}
+#main-menu .echo-quest .echo-quest-claim.is-claim-action:hover,
+#main-menu .echo-quest .echo-quest-claim.is-video-play:hover{
+  background:#14202d;
+}
+#main-menu .echo-quest .echo-quest-claim.is-claim-action:active,
+#main-menu .echo-quest .echo-quest-claim.is-video-play:active{
+  transform:scale(.97);
+}
+#main-menu .echo-quest .echo-quest-claim.is-claim-action:disabled,
+#main-menu .echo-quest .echo-quest-claim.is-video-play:disabled{
+  opacity:.55;cursor:default;transform:none;
+}
+#main-menu .echo-quest .echo-quest-claim.is-video-play svg{
+  display:block;width:21px;height:21px;fill:currentColor;
+}
+@media(max-width:520px){
+  #main-menu .echo-quest .echo-quest-claim.is-claim-action,
+  #main-menu .echo-quest .echo-quest-claim.is-video-play{
+    width:clamp(94px,23vw,118px);min-height:36px;height:38px;padding:5px 9px;
+  }
+}

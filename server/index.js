@@ -264,6 +264,8 @@ const DAILY_QUESTS = Object.freeze([
   { id: 'pack_premium', column: 'pack_premium_opened', targets: [1], reward: 50 },
 ]);
 const QUEST_LEVEL_REWARDS = [2,4,6,8,10];
+const videoBonus=require('./video-bonus').createVideoBonus({pool,sessionUser:echoAuth.sessionUser,dailyDateKey});
+app.use('/api/daily-video',videoBonus.router);
 const questKey = (id, level) => id + ':' + level;
 async function questAccount(req, res) {
   const user = await echoAuth.sessionUser(req);
@@ -279,7 +281,7 @@ async function getDailyQuests(accountId) {
   ]);
   const activity = activityResult.rows[0] || {};
   const claimed = new Set(claimsResult.rows.map(row => row.quest_id));
-  return { date, timezone: DAILY_TIME_ZONE, quests: DAILY_QUESTS.map(quest => {
+  const standardQuests=DAILY_QUESTS.map(quest => {
     const count = quest.targets.length;
     let level = quest.targets.findIndex((_, i) => !claimed.has(questKey(quest.id, i+1)));
     if (level === -1) level = count-1;
@@ -288,7 +290,8 @@ async function getDailyQuests(accountId) {
     const progress = quest.column ? Math.min(target, Number(activity[quest.column] || 0)) : 0;
     return { id: quest.id, level: level+1, levels: count, target, progress,
       reward: quest.reward ?? QUEST_LEVEL_REWARDS[level], claimed: done, available: !!quest.column };
-  }) };
+  });
+  return {date,timezone:DAILY_TIME_ZONE,quests:[...standardQuests,await videoBonus.getQuest(accountId,date)]};
 }
 app.get('/api/daily-quests', async (req, res) => {
   try {
@@ -1346,6 +1349,7 @@ server.listen(port, '0.0.0.0', async () => {
     await vkPayments.initialize();
     await robokassaPayments.initialize();
     await purchaseHistory.initialize();
+    await videoBonus.initialize();
     rewardsReady = true;
     queueRewardWork(()=>roundRewards.finalizeOverdue(pool,Date.now()));
     console.log('[echo-server] database connection OK');
