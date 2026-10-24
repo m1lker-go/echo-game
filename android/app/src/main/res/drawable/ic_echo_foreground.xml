@@ -1,17 +1,8 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#B6EBFF"
-        android:strokeWidth="5"
-        android:pathData="M54,12 A42,42 0,1 1,54 96 A42,42 0,1 1,54 12" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="4"
-        android:strokeLineCap="round"
-        android:pathData="M76,35 L40,35 L40,73 L76,73 M40,54 L69,54" />
-</vector>
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The supplied square WebP sits within the Android adaptive-icon safe zone. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/echologo"
+    android:insetLeft="18dp"
+    android:insetTop="18dp"
+    android:insetRight="18dp"
+    android:insetBottom="18dp" />
