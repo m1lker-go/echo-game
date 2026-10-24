@@ -2,6 +2,9 @@ name: Build ECHO Android APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - apk
 
 permissions:
   contents: read
@@ -16,6 +19,8 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
+      - name: Verify battle ad flow
+        run: node --test server/test/battle-entry-ads.test.js server/test/defeat-menu.test.js
       - name: Compile Android APK
         working-directory: android
         run: |
