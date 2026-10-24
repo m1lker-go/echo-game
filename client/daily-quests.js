@@ -1,4 +1,5 @@
 // ECHO daily quests: server verified account, cumulative daily tiers.
+import {watchEchoRewardedVideo} from './rewarded-ads.js?v=echo-ads-2096987-1';
 const list=document.querySelector('#quests-list');
 const status=document.querySelector('#quests-status');
 const reset=document.querySelector('#quests-reset');
@@ -9,7 +10,8 @@ const meta={
  food:{icon:'fa-solid fa-apple-whole',title:'quests_food',desc:'quests_food_desc'},
  pvp:{icon:'fa-solid fa-trophy',title:'quests_pvp',desc:'quests_pvp_desc'},
  pack_coin:{icon:'fa-solid fa-box',title:'quests_pack_coin',desc:'quests_pack_coin_desc'},
- pack_premium:{icon:'fa-solid fa-gem',title:'quests_pack_premium',desc:'quests_pack_premium_desc'}
+ pack_premium:{icon:'fa-solid fa-gem',title:'quests_pack_premium',desc:'quests_pack_premium_desc'},
+ video:{icon:'fa-solid fa-play',title:'quests_video',desc:'quests_video_desc'}
 };
 // Local SVG icons avoid dependence on an external icon-font CDN.
 const iconPaths={
@@ -17,7 +19,8 @@ const iconPaths={
  food:'<path d="M12 7c-3-4-9-2-9 4 0 5 4 10 7 10 1 0 1.4-.6 2-.6s1 .6 2 .6c3 0 7-5 7-10 0-6-6-8-9-4Z"/><path d="M12 7c0-3 2-5 5-5"/>',
  pvp:'<path d="M7 3h10v7a5 5 0 0 1-10 0V3Z"/><path d="M7 5H4v3a4 4 0 0 0 4 4m9-7h3v3a4 4 0 0 1-4 4M12 15v4m-4 2h8m-8-2h8"/>',
  pack_coin:'<path d="m3 7 9-4 9 4v10l-9 4-9-4V7Zm0 0 9 4 9-4m-9 4v10"/>',
- pack_premium:'<path d="M6 3h12l4 6-10 12L2 9l4-6Zm-4 6h20M9 3l3 6 3-6m-3 6v12"/>'
+ pack_premium:'<path d="M6 3h12l4 6-10 12L2 9l4-6Zm-4 6h20M9 3l3 6 3-6m-3 6v12"/>',
+ video:'<rect x="3" y="3" width="18" height="18" rx="5"/><path d="m10 8 6 4-6 4Z"/>'
 };
 function questIcon(id){
  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
@@ -142,9 +145,25 @@ function render(){
   const counter=document.createElement('span');counter.className='echo-quest-counter';
   counter.textContent=quest.id==='play'?Math.floor(progress/60)+' / '+Math.floor(quest.target/60):quest.available?progress+' / '+quest.target:'0 / 1';
   const button=document.createElement('button');button.type='button';button.className='echo-quest-claim';
-  button.disabled=!ready||loading;
-  button.textContent=quest.claimed?t('quests_claimed','Выполнено'):!quest.available?t('quests_soon','Скоро'):ready?t('quests_take','Забрать'):t('quests_incomplete','В процессе');
-  button.addEventListener('click',()=>claim(quest.id));
+  if(quest.id==='video'&&!quest.claimed&&!ready){
+   button.disabled=loading;
+   button.classList.add('is-video-play');
+   button.setAttribute('aria-label',t('quests_video_play','Посмотреть рекламу'));
+   button.title=t('quests_video_play','Посмотреть рекламу');
+   const playIcon=document.createElementNS('http://www.w3.org/2000/svg','svg');
+   playIcon.setAttribute('viewBox','0 0 24 24');
+   playIcon.setAttribute('fill','currentColor');
+   playIcon.setAttribute('aria-hidden','true');
+   const triangle=document.createElementNS('http://www.w3.org/2000/svg','path');
+   triangle.setAttribute('d','M8 5.5v13l10-6.5Z');
+   playIcon.append(triangle);button.append(playIcon);
+   button.addEventListener('click',()=>{void watchVideoBonus();});
+  }else{
+   button.disabled=!ready||loading;
+   button.textContent=quest.claimed?t('quests_claimed','Выполнено'):!quest.available?t('quests_soon','Скоро'):ready?t('quests_take','Забрать'):t('quests_incomplete','В процессе');
+   if(ready)button.classList.add('is-claim-action');
+   button.addEventListener('click',()=>{void claim(quest.id);});
+  }
   footer.append(counter,button);article.append(heading,track,footer);list.append(article);
  }
  show('');
@@ -162,11 +181,51 @@ async function refresh(){
  }catch(error){console.warn('[echo quests] fetch failed',error);show(t('quests_error','Не удалось загрузить задания. Попробуй снова.'))}
  finally{loading=false;if(current&&!screen.hidden)render()}
 }
+async function watchVideoBonus(){
+ if(loading||!token())return;
+ loading=true;
+ try{
+  const accountToken=token();
+  const result=await watchEchoRewardedVideo(async()=>{
+   const response=await fetch(endpoint('/api/daily-video/start'),{
+    method:'POST',headers:{Authorization:'Bearer '+accountToken}
+   });
+   if(!response.ok)throw Error('start '+response.status);
+   return response.json();
+  });
+  if(accountToken!==token())return;
+  if(result.watched&&result.attemptId){
+   const response=await fetch(endpoint('/api/daily-video/complete'),{
+    method:'POST',
+    headers:{Authorization:'Bearer '+accountToken,'Content-Type':'application/json'},
+    body:JSON.stringify({attemptId:result.attemptId})
+   });
+   if(!response.ok)throw Error('complete '+response.status);
+   window.ECHOToast?.show(t('quests_video_ready','Ролик просмотрен! Забери награду.'));
+  }else if(result.reason==='unsupported'){
+   window.ECHOToast?.show(t('quests_video_platform','Реклама пока недоступна на этой платформе.'));
+  }else if(result.reason==='incomplete'){
+   window.ECHOToast?.show(t('quests_video_incomplete','Просмотр не завершён. Попробуй ещё раз.'));
+  }else{
+   window.ECHOToast?.show(t('quests_video_unavailable','Реклама пока недоступна. Попробуй позже.'));
+  }
+ }catch(error){
+  console.warn('[ECHO video bonus] unavailable',error);
+  window.ECHOToast?.show(t('quests_video_unavailable','Реклама пока недоступна. Попробуй позже.'));
+ }finally{
+  loading=false;
+  if(!screen.hidden)void refresh();
+ }
+}
 async function claim(questId){
  if(loading||!token())return;
  loading=true;
  try{
-  const response=await fetch(endpoint('/api/daily-quests/claim'),{method:'POST',headers:{Authorization:'Bearer '+token(),'Content-Type':'application/json'},body:JSON.stringify({questId})});
+  const video=questId==='video';
+  const response=await fetch(endpoint(video?'/api/daily-video/claim':'/api/daily-quests/claim'),{
+   method:'POST',headers:{Authorization:'Bearer '+token(),'Content-Type':'application/json'},
+   body:JSON.stringify({questId})
+  });
   const data=await response.json();
   if(!response.ok&&response.status!==409)throw Error(String(response.status));
   if(data.quests){current=data;hudSnapshot=data;hudFetchedAt=Date.now();}
@@ -179,7 +238,12 @@ async function claim(questId){
    window.ECHOToast?.show(message);
   }
  }catch(error){console.warn('[echo quests] claim failed',error);show(t('quests_error','Не удалось загрузить задания. Попробуй снова.'))}
- finally{loading=false;if(current&&!screen.hidden)render();displayQuestHud();refreshQuestHud()}
+ finally{
+  loading=false;
+  if(questId==='video'&&!screen.hidden)void refresh();
+  else if(current&&!screen.hidden)render();
+  displayQuestHud();refreshQuestHud();
+ }
 }
 window.addEventListener('echo:quests-open',refresh);
 window.addEventListener('echo:language-changed',()=>{if(current)render();else if(!token())show(t('quests_guest','Задания доступны только авторизованным пользователям.'))});
