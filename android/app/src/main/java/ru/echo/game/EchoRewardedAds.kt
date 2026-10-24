@@ -82,10 +82,13 @@ internal class EchoRewardedAds(
     }
 
     private fun dispatch(id: String, watched: Boolean) {
-        if (activity.isFinishing || activity.isDestroyed) return
-        val js = "window.dispatchEvent(new CustomEvent('echo:native-rewarded-result'," +
-            "{detail:{attemptId:" + JSONObject.quote(id) + ",watched:" + watched + "}}))"
-        webView.evaluateJavascript(js, null)
+        // WebView.evaluateJavascript always executes on Android's UI thread.
+        activity.runOnUiThread {
+            if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
+            val js = "window.dispatchEvent(new CustomEvent('echo:native-rewarded-result'," +
+                "{detail:{attemptId:" + JSONObject.quote(id) + ",watched:" + watched + "}}))"
+            webView.evaluateJavascript(js, null)
+        }
     }
 
     fun destroy() {
