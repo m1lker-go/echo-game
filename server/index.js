@@ -33,6 +33,15 @@ const io = new Server(server, {
   },
 });
 const accountSessions = createAccountSessionRegistry();
+echoAuth.setAccountDeletedHandler(accountId => {
+  // Sessions are now revoked in PostgreSQL. Disconnect pre-existing sockets
+  // that were authenticated before the deletion so they stop writing progress.
+  for (const socket of io.sockets.sockets.values()) {
+    if (String(socket.data.verifiedAccountId || '') === String(accountId)) {
+      socket.disconnect(true);
+    }
+  }
+});
 
 // The clock is intentionally informational until room gameplay is integrated.
 function currentRoundClock(now = Date.now()) {
@@ -1350,6 +1359,7 @@ server.listen(port, '0.0.0.0', async () => {
     await robokassaPayments.initialize();
     await purchaseHistory.initialize();
     await videoBonus.initialize();
+    await require('./account-deletion').initialize(pool);
     rewardsReady = true;
     queueRewardWork(()=>roundRewards.finalizeOverdue(pool,Date.now()));
     console.log('[echo-server] database connection OK');
