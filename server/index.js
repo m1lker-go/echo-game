@@ -170,10 +170,10 @@ const vkPayments = require('./vk-payments').createVKPayments({
 const robokassaPayments = require('./robokassa-payments').createRobokassaPayments({
   pool, sessionUser: echoAuth.sessionUser, rollSecurePack
 });
-const purchaseHistory = createPurchaseHistory({pool,sessionUser:echoAuth.sessionUser});
 const freePacks = require('./free-packs').createFreePacks({
   pool, sessionUser: echoAuth.sessionUser, rollSecurePack
 });
+const purchaseHistory=createPurchaseHistory({pool,sessionUser:echoAuth.sessionUser});
 app.use('/api/packs/free', freePacks.router);
 const specialQuests = require('./special-quests').createSpecialQuests({
   pool, sessionUser: echoAuth.sessionUser, grantPack: freePacks.grant
