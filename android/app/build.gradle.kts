@@ -13,8 +13,8 @@ android {
         applicationId = "ru.echo.game"
         minSdk = 26
         targetSdk = 35
-        versionCode = 15
-        versionName = "0.3.9"
+        versionCode = 16
+        versionName = "0.4.0"
 
         val vkConfigured = !((System.getenv("ECHO_VK_CLIENT_SECRET")
             ?: providers.gradleProperty("ECHO_VK_CLIENT_SECRET").orNull).isNullOrBlank())
@@ -47,6 +47,8 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.webkit:webkit:1.17.1")
     implementation("com.vk.id:vkid:2.7.3")
+    // Native VK Ads rewarded video for standalone APK, placement 2096987.
+    implementation("com.my.target:mytarget-sdk:5.52.5")
 
     implementation(platform("androidx.compose:compose-bom:2025.04.01"))
     implementation("androidx.compose.ui:ui")
