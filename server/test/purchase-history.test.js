@@ -4,11 +4,12 @@ const assert=require('node:assert/strict');
 const {createPurchaseHistory,recordPackOpening}=require('../purchase-history');
 const USER='123e4567-e89b-42d3-a456-426614174000';
 const OTHER='123e4567-e89b-42d3-a456-426614174001';
-function harness(loggedIn=true,rows=[]) {
+function harness(loggedIn=true,rows=[],robokassaExists=false) {
  const routes={}; const calls=[];
  const pool={query:async (sql,args=[])=>{
   calls.push({sql,args});
   if(sql.startsWith('CREATE '))return {rowCount:0,rows:[]};
+  if(sql.startsWith('SELECT to_regclass'))return {rowCount:1,rows:[{table_name:robokassaExists?'echo_robokassa_orders':null}]};
   return {rowCount:rows.length,rows};
  }};
  const api=createPurchaseHistory({
@@ -35,6 +36,7 @@ test('purchase history schema retains each coin/free opening and index',async()=
  assert.match(h.calls[0].sql,/account_id UUID NOT NULL/);
  assert.match(h.calls[0].sql,/cards JSONB NOT NULL/);
  assert.match(h.calls[1].sql,/CREATE INDEX IF NOT EXISTS/);
+ assert.match(h.calls.at(-1).sql,/to_regclass/);
 });
 test('no authentication means no payment history, regardless of requested account',async()=>{
  const h=harness(false);
@@ -60,10 +62,18 @@ test('every historical VK/Robokassa payment belongs to the signed-in account',as
  assert.deepEqual(h.calls[0].args,[USER,21,0]);
  const sql=h.calls[0].sql;
  assert.match(sql,/echo_vk_payments/);
- assert.match(sql,/echo_robokassa_orders/);
+ assert.doesNotMatch(sql,/echo_robokassa_orders/);
  assert.match(sql,/echo_pack_openings/);
- assert.equal((sql.match(/account_id=\$1/g)||[]).length,3);
+ assert.equal((sql.match(/account_id=\$1/g)||[]).length,2);
  assert.ok(!sql.includes(OTHER));
+});
+test('Robokassa is included only once its own table is present',async()=>{
+ const h=harness(true,[],true);
+ await h.api.initialize();
+ await h.list({limit:'20'});
+ const sql=h.calls.at(-1).sql;
+ assert.match(sql,/FROM echo_robokassa_orders/);
+ assert.equal((sql.match(/account_id=\$1/g)||[]).length,3);
 });
 test('pagination is bounded and no arbitrary SQL input accepted',async()=>{
  const h=harness(true,[]);

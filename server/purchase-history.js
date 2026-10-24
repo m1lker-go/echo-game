@@ -16,10 +16,15 @@ async function recordPackOpening(db,accountId,source,packType,cards) {
 }
 function createPurchaseHistory({pool,sessionUser,createRouter=()=>require('express').Router()}){
  const router=createRouter();
+ let robokassaAvailable=false;
  async function initialize(){
   await pool.query("CREATE TABLE IF NOT EXISTS echo_pack_openings (id BIGSERIAL PRIMARY KEY, account_id UUID NOT NULL REFERENCES echo_accounts(id), source TEXT NOT NULL CHECK(source IN ('coin','free')), pack_type TEXT NOT NULL CHECK(pack_type IN ('coin','premium')), amount INTEGER NOT NULL CHECK(amount>=0), currency TEXT NOT NULL CHECK(currency IN ('ECHO_COIN','FREE')), cards JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
   await pool.query('CREATE INDEX IF NOT EXISTS echo_pack_openings_by_user ON echo_pack_openings (account_id,created_at DESC,id DESC)');
   await pool.query('CREATE INDEX IF NOT EXISTS echo_vk_payments_by_account_date ON echo_vk_payments (account_id,created_at DESC,app_order_id DESC)');
+  // Production does not yet have Robokassa tables. Historical VK and pack
+  // openings must be available independently of the staged cash checkout.
+  const table=await pool.query("SELECT to_regclass('public.echo_robokassa_orders') AS table_name");
+  robokassaAvailable=Boolean(table.rows[0]?.table_name);
  }
  router.get('/',async(req,res)=>{
   res.set('Cache-Control','no-store');
@@ -32,9 +37,7 @@ function createPurchaseHistory({pool,sessionUser,createRouter=()=>require('expre
       !/^(?:0|[1-9]\d{0,4})$/.test(rawOffset))
     return res.status(400).json({error:'Invalid pagination'});
    const limit=Number(rawLimit),offset=Number(rawOffset);
-   const sql=[
-    'SELECT provider,order_id,pack_type,amount,currency,status,is_test,',
-    '  created_at,completed_at,refunded_at,card_models FROM (',
+   const robokassaRows=robokassaAvailable?[
     " SELECT 'robokassa'::text AS provider, (r.id+2000000000)::text AS order_id,",
     " 'premium'::text AS pack_type,r.amount::text AS amount,",
     " 'RUB'::text AS currency,r.status::text AS status,",
@@ -42,7 +45,12 @@ function createPurchaseHistory({pool,sessionUser,createRouter=()=>require('expre
     ' NULL::timestamptz AS refunded_at,',
     ' CASE WHEN r.cards IS NOT NULL THEN jsonb_array_length(r.cards) ELSE 0 END AS card_models',
     ' FROM echo_robokassa_orders r WHERE r.account_id=$1',
-    ' UNION ALL',
+    ' UNION ALL'
+   ]:[];
+   const sql=[
+    'SELECT provider,order_id,pack_type,amount,currency,status,is_test,',
+    '  created_at,completed_at,refunded_at,card_models FROM (',
+    ...robokassaRows,
     " SELECT 'vk'::text,v.order_id::text,'premium'::text,",
     " v.price::text,'VK_VOTES'::text,v.status::text,",
     ' v.is_test,v.created_at,v.created_at,v.refunded_at,jsonb_array_length(v.cards)',
