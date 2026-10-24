@@ -1,5 +1,11 @@
 // ECHO daily quests: server verified account, cumulative daily tiers.
-import {watchEchoRewardedVideo} from './rewarded-ads.js?v=echo-ads-2096987-2';
+// Load the optional ads module only when Play is clicked. A missing ad
+// adapter must never block standard quests, and the Node VM HUD regression
+// tests can evaluate the core quests screen without an ES module loader.
+async function watchEchoRewardedVideo(onReady){
+ const {watchEchoRewardedVideo:showAd}=await import('./rewarded-ads.js?v=echo-ads-2096987-3');
+ return showAd(onReady);
+}
 const list=document.querySelector('#quests-list');
 const status=document.querySelector('#quests-status');
 const reset=document.querySelector('#quests-reset');
