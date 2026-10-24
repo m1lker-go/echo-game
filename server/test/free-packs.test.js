@@ -10,7 +10,7 @@ const cards=type=>Array.from({length:5},(_,i)=>({
  rarity:'common',count:type==='premium'?3:1
 }));
 function harness(start={coin:0,premium:0},signedIn=true){
- const counts={...start},granted=[],sql=[],routes={},quests={coin:0,premium:0};
+ const counts={...start},granted=[],history=[],sql=[],routes={},quests={coin:0,premium:0};
  let failGrant=false;
  const pool={
   async query(query,params=[]){
@@ -36,6 +36,7 @@ function harness(start={coin:0,premium:0},signedIn=true){
      if(!counts[type])return {rowCount:0,rows:[]};
      counts[type]--;return {rowCount:1,rows:[{quantity:counts[type]}]};
     }
+    if(query.startsWith('INSERT INTO echo_pack_openings')){history.push(params);return {rowCount:1,rows:[]};}
     if(query.startsWith('INSERT INTO echo_hero_collection')){
      if(failGrant)throw Error('Forced fragment failure');
      granted.push(params);return {rowCount:1,rows:[]};
@@ -59,7 +60,7 @@ function harness(start={coin:0,premium:0},signedIn=true){
   await routes[method+' '+url]({body},res);
   return {statusCode,payload};
  }
- return {p,request,counts,granted,sql,quests,fail:v=>{failGrant=v}};
+ return {p,request,counts,granted,history,sql,quests,fail:v=>{failGrant=v}};
 }
 test('server initializes account-bound free pack table with UUID and checks',async()=>{
  const h=harness();await h.p.initialize();
@@ -85,6 +86,9 @@ test('opening free coin pack uses one quantity and grants five cards without wal
  assert.deepEqual(h.counts,{coin:0,premium:2});
  assert.equal(h.granted.length,5);
  assert.deepEqual(h.quests,{coin:1,premium:0});
+ assert.equal(h.history.length,1,'Each free pack must leave one purchase-history record');
+ assert.equal(h.history[0][1],'free');
+ assert.equal(h.history[0][2],'coin');
  assert.ok(h.sql.some(q=>q.includes('quantity=quantity-1')));
  assert.ok(!h.sql.some(q=>q.includes('echo_wallets')||q.includes('echo_vk_payments')));
  assert.equal((await h.request('POST','/open',{packType:'coin'})).statusCode,409);
@@ -99,6 +103,8 @@ test('premium free pack gives fifteen fragments across five distinct characters'
  assert.equal(opened.payload.cards.reduce((n,c)=>n+c.count,0),15);
  assert.equal(new Set(h.granted.map(x=>x[1])).size,5);
  assert.deepEqual(h.quests,{coin:0,premium:1});
+ assert.equal(h.history.length,1);
+ assert.equal(h.history[0][2],'premium');
 });
 test('failed fragment insertion rolls back the free inventory decrement',async()=>{
  const h=harness({coin:1,premium:0});h.fail(true);
