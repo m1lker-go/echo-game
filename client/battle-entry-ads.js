@@ -1,9 +1,12 @@
 // ECHO interstitial at natural navigation into battle (VK Mini Apps).
+// TEMPORARY AD TEST: request on every battle entry starting with #3 for all users.
 // Standalone Android uses the same schedule but its native myTarget SDK.
 // Block 2097075 belongs to Android; VK Bridge uses ad_format only.
 const STORAGE_PREFIX='echo.battleEntries.v1.';
 const VK_AD_FORMAT='interstitial';
 const AD_TIMEOUT_MS=6000;
+const AD_SHOW_TIMEOUT_MS=15000;
+const TEST_FIRST_AD_ENTRY=3;
 let busy=false;
 function moscowDay(now=new Date()){
  const parts=Object.fromEntries(new Intl.DateTimeFormat('en-US',{
@@ -31,37 +34,62 @@ function scheduleBattleEntry({storage=localStorage,token=null,date=moscowDay()}=
  try{storage.setItem(key,JSON.stringify(state));}catch(error){
   console.warn('[ECHO interstitial] store counter failed',error);
  }
- const first=registered?5:3;
- return {count:state.count,registered,showAd:state.count>=first&&state.count%2===1,date};
+ const first=TEST_FIRST_AD_ENTRY;
+ return {count:state.count,registered,showAd:state.count>=first,date};
 }
-async function showVKInterstitial(timeoutMs=AD_TIMEOUT_MS){
- if(window.isVKMiniApp!==true)return false;
+function withAdTimeout(promise, ms, stage){
+ let timer;
+ return Promise.race([
+  Promise.resolve(promise),
+  new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(stage+' timed out')),ms);})
+ ]).finally(()=>clearTimeout(timer));
+}
+function diagnostic(message){
+ console.info('[ECHO interstitial] '+message);
+ // Explicitly visible feedback for temporary testing on VK phones.
+ window.ECHOToast?.show(message,2400);
+}
+async function showVKInterstitial(){
+ if(window.isVKMiniApp!==true){
+  console.info('[ECHO interstitial] browser has no VK Bridge ad adapter');
+  return false;
+ }
  try{
-  const bridge=await Promise.race([
-   Promise.resolve(window.ECHOVKBridgeReady||window.vkBridge),
-   new Promise((_,reject)=>setTimeout(()=>reject(Error('VK Bridge timeout')),timeoutMs))
-  ]);
-  if(!bridge?.send)return false;
-  // One deadline for ad availability, show and dismissal. In case of no fill
-  // or a rejected bridge call, navigation is never blocked.
-  const available=await Promise.race([
+  const bridge=await withAdTimeout(
+   window.ECHOVKBridgeReady||window.vkBridge,AD_TIMEOUT_MS,'VK Bridge');
+  if(!bridge?.send){
+   diagnostic('VK Bridge недоступен — бой запускается без рекламы');
+   return false;
+  }
+  const available=await withAdTimeout(
    bridge.send('VKWebAppCheckNativeAds',{ad_format:VK_AD_FORMAT}),
-   new Promise((_,reject)=>setTimeout(()=>reject(Error('VK ad check timeout')),timeoutMs))
-  ]);
-  if(available?.result!==true)return false;
-  await bridge.send('VKWebAppShowNativeAds',{ad_format:VK_AD_FORMAT});
+   AD_TIMEOUT_MS,'VK ad check');
+  if(available?.result!==true){
+   diagnostic('VK: полноэкранная реклама пока недоступна');
+   return false;
+  }
+  const shown=await withAdTimeout(
+   bridge.send('VKWebAppShowNativeAds',{ad_format:VK_AD_FORMAT}),
+   AD_SHOW_TIMEOUT_MS,'VK ad display');
+  if(shown?.result!==true){
+   diagnostic('VK: показ рекламы не подтвердился');
+   return false;
+  }
+  console.info('[ECHO interstitial] VK interstitial shown successfully');
   return true;
  }catch(error){
   console.info('[ECHO interstitial] skipped:',error?.message||error);
+  diagnostic('VK: не удалось показать рекламу');
   return false;
  }
 }
 export async function showAdBeforeBattle(){
- // Call only for an actual Start Game / Replay action, never page refreshes.
+ // Both Start Game and Replay call this; native APK uses its own SDK.
  if(busy)return false;
  busy=true;
  try{
   const counter=scheduleBattleEntry({token:localStorage.getItem('echo.authToken')});
+  console.info('[ECHO interstitial] entry #'+counter.count+', request ad: '+counter.showAd);
   if(!counter.showAd)return false;
   return await showVKInterstitial();
  }finally{busy=false;}

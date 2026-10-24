@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.widget.Toast
 import com.my.target.ads.InterstitialAd
 import com.my.target.common.models.IAdLoadingError
 import java.security.MessageDigest
@@ -12,8 +13,8 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * Android interstitial 2097075. Guest entries: 3,5,7...
- * Signed-in entries: 5,7,9...; reset each Moscow calendar day.
+ * Android interstitial 2097075. TEMPORARY TEST: every battle entry from #3
+ * for both guests and signed-in users; reset each Moscow calendar day.
  * No fill, SDK errors and slow requests never prevent joining battle.
  */
 internal class EchoBattleInterstitial(private val activity: Activity) {
@@ -48,8 +49,7 @@ internal class EchoBattleInterstitial(private val activity: Activity) {
         } else 0
         val count = previous + 1
         preferences.edit().putString(dateKey, date).putInt(countKey, count).apply()
-        val first = if (token.isNullOrBlank()) 3 else 5
-        val due = count >= first && count % 2 == 1
+        val due = count >= 3
         Log.i(TAG, "Daily battle entry #$count, interstitial scheduled: $due")
         return due
     }
@@ -93,10 +93,12 @@ internal class EchoBattleInterstitial(private val activity: Activity) {
                 override fun onDisplay(interstitialAd: InterstitialAd) = Unit
                 override fun onNoAd(error: IAdLoadingError, ad: InterstitialAd) {
                     Log.i(TAG, "Interstitial unavailable: " + error.message)
+                    Toast.makeText(activity, "Реклама перед боем недоступна", Toast.LENGTH_SHORT).show()
                     finish()
                 }
                 override fun onFailedToShow(interstitialAd: InterstitialAd) {
                     Log.w(TAG, "Interstitial failed to show")
+                    Toast.makeText(activity, "Не удалось показать рекламу", Toast.LENGTH_SHORT).show()
                     finish()
                 }
                 override fun onClose(ad: InterstitialAd) {
@@ -106,6 +108,7 @@ internal class EchoBattleInterstitial(private val activity: Activity) {
             val timer = Runnable {
                 if (active === ad && !finished) {
                     Log.i(TAG, "Interstitial loading timeout; entering battle")
+                    Toast.makeText(activity, "Реклама не загрузилась", Toast.LENGTH_SHORT).show()
                     finish()
                     runCatching { ad.dismiss() }
                 }
