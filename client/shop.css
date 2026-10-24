@@ -111,3 +111,41 @@
 #main-menu .echo-shop-pack .echo-pack-paid-price{
  display:inline-flex;align-items:center;justify-content:center;gap:7px;
 }
+
+/* Purchase history: compact shop action, original black/white ECHO styling. */
+#main-menu .echo-shop-history-button {
+  display:block;
+  width:min(84%,420px);
+  max-width:100%;
+  min-height:40px;
+  height:clamp(40px,7dvh,48px);
+  margin:0 auto 10px;
+  font-size:clamp(12px,1.8vw,15px);
+  letter-spacing:.06em;
+  flex-shrink:0;
+}
+.echo-history-container {min-width:0;text-align:left}
+.echo-history-hint {text-align:center;color:#c8d3df;font-size:13px;margin:10px 0}
+.echo-history-list {display:flex;flex-direction:column;gap:12px;max-height:min(52dvh,420px);overflow-y:auto;overscroll-behavior:contain}
+.echo-history-record {
+  border:1px solid rgba(255,255,255,.52);
+  border-radius:12px;
+  background:#070b10;
+  padding:12px 15px;
+  min-width:0;
+}
+.echo-history-record-top {display:flex;gap:12px;align-items:center;justify-content:space-between;font-size:15px;color:#fff}
+.echo-history-price {white-space:nowrap}
+.echo-history-details {margin-top:8px;display:grid;gap:3px}
+.echo-history-detail {display:flex;gap:10px;align-items:start;justify-content:space-between;font-size:12px;line-height:1.45}
+.echo-history-detail-label {color:#a9b3c0;flex:0 0 auto}
+.echo-history-detail-value {color:#fff;text-align:right;overflow-wrap:anywhere}
+.echo-history-more {
+  display:block;width:100%;margin-top:12px;padding:11px 12px;
+  border:1px solid #fff;border-radius:12px;background:#000;color:#fff;
+  font:600 12px/1.25 Inter,system-ui,sans-serif;letter-spacing:.07em;cursor:pointer;
+}
+.echo-history-more[hidden]{display:none!important}
+@media(max-height:520px){.echo-history-list{max-height:43dvh}.echo-history-record{padding:9px 12px}}
+
+.echo-history-disclaimer{margin:12px 0 0;color:#a5afbe;text-align:center;font:400 11px/1.5 Inter,system-ui,sans-serif}
