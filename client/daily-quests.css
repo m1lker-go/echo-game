@@ -120,3 +120,34 @@
     width:clamp(94px,23vw,118px);min-height:36px;height:38px;padding:5px 9px;
   }
 }
+
+/* Fully claimed tasks: muted grey throughout, with no green bar or animated dots.
+   Scope to the quest menu: the in-game HUD keeps its normal visual status. */
+#main-menu .echo-quest.is-complete{
+ background:rgba(15,17,20,.78);
+ border-color:rgba(145,150,158,.28);
+ box-shadow:none;
+}
+#main-menu .echo-quest.is-complete svg.echo-quest-icon{color:#777f88}
+#main-menu .echo-quest.is-complete .echo-quest-summary{color:#969ba3}
+#main-menu .echo-quest.is-complete .echo-quest-description{color:#777e87}
+#main-menu .echo-quest.is-complete .echo-quest-reward{color:#858b94}
+#main-menu .echo-quest.is-complete .echo-quest-reward img{
+ filter:grayscale(1) brightness(.73);
+ opacity:.6;
+}
+#main-menu .echo-quest.is-complete .echo-quest-track{background:#252a30}
+#main-menu .echo-quest.is-complete .echo-quest-track>div{background:#626a73}
+#main-menu .echo-quest.is-complete .echo-quest-counter{color:#7c858e}
+#main-menu .echo-quest.is-complete .echo-quest-claim{color:#808892}
+#main-menu .echo-quest.is-complete .echo-quest-dot{
+ background:#42474e;
+ border-color:#656c74;
+ box-shadow:none;
+ animation:none;
+}
+#main-menu .echo-quest.is-complete .echo-quest-dot.is-done{
+ background:#8b939b;
+ border-color:#8b939b;
+ opacity:.6;
+}
