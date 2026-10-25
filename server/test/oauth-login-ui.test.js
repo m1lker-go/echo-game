@@ -22,6 +22,10 @@ test('ECHO OAuth login buttons have styles within the body-level modal portal',(
  assert.match(css,/grid-template-columns:minmax\(0,2fr\) minmax\(0,3fr\)/);
  assert.match(css,/\.VkIdSdk_oauth_link_text\{/);
  assert.match(css,/\.VkIdSdk_oauth_item\{/);
+ assert.match(css,/grid-template-columns:repeat\(3,minmax\(0,1fr\)\)!important/);
+ assert.match(css,/width:100%!important;flex:none!important/);
+ assert.match(css,/\.VkIdSdk_oauth_item svg\{/);
+ assert.doesNotMatch(css,/width:0!important/);
  assert.match(css,/\.echo-oauth-icon-google\{/);
  assert.match(css,/\.echo-oauth-icon-yandex\{/);
  assert.match(css,/\.echo-modal-overlay \.echo-oauth-button/);
@@ -37,5 +41,5 @@ test('authenticated users do not see account-link buttons in settings',()=>{
 test('browser refreshes OAuth client assets after the visibility fix',()=>{
  const page=read('index.html');
  assert.match(page,/auth-ui\.js\?v=echo-five-icons-1/);
- assert.match(page,/auth\.css\?v=echo-five-icons-1/);
+ assert.match(page,/auth\.css\?v=echo-vkid-icon-grid-2/);
 });

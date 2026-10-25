@@ -53,7 +53,10 @@
  line-height:1;font-weight:800;color:#fc3f1d
 }
 .echo-modal-overlay .echo-oauth-icon-google{display:block;width:32px;height:32px}
-.echo-modal-overlay .echo-login-widget{min-width:0;width:100%}
+.echo-modal-overlay .echo-login-widget,
+.echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_container{
+ box-sizing:border-box;width:100%!important;min-width:0!important;max-width:none!important
+}
 /* VKID.OAuthList adds a caption above its own three buttons. The single ECHO
    heading replaces it; the provider icons remain actual VK ID SDK controls. */
 .echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_link_text{
@@ -64,12 +67,20 @@
  --oauthlist--item_background_color:#000!important
 }
 .echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_list{
- gap:12px;width:100%
+ display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+ gap:12px!important;width:100%!important;min-width:0!important
 }
 .echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_item{
- box-sizing:border-box!important;min-width:0!important;
- width:0!important;flex:1 1 0!important;margin-right:0!important;
- padding:8px!important;border-radius:12px!important
+ box-sizing:border-box!important;display:flex!important;
+ justify-content:center!important;align-items:center!important;
+ min-width:0!important;width:100%!important;flex:none!important;
+ margin:0!important;padding:8px!important;
+ border:1px solid #fff!important;border-radius:12px!important
+}
+.echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_item svg{
+ display:block!important;flex:none!important;
+ width:28px!important;height:28px!important;
+ visibility:visible!important;opacity:1!important
 }
 .echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_item:hover{
  background:#181818!important
@@ -79,8 +90,9 @@
  .echo-modal-overlay .echo-oauth-methods,
  .echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_list{gap:6px}
  .echo-modal-overlay .echo-oauth-button{height:48px;border-radius:9px;padding:5px}
- .echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_list{height:48px}
+ .echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_list{height:48px!important}
  .echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_item{border-radius:9px!important;padding:5px!important}
+ .echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_item svg{width:24px!important;height:24px!important}
  .echo-modal-overlay .echo-oauth-icon-yandex{font-size:29px}
  .echo-modal-overlay .echo-oauth-icon-google{width:26px;height:26px}
 }
