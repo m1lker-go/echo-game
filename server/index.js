@@ -12,6 +12,7 @@ const {chooseSafeSpawn,hasSpawnShield,SHIELD_DURATION_MS}=require('./spawn-prote
 const {recordPackOpened}=require('./pack-quest-progress');
 const {createPurchaseHistory,recordPackOpening}=require('./purchase-history');
 const echoAuth = require('./auth');
+const echoOAuth = require('./oauth');
 const { createAccountSessionRegistry } = require('./account-session-registry');
 const { roomIdentityFor, uniqueParticipants } = require('./player-identity');
 
@@ -24,6 +25,7 @@ const allowedOrigin = process.env.CORS_ORIGIN || '*';
 app.use(cors({ origin: allowedOrigin === '*' ? true : allowedOrigin.split(',').map(v => v.trim()) }));
 app.use(express.json());
 app.use('/api/auth', echoAuth.router);
+app.use('/api/auth/oauth', echoOAuth.oauthRouter({sessionUser:echoAuth.sessionUser}));
 app.use('/api/codes', require('./code-redemption').createCodeRedemption({sessionUser:echoAuth.sessionUser}));
 
 const io = new Server(server, {
@@ -1353,6 +1355,7 @@ server.listen(port, '0.0.0.0', async () => {
     await pool.query('CREATE TABLE IF NOT EXISTS echo_daily_quest_claims (profile_id TEXT NOT NULL, quest_date DATE NOT NULL, quest_id TEXT NOT NULL, claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY (profile_id, quest_date, quest_id))');
     await roundRewards.initialize(pool);
     await echoAuth.initialize();
+    await echoOAuth.initialize();
     await freePacks.initialize();
     await specialQuests.initialize();
     await vkPayments.initialize();

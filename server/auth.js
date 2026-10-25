@@ -10,6 +10,7 @@ const MINI_APP_ID = String(process.env.VK_MINI_APP_ID || '');
 const MINI_APP_SECRET = process.env.VK_MINI_APP_SECRET || '';
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 const {deleteAccount} = require('./account-deletion');
+const echoOAuth = require('./oauth');
 let onAccountDeleted = () => {};
 function setAccountDeletedHandler(handler) {
   onAccountDeleted = typeof handler === 'function' ? handler : () => {};
@@ -75,7 +76,14 @@ async function createVKAccountSession(uid) {
   }
 }
 
-router.get('/config', (_req, res) => res.json({ enabled: /^\d+$/.test(APP_ID), appId: /^\d+$/.test(APP_ID) ? Number(APP_ID) : null, miniAppEnabled: /^\d+$/.test(MINI_APP_ID) && Boolean(MINI_APP_SECRET), miniAppId: /^\d+$/.test(MINI_APP_ID) ? Number(MINI_APP_ID) : null }));
+router.get('/config', (_req, res) => res.json({
+  enabled: /^\d+$/.test(APP_ID),
+  appId: /^\d+$/.test(APP_ID) ? Number(APP_ID) : null,
+  miniAppEnabled: /^\d+$/.test(MINI_APP_ID) && Boolean(MINI_APP_SECRET),
+  miniAppId: /^\d+$/.test(MINI_APP_ID) ? Number(MINI_APP_ID) : null,
+  googleEnabled: echoOAuth.hasCredentials('google'),
+  yandexEnabled: echoOAuth.hasCredentials('yandex')
+}));
 router.post('/vk', async (req,res) => {
   const accessToken = req.body?.accessToken;
   if (!/^\d+$/.test(APP_ID) || typeof accessToken !== 'string' || accessToken.length < 20 || accessToken.length > 4096)
