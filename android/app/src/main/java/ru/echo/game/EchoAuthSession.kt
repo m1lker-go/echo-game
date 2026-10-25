@@ -91,6 +91,15 @@ internal class EchoAuthSession(context: Context) {
             if (code == 401 && endpoint == "me") throw EchoSessionExpired()
             if (code !in 200..299) {
                 val detail = runCatching { JSONObject(response) }.getOrNull()
+                if (endpoint.startsWith("oauth/")) {
+                    val detail = when (code) {
+                        503 -> "Этот способ входа ещё не настроен для ECHO"
+                        409 -> "Аккаунт провайдера уже привязан к другому игроку ECHO"
+                        401, 403 -> "Подтверждение входа истекло или недействительно"
+                        else -> "Ошибка авторизации через Google / Яндекс ($code)"
+                    }
+                    throw IllegalStateException(detail)
+                }
                 if (endpoint.startsWith("nickname")) {
                     val message = when {
                         code == 409 -> "Имя уже занято"
