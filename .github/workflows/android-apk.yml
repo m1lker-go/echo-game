@@ -22,6 +22,10 @@ jobs:
       - name: Verify battle ad flow
         run: node --test server/test/battle-entry-ads.test.js server/test/defeat-menu.test.js server/test/android-settings-ui.test.js server/test/android-auth-five-providers.test.js
       - name: Compile Android APK
+        env:
+          # Optional: enable native VK / OK / Mail for CI-built APKs.
+          # Required only in GitHub Actions; never commit the real secret.
+          ECHO_VK_CLIENT_SECRET: ${{ secrets.ECHO_VK_CLIENT_SECRET }}
         working-directory: android
         run: |
           chmod +x ./gradlew
