@@ -121,16 +121,25 @@ document.addEventListener('echo:returned-to-menu',()=>{
 });
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshQuestHud();else if(questHud)questHud.hidden=true});
 window.addEventListener('echo:language-changed',displayQuestHud);
+// Claimable first, active next, all rewards claimed last.
+function dailyQuestPriority(quest){
+ if(quest.claimed)return 2;
+ if(quest.available&&Number(quest.progress)>=Number(quest.target))return 0;
+ return 1;
+}
 function render(){
  list.replaceChildren();
  reset.textContent=t('quests_reset','Обновление ежедневно в 00:00 по Москве');
  if(!current)return;
- for(const quest of current.quests||[]){
+ // Keep stable order inside each status group, without modifying the server snapshot.
+ const ordered=[...(current.quests||[])].sort((a,b)=>dailyQuestPriority(a)-dailyQuestPriority(b));
+ for(const quest of ordered){
   const info=meta[quest.id];if(!info)continue;
   const progress=Math.max(0,Math.min(quest.target,quest.progress));
   const ready=quest.available&&!quest.claimed&&progress>=quest.target;
   const article=document.createElement('article');
   article.className='echo-quest'+(quest.claimed?' is-complete':ready?' is-ready':'');
+  article.dataset.questId=quest.id;
   const heading=document.createElement('div');heading.className='echo-quest-heading';
   const symbol=questIcon(quest.id);
   const summary=document.createElement('div');summary.className='echo-quest-summary';
