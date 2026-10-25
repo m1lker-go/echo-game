@@ -11,7 +11,24 @@ function oauthButton(provider,link){
  button.type='button';
  button.className='echo-oauth-button echo-oauth-'+provider;
  button.hidden=isVKMiniApp;
- button.textContent=oauthLabels[provider][link?1:0];
+ const accessibleName=oauthLabels[provider][link?1:0];
+ button.setAttribute('aria-label',accessibleName);
+ button.title=accessibleName;
+ if(provider==='yandex'){
+  const mark=document.createElement('span');
+  mark.className='echo-oauth-icon-yandex';
+  mark.textContent='Я';
+  mark.setAttribute('aria-hidden','true');
+  button.append(mark);
+ }else{
+  // Inline multicolour Google G: no external icon request or brand-font dependency.
+  button.innerHTML=`<svg class="echo-oauth-icon-google" width="32" height="32" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+   <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 5.38 6.51 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5Z"/>
+   <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.27 5.48-4.8 7.18l7.73 6C44.38 38.03 46.98 31.87 46.98 24.55Z"/>
+   <path fill="#FBBC05" d="M10.53 28.59a14.4 14.4 0 0 1-.75-4.59c0-1.59.27-3.13.74-4.59l-7.98-6.19A23.86 23.86 0 0 0 0 24c0 3.87.93 7.53 2.56 10.78l7.97-6.19Z"/>
+   <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.91-5.8l-7.73-6c-2.15 1.45-4.92 2.3-8.18 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48Z"/>
+  </svg>`;
+ }
  button.addEventListener('click',()=>void startOAuth(provider,link));
  oauthButtons.set(provider+(link?':link':':login'),button);
  return button;
@@ -29,7 +46,7 @@ async function updateOAuthButtons(){
     if(!button)continue;
     button.hidden=isVKMiniApp;
     button.dataset.configured=String(ready);
-    button.title=ready?'':(provider==='google'?'Google':'Яндекс')+' пока не активирован на сервере ECHO';
+    button.title=ready?oauthLabels[provider][suffix===':link'?1:0]:(provider==='google'?'Google':'Яндекс')+' пока не активирован на сервере ECHO';
    }
   }
  }catch(error){
@@ -239,7 +256,7 @@ async function start(){
   const VKID=window.VKIDSDK;
   if(!VKID)throw new Error('VK ID SDK unavailable');
   VKID.Config.init({app:config.appId,redirectUrl:'https://cat-fight.ru/echo/',responseMode:VKID.ConfigResponseMode.Callback,source:VKID.ConfigSource.LOWCODE,scope:''});
-  new VKID.OAuthList().render({container:loginWidget,scheme:'dark',styles:{borderRadius:12,height:40},oauthList:['vkid','ok_ru','mail_ru']})
+  new VKID.OAuthList().render({container:loginWidget,scheme:'dark',styles:{borderRadius:12,height:56},oauthList:['vkid','ok_ru','mail_ru']})
    .on(VKID.WidgetEvents.ERROR,error=>{console.error('[VKID]',error);loginMessage(t('auth_failed','Ошибка авторизации'));})
    .on(VKID.OAuthListInternalEvents.LOGIN_SUCCESS,async payload=>{
     try{
@@ -261,15 +278,21 @@ document.querySelector('#echo-open-login')?.addEventListener('click',()=>{
  if(isVKMiniApp)return;
  const content=document.createElement('div');
  content.className='echo-login-modal-content';
+ const intro=document.createElement('p');
+ intro.className='echo-login-intro';
+ intro.textContent=t('login_select_method','Выберите способ входа');
+ const providers=document.createElement('div');
+ providers.className='echo-login-providers';
  const oauthMethods=document.createElement('div');
  oauthMethods.className='echo-oauth-methods';
  oauthMethods.append(oauthButton('yandex',false),oauthButton('google',false));
  loginWidget=document.createElement('div');
  loginWidget.className='echo-login-widget';
+ providers.append(oauthMethods,loginWidget);
  loginError=document.createElement('p');
  loginError.className='echo-login-error';
  loginError.setAttribute('role','status');
- content.append(oauthMethods,loginWidget,loginError);
+ content.append(intro,providers,loginError);
  window.ECHOModal?.open({
   title:t('auth_modal_title','АВТОРИЗАЦИЯ'),
   contentElement:content,
