@@ -20,6 +20,8 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.vk.id.VKID
+import com.vk.id.OAuth
+import com.vk.id.auth.VKIDAuthParams
 import com.vk.id.AccessToken
 import com.vk.id.auth.VKIDAuthCallback
 import com.vk.id.VKIDAuthFail
@@ -98,7 +100,7 @@ class MainActivity : ComponentActivity() {
     }
 
 
-    private fun startVkLogin() {
+    private fun startVkLogin(provider: OAuth) {
         if (vkLoginInProgress || echoAuth.busy) return
         if (!BuildConfig.ECHO_VK_CONFIGURED) {
             echoAuth.message = "Для входа VK настрой ECHO_VK_CLIENT_SECRET в Android Studio (не ключ Cat Fighting)."
@@ -108,7 +110,11 @@ class MainActivity : ComponentActivity() {
         echoAuth.busy = true
         echoAuth.message = null
         try {
-            VKID.instance.authorize(this, vkAuthCallback)
+            VKID.instance.authorize(this, vkAuthCallback, VKIDAuthParams {
+                oAuth = provider
+                // Explicit provider selection must be honoured by the VK ID SDK.
+                useOAuthProviderIfPossible = false
+            })
         } catch (error: Exception) {
             vkLoginInProgress = false
             echoAuth.busy = false
@@ -205,7 +211,7 @@ class MainActivity : ComponentActivity() {
 
     private fun changeEchoNickname(value: String) {
         val session = echoAuth.token() ?: run {
-            echoAuth.message = "Для смены имени войди через VK"
+            echoAuth.message = "Для смены имени войди в аккаунт ECHO"
             return
         }
         if (echoAuth.busy) return
@@ -231,7 +237,7 @@ class MainActivity : ComponentActivity() {
 
     private fun deleteEchoAccount() {
         val existing = echoAuth.token() ?: run {
-            echoAuth.message = "Для удаления аккаунта войдите через VK"
+            echoAuth.message = "Для удаления аккаунта войдите в ECHO"
             return
         }
         if (echoAuth.busy) return

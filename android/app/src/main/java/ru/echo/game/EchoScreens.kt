@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.text.BasicTextField
 import android.content.Intent
+import com.vk.id.OAuth
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -100,7 +101,7 @@ private fun tr(audio: EchoAudioEngine, ru: String, en: String) =
 internal fun EchoAndroidShell(
     audio: EchoAudioEngine,
     auth: EchoAuthSession,
-    onVkLogin: () -> Unit,
+    onVkLogin: (OAuth) -> Unit,
     onLogout: () -> Unit,
     onDeleteAccount: () -> Unit,
     onChangeNickname: (String) -> Unit,
@@ -410,6 +411,10 @@ private fun EchoSettings(
 ) {
     var confirmCache by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
+    var showAuthDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(auth.nickname) {
+        if (auth.nickname != null) showAuthDialog = false
+    }
     var confirmDelete by remember { mutableStateOf(false) }
     var nicknameEditor by remember { mutableStateOf(false) }
     var nicknameConfirmation by remember { mutableStateOf(false) }
@@ -430,21 +435,11 @@ private fun EchoSettings(
         if (auth.nickname == null) {
             EchoButton(
                 if (auth.busy) tr(audio, "ВХОД...", "SIGNING IN...")
-                else tr(audio, "ВОЙТИ ЧЕРЕЗ VK", "SIGN IN WITH VK"),
+                else tr(audio, "ВОЙТИ В АККАУНТ", "SIGN IN"),
                 Modifier.fillMaxWidth(),
                 height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp
             ) {
-                if (!auth.busy) onVkLogin()
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                EchoButton(tr(audio, "ЯНДЕКС ID", "YANDEX ID"), Modifier.weight(1f),
-                    height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp) {
-                    if (!auth.busy) onOAuthLogin("yandex", false)
-                }
-                EchoButton("GOOGLE", Modifier.weight(1f),
-                    height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp) {
-                    if (!auth.busy) onOAuthLogin("google", false)
-                }
+                if (!auth.busy) showAuthDialog = true
             }
         } else {
             // Mirror the site's two equally sized account controls: a bordered
@@ -565,6 +560,19 @@ private fun EchoSettings(
         if (cacheMessage.isNotEmpty()) {
             EchoText(cacheMessage, 12, Secondary, Modifier.fillMaxWidth(), centered = true)
         }
+    }
+
+    if (showAuthDialog && auth.nickname == null) {
+        EchoAuthDialog(
+            audio = audio,
+            auth = auth,
+            onVkLogin = onVkLogin,
+            onOAuthLogin = { provider, link ->
+                showAuthDialog = false
+                onOAuthLogin(provider, link)
+            },
+            onDismiss = { showAuthDialog = false }
+        )
     }
 
     if (nicknameEditor) {
@@ -699,6 +707,149 @@ private fun EchoSettings(
                 }
             }
         )
+    }
+}
+
+
+/**
+ * Native counterpart of client/auth-ui.js: five equal icon-only choices,
+ * exactly one row, ECHO styling, no WebView inside the login modal.
+ * VK / OK / Mail use the native VK ID SDK; Yandex / Google keep ECHO's
+ * established server OAuth + external browser + PKCE deep-link flow.
+ */
+@Composable
+private fun EchoAuthDialog(
+    audio: EchoAudioEngine,
+    auth: EchoAuthSession,
+    onVkLogin: (OAuth) -> Unit,
+    onOAuthLogin: (String, Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnClickOutside = false,
+            dismissOnBackPress = true,
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        EchoSpaceBackground(backgroundColor = Color(0xD1000000)) {
+            BoxWithConstraints(
+                Modifier.fillMaxSize().padding(20.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                val compact = maxHeight <= 520.dp
+                val panelShape = RoundedCornerShape(13.dp)
+                Column(
+                    modifier = Modifier.width(minOf(maxWidth, 680.dp))
+                        .heightIn(max = maxHeight)
+                        .clip(panelShape).background(Black)
+                        .border(1.dp, White, panelShape)
+                        .verticalScroll(rememberScrollState())
+                        .padding(
+                            horizontal = if (compact) 22.dp else 42.dp,
+                            vertical = if (compact) 24.dp else 34.dp
+                        ),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    EchoText(
+                        tr(audio, "АВТОРИЗАЦИЯ", "AUTHORIZATION"),
+                        if (compact) 25 else 30, White,
+                        Modifier.fillMaxWidth(), centered = true,
+                        weight = FontWeight.SemiBold, letterSpacingEm = .12f
+                    )
+                    Spacer(Modifier.height(if (compact) 20.dp else 28.dp))
+                    EchoText(
+                        tr(audio, "Выберите способ входа", "Choose a sign-in method"),
+                        if (compact) 16 else 20,
+                        White, Modifier.fillMaxWidth(), centered = true
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        EchoAuthProviderButton("yandex", auth.busy, Modifier.weight(1f)) {
+                            onOAuthLogin("yandex", false)
+                        }
+                        EchoAuthProviderButton("google", auth.busy, Modifier.weight(1f)) {
+                            onOAuthLogin("google", false)
+                        }
+                        EchoAuthProviderButton("vk", auth.busy, Modifier.weight(1f)) {
+                            onVkLogin(OAuth.VK)
+                        }
+                        EchoAuthProviderButton("ok", auth.busy, Modifier.weight(1f)) {
+                            onVkLogin(OAuth.OK)
+                        }
+                        EchoAuthProviderButton("mail", auth.busy, Modifier.weight(1f)) {
+                            onVkLogin(OAuth.MAIL)
+                        }
+                    }
+                    if (auth.busy || auth.message != null) {
+                        Spacer(Modifier.height(12.dp))
+                        EchoText(
+                            auth.message ?: tr(audio, "Подключаем...", "Connecting..."),
+                            13, Secondary, Modifier.fillMaxWidth(), centered = true
+                        )
+                    }
+                    Spacer(Modifier.height(if (compact) 32.dp else 42.dp))
+                    EchoButton(
+                        tr(audio, "НАЗАД", "BACK"), Modifier.fillMaxWidth(),
+                        height = if (compact) 46.dp else 52.dp, fontSize = 17
+                    ) {
+                        if (!auth.busy) onDismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EchoAuthProviderButton(
+    provider: String,
+    busy: Boolean,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    val audio = LocalEchoAudio.current
+    val title = when (provider) {
+        "yandex" -> "Яндекс ID"
+        "google" -> "Google"
+        "vk" -> "VK ID"
+        "ok" -> "Одноклассники"
+        else -> "Mail.ru"
+    }
+    val shape = RoundedCornerShape(12.dp)
+    Box(
+        modifier = modifier.height(56.dp)
+            .clip(shape).background(Black).border(1.dp, White, shape)
+            .semantics { contentDescription = title }
+            .clickable(enabled = !busy) { audio?.click(); onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        if (provider == "yandex") {
+            Text(
+                "Я", color = Color(0xFFFC3F1D),
+                fontSize = 35.sp, lineHeight = 39.sp,
+                fontWeight = FontWeight.ExtraBold,
+                fontFamily = FontFamily.Default
+            )
+        } else {
+            val icon = when (provider) {
+                "google" -> R.drawable.echo_oauth_google
+                "vk" -> R.drawable.echo_oauth_vk
+                "ok" -> R.drawable.echo_oauth_ok
+                else -> R.drawable.echo_oauth_mail
+            }
+            Image(
+                painter = painterResource(icon), contentDescription = null,
+                modifier = Modifier.size(32.dp),
+                contentScale = ContentScale.Fit
+            )
+        }
     }
 }
 
