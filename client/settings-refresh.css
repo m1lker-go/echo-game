@@ -255,3 +255,6 @@
 }
 .echo-code-input::placeholder { color: #939ba5; opacity: 1; }
 .echo-code-input:focus-visible { box-shadow: 0 0 0 2px rgba(255,255,255,.28); }
+
+/* Keep the privacy link aligned with other full-width settings actions. */
+#game #menu-settings-screen > #settings-privacy { cursor:pointer; }

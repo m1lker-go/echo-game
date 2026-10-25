@@ -45,6 +45,7 @@
     "code_error": "Could not verify code",
     "code_accepted": "Code accepted! Return to Cat Fighting and press Check.",
     "clear_cache": "Clear game cache",
+    "privacy_policy": "Privacy policy",
     "clear_cache_note": "ECHO will reload and request fresh files. Your profile and selected character will be kept.",
     "clear_cache_confirm_title": "CLEAR CACHE",
     "clear_cache_confirm_text": "Are you sure you want to clear the cache?",
