@@ -10,23 +10,32 @@ function oauthButton(provider,link){
  const button=document.createElement('button');
  button.type='button';
  button.className='echo-oauth-button echo-oauth-'+provider;
- button.hidden=true;
+ button.hidden=isVKMiniApp;
  button.textContent=oauthLabels[provider][link?1:0];
  button.addEventListener('click',()=>void startOAuth(provider,link));
  oauthButtons.set(provider+(link?':link':':login'),button);
  return button;
 }
 async function updateOAuthButtons(){
+ // Always show the options outside VK Mini Apps, even while credentials
+ // have not yet reached the running server. Hidden options previously made
+ // setup failures impossible for players to diagnose.
  try{
   const config=await request('config');
   for(const provider of ['google','yandex']){
-   const enabled=config[provider+'Enabled']===true;
+   const ready=config[provider+'Enabled']===true;
    for(const suffix of [':login',':link']){
     const button=oauthButtons.get(provider+suffix);
-    if(button)button.hidden=!enabled||isVKMiniApp;
+    if(!button)continue;
+    button.hidden=isVKMiniApp;
+    button.dataset.configured=String(ready);
+    button.title=ready?'':(provider==='google'?'Google':'Яндекс')+' пока не активирован на сервере ECHO';
    }
   }
- }catch(error){console.warn('[echo oauth] availability unavailable',error);}
+ }catch(error){
+  console.warn('[echo oauth] availability unavailable',error);
+  // Let the server return a normal error when the player attempts to sign in.
+ }
 }
 async function finishOAuth(){
  try{
@@ -46,6 +55,11 @@ async function finishOAuth(){
 }
 async function startOAuth(provider,link=false){
  if(isVKMiniApp)return;
+ const button=oauthButtons.get(provider+(link?':link':':login'));
+ if(button?.dataset.configured==='false'){
+  window.ECHOToast?.show((provider==='google'?'Google':'Яндекс')+' пока не активирован на сервере ECHO');
+  return;
+ }
  const popup=window.open('about:blank','echo-oauth-'+provider,'width=530,height=680');
  if(popup){popup.document.title='ECHO';popup.document.body.textContent='Переход к авторизации…';}
  try{
