@@ -28,10 +28,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -46,6 +47,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -855,6 +857,9 @@ private fun EchoSettingsIcon(isTrash: Boolean) {
     }
 }
 
+// A continuous native volume slider with the same icy-blue circular
+// handle (22px, 2px pale border, soft glow) and 7px bar as the web UI.
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EchoVolumeSlider(label: String, value: Float, fontSize: Int, onChange: (Float) -> Unit) {
     Column(
@@ -872,10 +877,39 @@ private fun EchoVolumeSlider(label: String, value: Float, fontSize: Int, onChang
         Slider(
             value = value, onValueChange = onChange, valueRange = 0f..1f,
             modifier = Modifier.fillMaxWidth().height(35.dp),
-            colors = SliderDefaults.colors(
-                thumbColor = Cyan, activeTrackColor = Cyan,
-                inactiveTrackColor = Color(0xFF30404C)
-            )
+            thumb = {
+                Box(
+                    Modifier.size(22.dp)
+                        .shadow(
+                            elevation = 8.dp,
+                            shape = CircleShape,
+                            ambientColor = Color(0x8866B6D4),
+                            spotColor = Color(0x8866B6D4)
+                        )
+                        .background(Color(0xFF66B6D4), CircleShape)
+                        .border(2.dp, Color(0xFFDBF6FF), CircleShape)
+                )
+            },
+            track = { sliderState ->
+                Canvas(Modifier.fillMaxWidth().height(7.dp)) {
+                    val y = size.height / 2f
+                    val thickness = 7.dp.toPx()
+                    val end = size.width
+                    drawLine(
+                        color = Color(0x38ACD1E5),
+                        start = Offset(0f, y), end = Offset(end, y),
+                        strokeWidth = thickness, cap = StrokeCap.Round
+                    )
+                    val selectedWidth = end * sliderState.value.coerceIn(0f, 1f)
+                    if (selectedWidth > 0f) {
+                        drawLine(
+                            color = Color(0xFF80DAFB),
+                            start = Offset(0f, y), end = Offset(selectedWidth, y),
+                            strokeWidth = thickness, cap = StrokeCap.Round
+                        )
+                    }
+                }
+            }
         )
     }
 }

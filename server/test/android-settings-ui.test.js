@@ -38,3 +38,18 @@ test('nickname pencil validates and explicitly confirms before sending to server
  assert.match(main,/echoAuth\.changeNickname\(session, value\)/);
  assert.match(main,/echoAuth\.updateNickname\(newName\)/);
 });
+
+test('Android music and effects use round icy-blue thumb and browser-style track',()=>{
+ const slider = screens.slice(screens.indexOf('private fun EchoVolumeSlider('));
+ assert.match(slider, /Slider\(\s*value = value, onValueChange = onChange, valueRange = 0f\.\.1f/);
+ assert.match(slider, /thumb = \{/);
+ assert.match(slider, /Modifier\.size\(22\.dp\)/);
+ assert.match(slider, /shape = CircleShape/);
+ assert.match(slider, /\.background\(Color\(0xFF66B6D4\), CircleShape\)/);
+ assert.match(slider, /\.border\(2\.dp, Color\(0xFFDBF6FF\), CircleShape\)/);
+ assert.match(slider, /track = \{ sliderState ->/);
+ assert.match(slider, /Canvas\(Modifier\.fillMaxWidth\(\)\.height\(7\.dp\)\)/);
+ assert.match(slider, /Color\(0xFF80DAFB\)/);
+ assert.match(slider, /Color\(0x38ACD1E5\)/);
+ assert.match(slider, /onValueChange = onChange/);
+});
