@@ -20,7 +20,7 @@ jobs:
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
       - name: Verify battle ad flow
-        run: node --test server/test/battle-entry-ads.test.js server/test/defeat-menu.test.js server/test/android-settings-ui.test.js server/test/android-auth-five-providers.test.js
+        run: node --test server/test/battle-entry-ads.test.js server/test/defeat-menu.test.js server/test/android-settings-ui.test.js server/test/android-auth-five-providers.test.js server/test/android-release-config.test.js
       - name: Compile Android APK
         env:
           # Optional: enable native VK / OK / Mail for CI-built APKs.
