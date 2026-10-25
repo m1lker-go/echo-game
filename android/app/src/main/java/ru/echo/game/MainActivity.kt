@@ -1,5 +1,7 @@
 package ru.echo.game
 
+import android.content.Intent
+import android.net.Uri
 import android.graphics.Color as AndroidColor
 import android.graphics.drawable.ColorDrawable
 import android.os.Build
@@ -72,7 +74,8 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 EchoAndroidShell(echoAudio, echoAuth, onVkLogin = ::startVkLogin,
                     onLogout = ::logoutEcho, onDeleteAccount = ::deleteEchoAccount,
-                    onChangeNickname = ::changeEchoNickname)
+                    onChangeNickname = ::changeEchoNickname,
+                    onOAuthLogin = ::startOAuthLogin)
                 if (networkUnavailable) {
                     val english = echoAudio.language == "en"
                     EchoConfirmDialog(
@@ -88,6 +91,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        handleOAuthRedirect(intent)
         connectivity = EchoConnectivityMonitor(this) { online ->
             networkUnavailable = !online
         }.also { it.start() }
@@ -139,6 +143,64 @@ class MainActivity : ComponentActivity() {
             echoAuth.busy = false
             echoAuth.message = "Вход через VK отменён или не выполнен"
         }
+    }
+
+    private fun startOAuthLogin(provider: String, link: Boolean) {
+        if (echoAuth.busy) return
+        echoAuth.busy = true
+        echoAuth.message = null
+        Thread {
+            val result = runCatching { echoAuth.startOAuth(provider, link) }
+            runOnUiThread {
+                echoAuth.busy = false
+                result.onSuccess { url ->
+                    try {
+                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                            .addCategory(Intent.CATEGORY_BROWSABLE))
+                    } catch (error: Exception) {
+                        echoAuth.message = "Не удалось открыть браузер для входа"
+                        Log.w("EchoOAuth", "Unable to launch provider browser", error)
+                    }
+                }.onFailure { error ->
+                    echoAuth.message = error.message ?: "Не удалось начать вход"
+                    Log.w("EchoOAuth", "OAuth start failed", error)
+                }
+            }
+        }.start()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleOAuthRedirect(intent)
+    }
+
+    private fun handleOAuthRedirect(intent: Intent?) {
+        val uri = intent?.data ?: return
+        if (uri.scheme != "echogame" || uri.host != "oauth") return
+        val ticket = uri.getQueryParameter("ticket") ?: return
+        setIntent(Intent(this, MainActivity::class.java))
+        if (echoAuth.busy) {
+            echoAuth.message = "Дождись завершения предыдущего входа"
+            return
+        }
+        echoAuth.busy = true
+        echoAuth.message = null
+        Thread {
+            val result = runCatching { echoAuth.finishOAuth(ticket) }
+            runOnUiThread {
+                echoAuth.busy = false
+                result.onSuccess { account ->
+                    echoAuth.accept(account)
+                    Toast.makeText(this@MainActivity,
+                        if (echoAudio.language == "en") "Signed in to ECHO" else "Вход в ECHO выполнен",
+                        Toast.LENGTH_SHORT).show()
+                }.onFailure { error ->
+                    echoAuth.message = error.message ?: "Не удалось завершить вход"
+                    Log.w("EchoOAuth", "OAuth ticket redemption failed", error)
+                }
+            }
+        }.start()
     }
 
     private fun changeEchoNickname(value: String) {

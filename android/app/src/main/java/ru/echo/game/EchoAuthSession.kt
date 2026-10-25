@@ -5,6 +5,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import org.json.JSONObject
+import java.security.MessageDigest
+import java.security.SecureRandom
+import android.util.Base64
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -147,6 +150,46 @@ internal class EchoAuthSession(context: Context) {
         request("POST", "nickname/validate", body = body, token = token)
         val response = request("POST", "nickname", body = body, token = token)
         return response.getString("nickname")
+    }
+
+    // Browser authorization with ECHO-server token exchange and PKCE.
+    fun startOAuth(provider: String, link: Boolean): String {
+        require(provider == "google" || provider == "yandex")
+        val current = if (link) token() ?: throw IllegalStateException("Сначала войди в ECHO") else null
+        val random = ByteArray(32).also { SecureRandom().nextBytes(it) }
+        val verifier = Base64.encodeToString(random, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+        val challenge = Base64.encodeToString(
+            MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII)),
+            Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
+        )
+        val body = JSONObject().put("platform", "android")
+            .put("codeChallenge", challenge).put("link", link).toString()
+        val answer = request("POST", "oauth/$provider/start", body, current)
+        val next = answer.getString("authorizationUrl")
+        require(next.startsWith(if (provider == "google")
+            "https://accounts.google.com/" else "https://oauth.yandex.ru/")) {
+            "Некорректный сервер авторизации"
+        }
+        preferences.edit().putString("oauth.verifier", verifier)
+            .putLong("oauth.started", System.currentTimeMillis()).apply()
+        return next
+    }
+
+    fun finishOAuth(ticket: String): EchoLoginResult {
+        require(Regex("^[A-Za-z0-9_-]{43}$").matches(ticket)) { "Недействительный код входа" }
+        val verifier = preferences.getString("oauth.verifier", null)
+            ?: throw IllegalStateException("Вход не был начат на этом устройстве")
+        val started = preferences.getLong("oauth.started", 0L)
+        check(started > 0L && (System.currentTimeMillis() - started) in 0L..600000L) {
+            "Подтверждение входа истекло"
+        }
+        val body = JSONObject().put("platform", "android")
+            .put("ticket", ticket).put("codeVerifier", verifier).toString()
+        val json = request("POST", "oauth/complete", body)
+        val gameToken = json.getString("token")
+        require(TOKEN_PATTERN.matches(gameToken)) { "Не удалось получить игровую сессию" }
+        preferences.edit().remove("oauth.verifier").remove("oauth.started").apply()
+        return EchoLoginResult(gameToken, json.optString("nickname").ifBlank { "Игрок ECHO" })
     }
 
     fun logoutServer(token: String) {
