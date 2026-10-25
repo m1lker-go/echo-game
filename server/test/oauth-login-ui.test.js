@@ -10,12 +10,20 @@ test('Google and Yandex choices are visible outside VK Mini Apps even before OAu
  assert.match(code,/button\.hidden=isVKMiniApp;/);
  assert.doesNotMatch(code,/button\.hidden=!enabled\|\|isVKMiniApp/);
  assert.match(code,/oauthMethods\.append\(oauthButton\('yandex',false\),oauthButton\('google',false\)\)/);
+ assert.match(code,/intro\.textContent=t\('login_select_method','Выберите способ входа'\)/);
+ assert.match(code,/providers\.append\(oauthMethods,loginWidget\)/);
+ assert.match(code,/styles:\{borderRadius:12,height:56\}/);
  assert.match(code,/button\.dataset\.configured=String\(ready\)/);
  assert.match(code,/startOAuth\(provider,link\)/);
 });
 test('ECHO OAuth login buttons have styles within the body-level modal portal',()=>{
  const css=read('auth.css');
  assert.match(css,/\.echo-modal-overlay \.echo-oauth-methods\{/);
+ assert.match(css,/grid-template-columns:minmax\(0,2fr\) minmax\(0,3fr\)/);
+ assert.match(css,/\.VkIdSdk_oauth_link_text\{/);
+ assert.match(css,/\.VkIdSdk_oauth_item\{/);
+ assert.match(css,/\.echo-oauth-icon-google\{/);
+ assert.match(css,/\.echo-oauth-icon-yandex\{/);
  assert.match(css,/\.echo-modal-overlay \.echo-oauth-button/);
  assert.match(css,/\.echo-vk-mini-app \.echo-oauth-button\{display:none!important\}/);
 });
@@ -28,6 +36,6 @@ test('authenticated users do not see account-link buttons in settings',()=>{
 });
 test('browser refreshes OAuth client assets after the visibility fix',()=>{
  const page=read('index.html');
- assert.match(page,/auth-ui\.js\?v=echo-oauth-no-link-1/);
- assert.match(page,/auth\.css\?v=echo-oauth-no-link-1/);
+ assert.match(page,/auth-ui\.js\?v=echo-five-icons-1/);
+ assert.match(page,/auth\.css\?v=echo-five-icons-1/);
 });
