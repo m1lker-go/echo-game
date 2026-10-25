@@ -39,6 +39,13 @@ const hasCredentials = provider =>
   Boolean(PROVIDERS[provider]?.clientId() && PROVIDERS[provider]?.secret());
 
 async function initialize() {
+  // Expire abandoned login attempts and tickets on startup.
+  await pool.query("DELETE FROM echo_oauth_states WHERE expires_at < NOW()").catch(error => {
+    if (error.code !== '42P01') throw error;
+  });
+  await pool.query("DELETE FROM echo_oauth_tickets WHERE expires_at < NOW()").catch(error => {
+    if (error.code !== '42P01') throw error;
+  });
   await pool.query(`CREATE TABLE IF NOT EXISTS echo_auth_identities (
     account_id UUID NOT NULL REFERENCES echo_accounts(id) ON DELETE CASCADE,
     provider TEXT NOT NULL CHECK (provider IN ('vkid','google','yandex')),
@@ -100,8 +107,8 @@ async function getIdentity(provider, code) {
     throw new Error(provider+' profile has no trusted user ID');
   return String(id);
 }
-async function resolveIdentity(provider, providerId, linkId) {
-  const client=await pool.connect();
+async function resolveIdentity(provider, providerId, linkId, database=pool) {
+  const client=await database.connect();
   try {
     await client.query('BEGIN');
     // Serialize first sign-ins of the same provider subject.
