@@ -19,8 +19,15 @@ test('ECHO OAuth login buttons have styles within the body-level modal portal',(
  assert.match(css,/\.echo-modal-overlay \.echo-oauth-button/);
  assert.match(css,/\.echo-vk-mini-app \.echo-oauth-button\{display:none!important\}/);
 });
+test('authenticated users do not see account-link buttons in settings',()=>{
+ const code=read('auth-ui.js');
+ const css=read('auth.css');
+ assert.doesNotMatch(code,/echo-oauth-links/);
+ assert.doesNotMatch(code,/oauthButton\('(?:yandex|google)',true\)/);
+ assert.doesNotMatch(css,/echo-oauth-links/);
+});
 test('browser refreshes OAuth client assets after the visibility fix',()=>{
  const page=read('index.html');
- assert.match(page,/auth-ui\.js\?v=echo-oauth-visible-2/);
- assert.match(page,/auth\.css\?v=echo-oauth-visible-2/);
+ assert.match(page,/auth-ui\.js\?v=echo-oauth-no-link-1/);
+ assert.match(page,/auth\.css\?v=echo-oauth-no-link-1/);
 });
