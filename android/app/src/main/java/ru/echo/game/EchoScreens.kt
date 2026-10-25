@@ -103,7 +103,8 @@ internal fun EchoAndroidShell(
     onVkLogin: () -> Unit,
     onLogout: () -> Unit,
     onDeleteAccount: () -> Unit,
-    onChangeNickname: (String) -> Unit
+    onChangeNickname: (String) -> Unit,
+    onOAuthLogin: (String, Boolean) -> Unit
 ) {
     var page by remember { mutableStateOf(Page.HOME) }
     val context = LocalContext.current
@@ -120,7 +121,7 @@ internal fun EchoAndroidShell(
         BackHandler(enabled = page != Page.HOME, onBack = back)
         when (page) {
             Page.HOME, Page.SETTINGS ->
-                EchoNativePage(page, audio, auth, onVkLogin, onLogout, onDeleteAccount, onChangeNickname,
+                EchoNativePage(page, audio, auth, onVkLogin, onLogout, onDeleteAccount, onChangeNickname, onOAuthLogin,
                     onNavigate = { page = it }, onBack = back)
             else -> {
                 // Avoid embedding WebGL inside Compose AndroidView on MIUI:
@@ -277,6 +278,7 @@ private fun EchoNativePage(
     page: Page, audio: EchoAudioEngine,
     auth: EchoAuthSession, onVkLogin: () -> Unit, onLogout: () -> Unit,
     onDeleteAccount: () -> Unit, onChangeNickname: (String) -> Unit,
+    onOAuthLogin: (String, Boolean) -> Unit,
     onNavigate: (Page) -> Unit, onBack: () -> Unit
 ) {
     EchoSpaceBackground {
@@ -369,7 +371,7 @@ private fun EchoNativePage(
                         )
                         Spacer(Modifier.height(10.dp))
                         EchoSettings(css, audio, auth, onVkLogin, onLogout, onDeleteAccount,
-                            onChangeNickname, onNavigate)
+                            onChangeNickname, onOAuthLogin, onNavigate)
                     }
                 }
             }
@@ -403,6 +405,7 @@ private fun EchoSettings(
     css: EchoCss, audio: EchoAudioEngine, auth: EchoAuthSession,
     onVkLogin: () -> Unit, onLogout: () -> Unit,
     onDeleteAccount: () -> Unit, onChangeNickname: (String) -> Unit,
+    onOAuthLogin: (String, Boolean) -> Unit,
     onNavigate: (Page) -> Unit
 ) {
     var confirmCache by remember { mutableStateOf(false) }
@@ -426,12 +429,22 @@ private fun EchoSettings(
             Modifier.fillMaxWidth(), letterSpacingEm = .12f)
         if (auth.nickname == null) {
             EchoButton(
-                if (auth.busy) tr(audio, "ПОДКЛЮЧАЕМ VK...", "CONNECTING VK...")
+                if (auth.busy) tr(audio, "ВХОД...", "SIGNING IN...")
                 else tr(audio, "ВОЙТИ ЧЕРЕЗ VK", "SIGN IN WITH VK"),
                 Modifier.fillMaxWidth(),
                 height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp
             ) {
                 if (!auth.busy) onVkLogin()
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                EchoButton(tr(audio, "ЯНДЕКС ID", "YANDEX ID"), Modifier.weight(1f),
+                    height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp) {
+                    if (!auth.busy) onOAuthLogin("yandex", false)
+                }
+                EchoButton("GOOGLE", Modifier.weight(1f),
+                    height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp) {
+                    if (!auth.busy) onOAuthLogin("google", false)
+                }
             }
         } else {
             // Mirror the site's two equally sized account controls: a bordered
@@ -476,6 +489,16 @@ private fun EchoSettings(
                     fontSize = css.settingsValueFontSp
                 ) {
                     if (!auth.busy) confirmLogout = true
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                EchoButton(tr(audio, "СВЯЗАТЬ ЯНДЕКС", "LINK YANDEX"), Modifier.weight(1f),
+                    height = css.settingsButtonHeight, fontSize = css.settingsNoteFontSp) {
+                    if (!auth.busy) onOAuthLogin("yandex", true)
+                }
+                EchoButton(tr(audio, "СВЯЗАТЬ GOOGLE", "LINK GOOGLE"), Modifier.weight(1f),
+                    height = css.settingsButtonHeight, fontSize = css.settingsNoteFontSp) {
+                    if (!auth.busy) onOAuthLogin("google", true)
                 }
             }
         }
