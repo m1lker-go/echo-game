@@ -1,0 +1,101 @@
+name: Build signed ECHO RuStore APK
+
+# Safe by default: normal apk pushes still produce DEBUG builds only.
+# A release requires an explicit trigger and dedicated GitHub Secrets.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'echo-v*'
+
+permissions:
+  contents: read
+
+jobs:
+  signed-rustore-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Verify game and Android auth
+        run: |
+          node --test server/test/battle-entry-ads.test.js \
+            server/test/defeat-menu.test.js \
+            server/test/android-settings-ui.test.js \
+            server/test/android-auth-five-providers.test.js \
+            server/test/android-release-config.test.js
+
+      - name: Decode temporary release signing key
+        shell: bash
+        env:
+          KEY_B64: ${{ secrets.ECHO_RELEASE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ECHO_RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ECHO_RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ECHO_RELEASE_KEY_PASSWORD }}
+          VK_SECRET: ${{ secrets.ECHO_VK_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          for required in KEY_B64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD VK_SECRET; do
+            if [[ -z "${!required}" ]]; then
+              echo "::error::Missing GitHub secret for $required; refusing to produce a release APK"
+              exit 1
+            fi
+          done
+          KEYFILE="$RUNNER_TEMP/echo-rustore-release.jks"
+          umask 077
+          printf '%s' "$KEY_B64" | base64 --decode > "$KEYFILE"
+          test -s "$KEYFILE"
+          echo "ECHO_RELEASE_KEYSTORE_PATH=$KEYFILE" >> "$GITHUB_ENV"
+
+      - name: Build signed release (never debug)
+        working-directory: android
+        env:
+          ECHO_RELEASE_STORE_PASSWORD: ${{ secrets.ECHO_RELEASE_STORE_PASSWORD }}
+          ECHO_RELEASE_KEY_ALIAS: ${{ secrets.ECHO_RELEASE_KEY_ALIAS }}
+          ECHO_RELEASE_KEY_PASSWORD: ${{ secrets.ECHO_RELEASE_KEY_PASSWORD }}
+          ECHO_VK_CLIENT_SECRET: ${{ secrets.ECHO_VK_CLIENT_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease --stacktrace
+
+      - name: Verify signature, package, version and non-debuggable manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          test -x "$TOOLS_DIR/apksigner"
+          test -x "$TOOLS_DIR/aapt"
+          "$TOOLS_DIR/apksigner" verify --verbose --print-certs "$APK"
+          BADGING="$("$TOOLS_DIR/aapt" dump badging "$APK")"
+          printf '%s\n' "$BADGING" | grep -m 1 "^package:"
+          [[ "$BADGING" == *"name='ru.echo.game'"* ]] || { echo "::error::Unexpected Android package"; exit 1; }
+          [[ "$BADGING" == *"versionCode='19'"* ]] || { echo "::error::Unexpected versionCode"; exit 1; }
+          [[ "$BADGING" == *"versionName='1.0.0'"* ]] || { echo "::error::Unexpected versionName"; exit 1; }
+          if printf '%s\n' "$BADGING" | grep -q "^application-debuggable"; then
+            echo "::error::Debuggable APK is forbidden for RuStore"
+            exit 1
+          fi
+          mkdir -p release-out
+          cp "$APK" release-out/ECHO-1.0.0-rustore-release.apk
+
+      - name: Delete temporary signing key
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/echo-rustore-release.jks"
+
+      - name: Upload verified signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: echo-rustore-signed-v1.0.0
+          path: release-out/ECHO-1.0.0-rustore-release.apk
+          if-no-files-found: error
+          retention-days: 14
