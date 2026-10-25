@@ -557,18 +557,22 @@ private fun EchoSettings(
                 "Reloads ECHO files. Profile and selected character are preserved."),
             css.settingsNoteFontSp, Secondary, Modifier.fillMaxWidth(), centered = true
         )
-        EchoButton(
-            tr(audio, "ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ", "PRIVACY POLICY"),
-            Modifier.fillMaxWidth(),
-            height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp
-        ) {
-            val intent = Intent(Intent.ACTION_VIEW,
-                android.net.Uri.parse("https://cat-fight.ru/echo/privacy/"))
-                .addCategory(Intent.CATEGORY_BROWSABLE)
-            runCatching { context.startActivity(intent) }
-                .onFailure { auth.message = tr(audio,
-                    "Не удалось открыть политику", "Could not open privacy policy") }
-        }
+        // Plain white link: the full row is tappable without button chrome.
+        EchoText(
+            tr(audio, "Политика конфиденциальности", "Privacy policy"),
+            css.settingsNoteFontSp + 2, White,
+            Modifier.fillMaxWidth()
+                .clickable {
+                    val intent = Intent(Intent.ACTION_VIEW,
+                        android.net.Uri.parse("https://cat-fight.ru/echo/privacy/"))
+                        .addCategory(Intent.CATEGORY_BROWSABLE)
+                    runCatching { context.startActivity(intent) }
+                        .onFailure { auth.message = tr(audio,
+                            "Не удалось открыть политику", "Could not open privacy policy") }
+                }
+                .padding(vertical = 10.dp, horizontal = 8.dp),
+            centered = true
+        )
         if (cacheMessage.isNotEmpty()) {
             EchoText(cacheMessage, 12, Secondary, Modifier.fillMaxWidth(), centered = true)
         }
