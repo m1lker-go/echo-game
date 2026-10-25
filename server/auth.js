@@ -9,6 +9,12 @@ const APP_ID = String(process.env.VK_ID_APP_ID || '');
 const MINI_APP_ID = String(process.env.VK_MINI_APP_ID || '');
 const MINI_APP_SECRET = process.env.VK_MINI_APP_SECRET || '';
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
+const {deleteAccount} = require('./account-deletion');
+const echoOAuth = require('./oauth');
+let onAccountDeleted = () => {};
+function setAccountDeletedHandler(handler) {
+  onAccountDeleted = typeof handler === 'function' ? handler : () => {};
+}
 const getSession = req => (req.headers.authorization || '').match(/^Bearer ([a-f0-9]{64})$/)?.[1];
 async function sessionUser(req) {
   const token = getSession(req);
@@ -70,7 +76,14 @@ async function createVKAccountSession(uid) {
   }
 }
 
-router.get('/config', (_req, res) => res.json({ enabled: /^\d+$/.test(APP_ID), appId: /^\d+$/.test(APP_ID) ? Number(APP_ID) : null, miniAppEnabled: /^\d+$/.test(MINI_APP_ID) && Boolean(MINI_APP_SECRET), miniAppId: /^\d+$/.test(MINI_APP_ID) ? Number(MINI_APP_ID) : null }));
+router.get('/config', (_req, res) => res.json({
+  enabled: /^\d+$/.test(APP_ID),
+  appId: /^\d+$/.test(APP_ID) ? Number(APP_ID) : null,
+  miniAppEnabled: /^\d+$/.test(MINI_APP_ID) && Boolean(MINI_APP_SECRET),
+  miniAppId: /^\d+$/.test(MINI_APP_ID) ? Number(MINI_APP_ID) : null,
+  googleEnabled: echoOAuth.hasCredentials('google'),
+  yandexEnabled: echoOAuth.hasCredentials('yandex')
+}));
 router.post('/vk', async (req,res) => {
   const accessToken = req.body?.accessToken;
   if (!/^\d+$/.test(APP_ID) || typeof accessToken !== 'string' || accessToken.length < 20 || accessToken.length > 4096)
@@ -139,9 +152,29 @@ router.post('/nickname',async(req,res)=>{
     console.error('[auth] nickname failed:',error.message);res.status(500).json({error:'Unavailable'});
   }
 });
+// Explicit confirmation + valid ECHO bearer token are both required.
+// Do not log raw tokens, account IDs or personally identifiable provider IDs.
+router.delete('/account', async (req, res) => {
+  const token = getSession(req);
+  if (!token) return res.status(401).json({error:'Unauthorized'});
+  if (req.body?.confirm !== 'DELETE')
+    return res.status(400).json({error:'Account deletion requires confirmation'});
+  try {
+    const accountId = await deleteAccount(pool, hash(token));
+    if (!accountId) return res.status(401).json({error:'Unauthorized'});
+    try { onAccountDeleted(accountId); }
+    catch (error) { console.error('[auth] deleted account session cleanup failed:',error.message); }
+    res.set('Cache-Control','no-store');
+    res.json({ok:true});
+  } catch (error) {
+    console.error('[auth] account deletion failed:',error.message);
+    res.status(500).json({error:'Account deletion unavailable'});
+  }
+});
+
 router.post('/logout',async(req,res)=>{
   const token=getSession(req);
   if(token)await pool.query('DELETE FROM echo_auth_sessions WHERE token_hash=$1',[hash(token)]).catch(error=>console.error('[auth] logout failed:',error.message));
   res.json({ok:true});
 });
-module.exports={router,initialize,sessionUser};
+module.exports={router,initialize,sessionUser,setAccountDeletedHandler};

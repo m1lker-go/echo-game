@@ -4,6 +4,71 @@ const panel=document.querySelector('#echo-auth-user');
 const status=document.querySelector('#echo-auth-status');
 let loginWidget=null;
 let loginError=null;
+const oauthButtons=new Map();
+const oauthLabels={google:['Войти через Google','Связать с Google'],yandex:['Войти через Яндекс','Связать с Яндексом']};
+function oauthButton(provider,link){
+ const button=document.createElement('button');
+ button.type='button';
+ button.className='echo-oauth-button echo-oauth-'+provider;
+ button.hidden=true;
+ button.textContent=oauthLabels[provider][link?1:0];
+ button.addEventListener('click',()=>void startOAuth(provider,link));
+ oauthButtons.set(provider+(link?':link':':login'),button);
+ return button;
+}
+async function updateOAuthButtons(){
+ try{
+  const config=await request('config');
+  for(const provider of ['google','yandex']){
+   const enabled=config[provider+'Enabled']===true;
+   for(const suffix of [':login',':link']){
+    const button=oauthButtons.get(provider+suffix);
+    if(button)button.hidden=!enabled||isVKMiniApp;
+   }
+  }
+ }catch(error){console.warn('[echo oauth] availability unavailable',error);}
+}
+async function finishOAuth(){
+ try{
+  const account=await request('oauth/complete',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({platform:'web'})
+  });
+  if(!/^[a-f0-9]{64}$/.test(account?.token||''))throw new Error('Invalid ECHO token');
+  token=account.token;localStorage.setItem(key,token);
+  await refresh();
+  window.ECHOModal?.close();
+  window.ECHOToast?.show('Вы вошли в ECHO');
+ }catch(error){
+  console.error('[echo oauth] completion failed',error);
+  window.ECHOToast?.show('Не удалось завершить вход. Попробуй снова.');
+ }
+}
+async function startOAuth(provider,link=false){
+ if(isVKMiniApp)return;
+ const popup=window.open('about:blank','echo-oauth-'+provider,'width=530,height=680');
+ if(popup){popup.document.title='ECHO';popup.document.body.textContent='Переход к авторизации…';}
+ try{
+  const result=await request('oauth/'+provider+'/start',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({platform:'web',link})
+  });
+  const next=new URL(result.authorizationUrl);
+  const expected=provider==='google'?'https://accounts.google.com':'https://oauth.yandex.ru';
+  if(next.origin!==expected)throw new Error('Invalid OAuth destination');
+  if(popup&&!popup.closed)popup.location.assign(next.href);
+  else location.assign(next.href);
+ }catch(error){
+  popup?.close();
+  console.error('[echo oauth] start failed',error);
+  window.ECHOToast?.show(error.status===503?'Способ входа пока не настроен':'Не удалось открыть авторизацию');
+ }
+}
+window.addEventListener('message',event=>{
+ if(event.origin===location.origin&&event.data?.type==='echo-oauth-ready')
+  void finishOAuth();
+});
+
 
 // VK Mini Apps uses VK Bridge on every launch. The signed parameters must
 // still be verified by ECHO on the server; VK Bridge alone is not authentication.
@@ -182,17 +247,21 @@ document.querySelector('#echo-open-login')?.addEventListener('click',()=>{
  if(isVKMiniApp)return;
  const content=document.createElement('div');
  content.className='echo-login-modal-content';
+ const oauthMethods=document.createElement('div');
+ oauthMethods.className='echo-oauth-methods';
+ oauthMethods.append(oauthButton('yandex',false),oauthButton('google',false));
  loginWidget=document.createElement('div');
  loginWidget.className='echo-login-widget';
  loginError=document.createElement('p');
  loginError.className='echo-login-error';
  loginError.setAttribute('role','status');
- content.append(loginWidget,loginError);
+ content.append(oauthMethods,loginWidget,loginError);
  window.ECHOModal?.open({
   title:t('auth_modal_title','АВТОРИЗАЦИЯ'),
   contentElement:content,
   buttons:[{label:t('back','Назад'),value:false}],
  });
+ void updateOAuthButtons();
  start();
 });
 document.querySelector('#echo-edit-name')?.addEventListener('click',()=>{
@@ -267,5 +336,16 @@ if(isVKMiniApp){
  // The Mini App always authenticates its VK user automatically.
  loginVKMiniApp();
 }else{
- refresh();
+ // Link providers explicitly; never merge by email alone.
+ const links=document.createElement('div');
+ links.className='echo-oauth-links';
+ links.append(oauthButton('yandex',true),oauthButton('google',true));
+ document.querySelector('#echo-auth-user')?.append(links);
+ const pending=new URL(location.href);
+ if(pending.searchParams.has('echo_oauth')){
+  pending.searchParams.delete('echo_oauth');
+  history.replaceState(null,'',pending.pathname+pending.search+pending.hash);
+  void finishOAuth();
+ }else refresh();
+ void updateOAuthButtons();
 }
