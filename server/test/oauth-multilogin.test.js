@@ -3,7 +3,21 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const {resolveIdentity,hasCredentials} = require('../oauth');
+// The deploy workflow runs unit tests without npm install. Stub only module
+// imports: tests exercise the real SQL identity resolver with a fake client.
+const Module = require('node:module');
+const originalLoad = Module._load;
+let identityApi;
+try {
+ Module._load = function(request,parent,isMain){
+  if(request === 'express')return {Router:()=>({get(){},post(){}})};
+  if(request === './db' && parent?.filename?.endsWith('/server/oauth.js'))
+   return {pool:{}};
+  return originalLoad.call(this,request,parent,isMain);
+ };
+ identityApi=require('../oauth');
+} finally { Module._load=originalLoad; }
+const {resolveIdentity,hasCredentials}=identityApi;
 function mockDb({existingId=null,linkFound=true,alreadyLinked=false}={}){
  const calls=[];
  const client={
