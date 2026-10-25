@@ -86,13 +86,26 @@ internal class EchoAuthSession(context: Context) {
             val response = (if (code in 200..299) connection.inputStream else connection.errorStream)
                 ?.bufferedReader()?.use { it.readText() }.orEmpty()
             if (code == 401 && endpoint == "me") throw EchoSessionExpired()
-            if (code !in 200..299) throw IllegalStateException(
-                when (code) {
-                    400, 401, 403 -> "VK ID не подтвердил вход в ECHO ($code)"
-                    404 -> "Сервер авторизации ECHO недоступен (404)"
-                    else -> "Ошибка сервера ECHO ($code)"
+            if (code !in 200..299) {
+                val detail = runCatching { JSONObject(response) }.getOrNull()
+                if (endpoint.startsWith("nickname")) {
+                    val message = when {
+                        code == 409 -> "Имя уже занято"
+                        detail?.optString("code") == "forbidden" -> "Имя содержит запрещённые слова"
+                        code == 400 -> "Имя: 3–20 букв, цифр, _ или -"
+                        code == 401 || code == 403 -> "Сессия истекла. Войди в аккаунт заново."
+                        else -> "Не удалось изменить имя (ошибка $code)"
+                    }
+                    throw IllegalStateException(message)
                 }
-            )
+                throw IllegalStateException(
+                    when (code) {
+                        400, 401, 403 -> "VK ID не подтвердил вход в ECHO ($code)"
+                        404 -> "Сервер авторизации ECHO недоступен (404)"
+                        else -> "Ошибка сервера ECHO ($code)"
+                    }
+                )
+            }
             JSONObject(response)
         } finally {
             connection.disconnect()
@@ -121,6 +134,19 @@ internal class EchoAuthSession(context: Context) {
         val confirmation = JSONObject().put("confirm", "DELETE").toString()
         val result = request("DELETE", "account", body = confirmation, token = token)
         check(result.optBoolean("ok", false)) { "Сервер не подтвердил удаление аккаунта" }
+    }
+
+    // Same validation and update endpoints as the browser's pencil action.
+    // Called on a background thread; a successful response is the authority.
+    fun changeNickname(token: String, value: String): String {
+        require(TOKEN_PATTERN.matches(token)) { "Нужен вход в ECHO" }
+        require(Regex("^[A-Za-zА-Яа-яЁё0-9_-]{3,20}$").matches(value)) {
+            "Имя: 3–20 букв, цифр, _ или -"
+        }
+        val body = JSONObject().put("nickname", value).toString()
+        request("POST", "nickname/validate", body = body, token = token)
+        val response = request("POST", "nickname", body = body, token = token)
+        return response.getString("nickname")
     }
 
     fun logoutServer(token: String) {

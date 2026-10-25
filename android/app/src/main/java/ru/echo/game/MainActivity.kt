@@ -71,7 +71,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 EchoAndroidShell(echoAudio, echoAuth, onVkLogin = ::startVkLogin,
-                    onLogout = ::logoutEcho, onDeleteAccount = ::deleteEchoAccount)
+                    onLogout = ::logoutEcho, onDeleteAccount = ::deleteEchoAccount,
+                    onChangeNickname = ::changeEchoNickname)
                 if (networkUnavailable) {
                     val english = echoAudio.language == "en"
                     EchoConfirmDialog(
@@ -138,6 +139,32 @@ class MainActivity : ComponentActivity() {
             echoAuth.busy = false
             echoAuth.message = "Вход через VK отменён или не выполнен"
         }
+    }
+
+    private fun changeEchoNickname(value: String) {
+        val session = echoAuth.token() ?: run {
+            echoAuth.message = "Для смены имени войди через VK"
+            return
+        }
+        if (echoAuth.busy) return
+        echoAuth.busy = true
+        echoAuth.message = null
+        Thread {
+            val result = runCatching { echoAuth.changeNickname(session, value) }
+            runOnUiThread {
+                if (echoAuth.token() != session) return@runOnUiThread
+                echoAuth.busy = false
+                result.onSuccess { newName ->
+                    echoAuth.updateNickname(newName)
+                    Toast.makeText(this@MainActivity,
+                        if (echoAudio.language == "en") "Name updated" else "Имя изменено",
+                        Toast.LENGTH_SHORT).show()
+                }.onFailure { error ->
+                    echoAuth.message = error.message ?: "Не удалось изменить имя"
+                    Log.w("EchoNickname", "Nickname update failed (no token logged)", error)
+                }
+            }
+        }.start()
     }
 
     private fun deleteEchoAccount() {

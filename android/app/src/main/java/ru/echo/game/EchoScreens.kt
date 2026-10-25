@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.text.BasicTextField
 import android.content.Intent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -49,8 +50,15 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -69,6 +77,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 private val EchoFont = FontFamily(Font(R.font.echo_superxp))
+private val EchoNicknamePattern = Regex("^[A-Za-zА-Яа-яЁё0-9_-]{3,20}$")
 private val White = Color(0xFFF1F4F7)
 private val Secondary = Color(0xFF909AA7)
 private val Black = Color.Black
@@ -91,7 +100,8 @@ internal fun EchoAndroidShell(
     auth: EchoAuthSession,
     onVkLogin: () -> Unit,
     onLogout: () -> Unit,
-    onDeleteAccount: () -> Unit
+    onDeleteAccount: () -> Unit,
+    onChangeNickname: (String) -> Unit
 ) {
     var page by remember { mutableStateOf(Page.HOME) }
     val context = LocalContext.current
@@ -108,7 +118,7 @@ internal fun EchoAndroidShell(
         BackHandler(enabled = page != Page.HOME, onBack = back)
         when (page) {
             Page.HOME, Page.SETTINGS ->
-                EchoNativePage(page, audio, auth, onVkLogin, onLogout, onDeleteAccount,
+                EchoNativePage(page, audio, auth, onVkLogin, onLogout, onDeleteAccount, onChangeNickname,
                     onNavigate = { page = it }, onBack = back)
             else -> {
                 // Avoid embedding WebGL inside Compose AndroidView on MIUI:
@@ -264,7 +274,8 @@ private fun EchoButton(
 private fun EchoNativePage(
     page: Page, audio: EchoAudioEngine,
     auth: EchoAuthSession, onVkLogin: () -> Unit, onLogout: () -> Unit,
-    onDeleteAccount: () -> Unit, onNavigate: (Page) -> Unit, onBack: () -> Unit
+    onDeleteAccount: () -> Unit, onChangeNickname: (String) -> Unit,
+    onNavigate: (Page) -> Unit, onBack: () -> Unit
 ) {
     EchoSpaceBackground {
         BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -355,7 +366,8 @@ private fun EchoNativePage(
                             modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(Modifier.height(10.dp))
-                        EchoSettings(css, audio, auth, onVkLogin, onLogout, onDeleteAccount, onNavigate)
+                        EchoSettings(css, audio, auth, onVkLogin, onLogout, onDeleteAccount,
+                            onChangeNickname, onNavigate)
                     }
                 }
             }
@@ -388,11 +400,16 @@ private fun EchoNativePage(
 private fun EchoSettings(
     css: EchoCss, audio: EchoAudioEngine, auth: EchoAuthSession,
     onVkLogin: () -> Unit, onLogout: () -> Unit,
-    onDeleteAccount: () -> Unit, onNavigate: (Page) -> Unit
+    onDeleteAccount: () -> Unit, onChangeNickname: (String) -> Unit,
+    onNavigate: (Page) -> Unit
 ) {
     var confirmCache by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var nicknameEditor by remember { mutableStateOf(false) }
+    var nicknameConfirmation by remember { mutableStateOf(false) }
+    var nicknameDraft by remember { mutableStateOf("") }
+    var nicknameError by remember { mutableStateOf(false) }
     var cacheMessage by remember { mutableStateOf("") }
     val context = LocalContext.current
     val english = audio.language == "en"
@@ -415,19 +432,49 @@ private fun EchoSettings(
                 if (!auth.busy) onVkLogin()
             }
         } else {
-            EchoText(auth.nickname ?: "", css.settingsValueFontSp, White,
-                Modifier.fillMaxWidth(), centered = true)
-            EchoButton(tr(audio, "ВЫЙТИ ИЗ АККАУНТА", "SIGN OUT"), Modifier.fillMaxWidth(),
-                height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp) {
-                if (!auth.busy) confirmLogout = true
-            }
-            EchoButton(
-                if (auth.busy) tr(audio, "ВЫПОЛНЯЕТСЯ ОПЕРАЦИЯ...", "PLEASE WAIT...")
-                else tr(audio, "УДАЛИТЬ АККАУНТ", "DELETE ACCOUNT"),
+            // Mirror the site's two equally sized account controls: a bordered
+            // nickname/pencil capsule and a white logout button.
+            Row(
                 Modifier.fillMaxWidth(),
-                height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (!auth.busy) confirmDelete = true
+                val accountShape = RoundedCornerShape(12.dp)
+                Row(
+                    modifier = Modifier.weight(1f).height(css.settingsButtonHeight)
+                        .clip(accountShape).background(Black).border(1.dp, White, accountShape),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    EchoText(
+                        auth.nickname ?: "", css.settingsValueFontSp, White,
+                        Modifier.weight(1f).padding(horizontal = 5.dp),
+                        centered = true
+                    )
+                    Spacer(Modifier.width(1.dp).fillMaxHeight().background(White))
+                    Box(
+                        Modifier.width(css.settingsButtonHeight * .70f).fillMaxHeight()
+                            .semantics {
+                                contentDescription = tr(audio, "Изменить имя", "Edit nickname")
+                            }
+                            .clickable(enabled = !auth.busy) {
+                                audio.click()
+                                nicknameDraft = auth.nickname.orEmpty()
+                                nicknameError = false
+                                nicknameEditor = true
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        EchoSettingsIcon(isTrash = false)
+                    }
+                }
+                EchoButton(
+                    tr(audio, "ВЫЙТИ ИЗ АККАУНТА", "SIGN OUT"),
+                    Modifier.weight(1f),
+                    selected = true, height = css.settingsButtonHeight,
+                    fontSize = css.settingsValueFontSp
+                ) {
+                    if (!auth.busy) confirmLogout = true
+                }
             }
         }
         if (auth.message != null) {
@@ -463,9 +510,37 @@ private fun EchoSettings(
             height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp) {
             onNavigate(Page.CODE_VIEW)
         }
-        EchoButton(tr(audio, "ОЧИСТИТЬ КЭШ ИГРЫ", "CLEAR GAME CACHE"), Modifier.fillMaxWidth(),
-            height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp) {
-            confirmCache = true
+        // Keep destructive account removal away from the profile controls:
+        // a single square trash action at the LEFT of Clear Cache.
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (auth.nickname != null) {
+                val trashShape = RoundedCornerShape(13.dp)
+                Box(
+                    modifier = Modifier.size(css.settingsButtonHeight)
+                        .clip(trashShape).background(Black).border(1.dp, White, trashShape)
+                        .semantics {
+                            contentDescription = tr(audio, "Удалить аккаунт", "Delete account")
+                        }
+                        .clickable(enabled = !auth.busy) {
+                            audio.click()
+                            confirmDelete = true
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    EchoSettingsIcon(isTrash = true)
+                }
+            }
+            EchoButton(
+                tr(audio, "ОЧИСТИТЬ КЭШ ИГРЫ", "CLEAR GAME CACHE"),
+                Modifier.weight(1f),
+                height = css.settingsButtonHeight, fontSize = css.settingsButtonFontSp
+            ) {
+                confirmCache = true
+            }
         }
         EchoText(
             tr(audio, "Перезагрузит ECHO и запросит свежие файлы. Профиль и выбранный персонаж сохранятся.",
@@ -475,6 +550,72 @@ private fun EchoSettings(
         if (cacheMessage.isNotEmpty()) {
             EchoText(cacheMessage, 12, Secondary, Modifier.fillMaxWidth(), centered = true)
         }
+    }
+
+    if (nicknameEditor) {
+        EchoConfirmDialog(
+            title = tr(audio, "ИМЯ ИГРОКА", "PLAYER NAME"),
+            message = if (nicknameError)
+                tr(audio, "Имя: 3–20 букв, цифр, _ или -",
+                    "Name: 3–20 letters, digits, _ or -")
+            else tr(audio, "Введи новое имя: от 3 до 20 символов.",
+                "Enter a new name: 3 to 20 characters."),
+            cancelLabel = tr(audio, "ОТМЕНА", "CANCEL"),
+            confirmLabel = tr(audio, "СОХРАНИТЬ", "SAVE"),
+            onDismiss = { audio.click(); nicknameEditor = false },
+            onConfirm = {
+                audio.click()
+                val value = nicknameDraft.trim()
+                if (!EchoNicknamePattern.matches(value)) {
+                    nicknameError = true
+                } else {
+                    nicknameEditor = false
+                    if (value != auth.nickname) nicknameConfirmation = true
+                }
+            },
+            content = {
+                val shape = RoundedCornerShape(11.dp)
+                Box(
+                    Modifier.fillMaxWidth().height(52.dp)
+                        .clip(shape).background(Color(0xFF080808))
+                        .border(1.dp, White, shape).padding(horizontal = 14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    BasicTextField(
+                        value = nicknameDraft,
+                        onValueChange = {
+                            if (it.length <= 20) {
+                                nicknameDraft = it
+                                nicknameError = false
+                            }
+                        },
+                        singleLine = true,
+                        textStyle = TextStyle(
+                            color = White, fontFamily = EchoFont,
+                            fontSize = 20.sp, textAlign = TextAlign.Center
+                        ),
+                        cursorBrush = SolidColor(White),
+                        modifier = Modifier.fillMaxWidth(),
+                        decorationBox = { inner -> inner() }
+                    )
+                }
+            }
+        )
+    }
+    if (nicknameConfirmation) {
+        EchoConfirmDialog(
+            title = tr(audio, "ИЗМЕНИТЬ ИМЯ", "CHANGE NAME"),
+            message = tr(audio, "Сохранить новое имя игрока?",
+                "Save the new player name?") + "\n" + nicknameDraft.trim(),
+            cancelLabel = tr(audio, "ОТМЕНА", "CANCEL"),
+            confirmLabel = tr(audio, "ДА", "YES"),
+            onDismiss = { audio.click(); nicknameConfirmation = false },
+            onConfirm = {
+                audio.click()
+                nicknameConfirmation = false
+                if (!auth.busy) onChangeNickname(nicknameDraft.trim())
+            }
+        )
     }
 
     if (confirmDelete) {
@@ -560,7 +701,8 @@ internal fun EchoConfirmDialog(
     cancelLabel: String?,
     confirmLabel: String,
     onDismiss: () -> Unit,
-    onConfirm: () -> Unit
+    onConfirm: () -> Unit,
+    content: (@Composable () -> Unit)? = null
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -597,7 +739,7 @@ internal fun EchoConfirmDialog(
                         text = title,
                         modifier = Modifier.fillMaxWidth(),
                         color = Color.White,
-                        fontFamily = FontFamily.SansSerif,
+                        fontFamily = EchoFont,
                         fontSize = if (availableWidth < 600.dp) 22.sp else 28.sp,
                         fontWeight = FontWeight.SemiBold,
                         letterSpacing = 0.14.em,
@@ -609,11 +751,15 @@ internal fun EchoConfirmDialog(
                         text = message,
                         modifier = Modifier.fillMaxWidth(),
                         color = Color.White,
-                        fontFamily = FontFamily.SansSerif,
+                        fontFamily = EchoFont,
                         fontSize = 14.sp,
                         lineHeight = 24.sp,
                         textAlign = TextAlign.Center
                     )
+                    if (content != null) {
+                        Spacer(Modifier.height(16.dp))
+                        content()
+                    }
                     Spacer(Modifier.height(if (compact) 20.dp else 36.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -660,11 +806,51 @@ private fun EchoModalAction(
         Text(
             label,
             color = if (primary) Color.Black else Color.White,
-            fontFamily = FontFamily.SansSerif,
+            fontFamily = EchoFont,
             fontWeight = FontWeight.SemiBold,
             fontSize = 12.sp,
             letterSpacing = 0.1.em,
             textAlign = TextAlign.Center
+        )
+    }
+}
+
+
+/** Both actions use a white outline icon, not a colored system emoji. */
+@Composable
+private fun EchoSettingsIcon(isTrash: Boolean) {
+    Canvas(Modifier.size(25.dp)) {
+        val unit = size.minDimension / 24f
+        val outline = Path().apply {
+            if (isTrash) {
+                moveTo(4f * unit, 7f * unit)
+                lineTo(20f * unit, 7f * unit)
+                moveTo(9f * unit, 4f * unit)
+                lineTo(15f * unit, 4f * unit)
+                moveTo(6f * unit, 8f * unit)
+                lineTo(7f * unit, 20f * unit)
+                lineTo(17f * unit, 20f * unit)
+                lineTo(18f * unit, 8f * unit)
+                moveTo(10f * unit, 11f * unit)
+                lineTo(10f * unit, 17f * unit)
+                moveTo(14f * unit, 11f * unit)
+                lineTo(14f * unit, 17f * unit)
+            } else {
+                moveTo(4f * unit, 20f * unit)
+                lineTo(9f * unit, 19f * unit)
+                lineTo(20f * unit, 8f * unit)
+                lineTo(16f * unit, 4f * unit)
+                lineTo(5f * unit, 15f * unit)
+                close()
+                moveTo(14f * unit, 6f * unit)
+                lineTo(18f * unit, 10f * unit)
+                moveTo(4f * unit, 22f * unit)
+                lineTo(20f * unit, 22f * unit)
+            }
+        }
+        drawPath(
+            outline, color = White,
+            style = Stroke(width = 1.8f * unit, cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
     }
 }
