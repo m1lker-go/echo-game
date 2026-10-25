@@ -277,7 +277,7 @@ private fun EchoButton(
 @Composable
 private fun EchoNativePage(
     page: Page, audio: EchoAudioEngine,
-    auth: EchoAuthSession, onVkLogin: () -> Unit, onLogout: () -> Unit,
+    auth: EchoAuthSession, onVkLogin: (OAuth) -> Unit, onLogout: () -> Unit,
     onDeleteAccount: () -> Unit, onChangeNickname: (String) -> Unit,
     onOAuthLogin: (String, Boolean) -> Unit,
     onNavigate: (Page) -> Unit, onBack: () -> Unit
@@ -404,7 +404,7 @@ private fun EchoNativePage(
 @Composable
 private fun EchoSettings(
     css: EchoCss, audio: EchoAudioEngine, auth: EchoAuthSession,
-    onVkLogin: () -> Unit, onLogout: () -> Unit,
+    onVkLogin: (OAuth) -> Unit, onLogout: () -> Unit,
     onDeleteAccount: () -> Unit, onChangeNickname: (String) -> Unit,
     onOAuthLogin: (String, Boolean) -> Unit,
     onNavigate: (Page) -> Unit
