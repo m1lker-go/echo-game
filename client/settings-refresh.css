@@ -256,5 +256,33 @@
 .echo-code-input::placeholder { color: #939ba5; opacity: 1; }
 .echo-code-input:focus-visible { box-shadow: 0 0 0 2px rgba(255,255,255,.28); }
 
-/* Keep the privacy link aligned with other full-width settings actions. */
-#game #menu-settings-screen > #settings-privacy { cursor:pointer; }
+/* A simple text link at the bottom of settings; no button frame or background. */
+#game #menu-settings-screen > #settings-privacy {
+  display:block;
+  flex:0 0 auto;
+  align-self:center;
+  width:auto;
+  max-width:100%;
+  margin:0;
+  padding:8px 12px;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  color:#fff;
+  font-size:clamp(14px,calc(18px * var(--echo-ui-scale)),23px);
+  font-weight:400;
+  line-height:1.35;
+  text-align:center;
+  text-decoration:none;
+  cursor:pointer;
+}
+#game #menu-settings-screen > #settings-privacy:hover {
+  color:#fff;
+  text-decoration:underline;
+  text-underline-offset:3px;
+}
+#game #menu-settings-screen > #settings-privacy:focus-visible {
+  outline:2px solid #fff;
+  outline-offset:2px;
+}
