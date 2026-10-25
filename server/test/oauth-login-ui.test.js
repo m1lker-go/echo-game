@@ -25,7 +25,7 @@ test('ECHO OAuth login buttons have styles within the body-level modal portal',(
  assert.match(css,/grid-template-columns:repeat\(3,minmax\(0,1fr\)\)!important/);
  assert.match(css,/width:100%!important;flex:none!important/);
  assert.match(css,/\.VkIdSdk_oauth_item svg\{/);
- assert.doesNotMatch(css,/width:0!important/);
+ assert.doesNotMatch(css,/(?:^|[;{\s])width:0!important/m);
  assert.match(css,/\.echo-oauth-icon-google\{/);
  assert.match(css,/\.echo-oauth-icon-yandex\{/);
  assert.match(css,/\.echo-modal-overlay \.echo-oauth-button/);
