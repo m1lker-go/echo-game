@@ -72,11 +72,9 @@ async function finishOAuth(){
 }
 async function startOAuth(provider,link=false){
  if(isVKMiniApp)return;
- const button=oauthButtons.get(provider+(link?':link':':login'));
- if(button?.dataset.configured==='false'){
-  window.ECHOToast?.show((provider==='google'?'Google':'Яндекс')+' пока не активирован на сервере ECHO');
-  return;
- }
+ // Always ask the server: a previously loaded page may have cached a
+ // disabled provider before the VPS environment was updated.
+ // The server remains the authority and returns 503 if not configured.
  const popup=window.open('about:blank','echo-oauth-'+provider,'width=530,height=680');
  if(popup){popup.document.title='ECHO';popup.document.body.textContent='Переход к авторизации…';}
  try{

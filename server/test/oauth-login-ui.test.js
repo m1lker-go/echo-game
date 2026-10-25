@@ -17,6 +17,11 @@ test('Google and Yandex choices are visible outside VK Mini Apps even before OAu
  assert.match(code,/if\(yandex&&google\)vkList\.prepend\(yandex,google\)/);
  assert.match(code,/button\.dataset\.configured=String\(ready\)/);
  assert.match(code,/startOAuth\(provider,link\)/);
+ // Clicking Yandex must call the real ECHO OAuth start route even if config
+ // was previously false before the operator updated the server .env.
+ assert.match(code,/request\('oauth\/'\+provider\+'\/start'/);
+ assert.doesNotMatch(code,/if\(button\?\.dataset\.configured==='false'\)/);
+ assert.match(code,/provider==='google'\?'https:\/\/accounts\.google\.com':'https:\/\/oauth\.yandex\.ru'/);
 });
 test('ECHO OAuth login buttons have styles within the body-level modal portal',()=>{
  const css=read('auth.css');
@@ -44,6 +49,6 @@ test('authenticated users do not see account-link buttons in settings',()=>{
 });
 test('browser refreshes OAuth client assets after the visibility fix',()=>{
  const page=read('index.html');
- assert.match(page,/auth-ui\.js\?v=echo-five-shared-row-1/);
+ assert.match(page,/auth-ui\.js\?v=echo-yandex-oauth-live-1/);
  assert.match(page,/auth\.css\?v=echo-five-shared-row-1/);
 });
