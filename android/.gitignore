@@ -10,3 +10,12 @@ local.properties
 captures/
 .externalNativeBuild/
 .cxx/
+
+# Private release signing material must NEVER enter Git.
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+release-keys/

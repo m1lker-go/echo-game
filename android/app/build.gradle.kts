@@ -5,6 +5,16 @@ plugins {
     id("vkid.manifest.placeholders")
 }
 
+// The release signing key and all passwords are provided only by the
+// developer's workstation or short-lived GitHub Actions environment.
+// NEVER add a production keystore/password to this repository.
+val releaseKeyPath = System.getenv("ECHO_RELEASE_KEYSTORE_PATH")?.takeIf { it.isNotBlank() }
+val releaseStorePassword = System.getenv("ECHO_RELEASE_STORE_PASSWORD")?.takeIf { it.isNotBlank() }
+val releaseKeyAlias = System.getenv("ECHO_RELEASE_KEY_ALIAS")?.takeIf { it.isNotBlank() }
+val releaseKeyPassword = System.getenv("ECHO_RELEASE_KEY_PASSWORD")?.takeIf { it.isNotBlank() }
+val releaseSigningReady = releaseKeyPath != null && releaseStorePassword != null &&
+    releaseKeyAlias != null && releaseKeyPassword != null
+
 android {
     namespace = "ru.echo.game"
     compileSdk = 35
@@ -13,8 +23,8 @@ android {
         applicationId = "ru.echo.game"
         minSdk = 26
         targetSdk = 35
-        versionCode = 18
-        versionName = "0.4.2"
+        versionCode = 19
+        versionName = "1.0.0"
 
         val vkConfigured = !((System.getenv("ECHO_VK_CLIENT_SECRET")
             ?: providers.gradleProperty("ECHO_VK_CLIENT_SECRET").orNull).isNullOrBlank())
@@ -35,9 +45,27 @@ android {
         jvmTarget = "17"
     }
 
+    signingConfigs {
+        if (releaseSigningReady) {
+            create("echoRuStoreRelease") {
+                storeFile = file(releaseKeyPath!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
+    }
+
     buildTypes {
         release {
+            isDebuggable = false
             isMinifyEnabled = false
+            if (releaseSigningReady) {
+                signingConfig = signingConfigs.getByName("echoRuStoreRelease")
+            }
         }
     }
 }
