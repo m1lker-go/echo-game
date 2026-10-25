@@ -73,7 +73,9 @@ test('claimed cards have grayscale rewards, grey bars, nonpulsing level dots',()
  assert.match(daily,/\.echo-quest\.is-complete \.echo-quest-track>div\{background:#626a73\}/);
  assert.match(daily,/\.echo-quest\.is-complete \.echo-quest-reward img\{[^}]*grayscale\(1\)/s);
  assert.match(daily,/\.echo-quest\.is-complete \.echo-quest-dot\{[^}]*animation:none/s);
- assert.match(special,/\.echo-special-card\.is-complete \.echo-special-logo-image\{[^}]*grayscale\(1\)/s);
+ assert.doesNotMatch(special,/\.echo-special-card\.is-complete \.echo-special-logo-image\{[^}]*grayscale\(1\)/s);
+ assert.match(special,/\.echo-special-card\.is-complete \{ border-color: rgba\(255, 255, 255, \.8\); \}/);
+ assert.match(html,/special-quests\.css\?v=6-claimed-color-1/);
  assert.match(html,/daily-quests\.js\?v=echo-quest-status-sort-1/);
  assert.match(html,/daily-quests\.css\?v=echo-quest-status-sort-1/);
 });
