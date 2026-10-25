@@ -267,6 +267,16 @@ async function start(){
      window.ECHOModal?.close();
     }catch(error){console.error('[VKID]',error);loginMessage(t('auth_failed','Ошибка авторизации'));}
    });
+  // Place both ECHO OAuth controls inside the SDK's own three-provider
+  // icon list. All five become siblings in ONE grid row, and VK ID's
+  // original delegated click handler remains attached to its parent.
+  // Our buttons have no data-oauth, so VK ID will ignore their clicks.
+  const vkList=loginWidget?.querySelector('.VkIdSdk_oauth_list');
+  if(vkList){
+   const yandex=oauthButtons.get('yandex:login');
+   const google=oauthButtons.get('google:login');
+   if(yandex&&google)vkList.prepend(yandex,google);
+  }
  }catch(error){
   console.error('[VKID]',error);
   loginMessage(t('auth_unavailable','Сервер авторизации ECHO недоступен'));

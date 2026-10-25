@@ -13,19 +13,23 @@ test('Google and Yandex choices are visible outside VK Mini Apps even before OAu
  assert.match(code,/intro\.textContent=t\('login_select_method','Выберите способ входа'\)/);
  assert.match(code,/providers\.append\(oauthMethods,loginWidget\)/);
  assert.match(code,/styles:\{borderRadius:12,height:56\}/);
+ assert.match(code,/const vkList=loginWidget\?\.querySelector\('\.VkIdSdk_oauth_list'\)/);
+ assert.match(code,/if\(yandex&&google\)vkList\.prepend\(yandex,google\)/);
  assert.match(code,/button\.dataset\.configured=String\(ready\)/);
  assert.match(code,/startOAuth\(provider,link\)/);
 });
 test('ECHO OAuth login buttons have styles within the body-level modal portal',()=>{
  const css=read('auth.css');
  assert.match(css,/\.echo-modal-overlay \.echo-oauth-methods\{/);
- assert.match(css,/grid-template-columns:minmax\(0,2fr\) minmax\(0,3fr\)/);
+ assert.match(css,/\.echo-login-providers\{\s*display:block/);
  assert.match(css,/\.VkIdSdk_oauth_link_text\{/);
  assert.match(css,/\.VkIdSdk_oauth_item\{/);
- assert.match(css,/grid-template-columns:repeat\(3,minmax\(0,1fr\)\)!important/);
+ assert.match(css,/grid-template-columns:repeat\(5,minmax\(0,1fr\)\)!important/);
  assert.match(css,/width:100%!important;flex:none!important/);
  assert.match(css,/\.VkIdSdk_oauth_item svg\{/);
  assert.doesNotMatch(css,/(?:^|[;{\s])width:0!important/m);
+ assert.match(css,/\.echo-oauth-methods:empty\{display:none\}/);
+ assert.match(css,/\.VkIdSdk_oauth_list > \.echo-oauth-button\{/);
  assert.match(css,/\.echo-oauth-icon-google\{/);
  assert.match(css,/\.echo-oauth-icon-yandex\{/);
  assert.match(css,/\.echo-modal-overlay \.echo-oauth-button/);
@@ -40,6 +44,6 @@ test('authenticated users do not see account-link buttons in settings',()=>{
 });
 test('browser refreshes OAuth client assets after the visibility fix',()=>{
  const page=read('index.html');
- assert.match(page,/auth-ui\.js\?v=echo-five-icons-1/);
- assert.match(page,/auth\.css\?v=echo-vkid-icon-grid-2/);
+ assert.match(page,/auth-ui\.js\?v=echo-five-shared-row-1/);
+ assert.match(page,/auth\.css\?v=echo-five-shared-row-1/);
 });

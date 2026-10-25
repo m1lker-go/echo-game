@@ -29,13 +29,14 @@
  font:inherit;font-size:clamp(16px,2vw,21px);line-height:1.3
 }
 .echo-modal-overlay .echo-login-providers{
- display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);
- align-items:stretch;gap:12px;width:100%;min-width:0
+ display:block;width:100%;min-width:0
 }
 .echo-modal-overlay .echo-oauth-methods{
  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
  gap:12px;margin:0;min-width:0
 }
+.echo-modal-overlay .echo-oauth-methods:empty{display:none}
+
 .echo-modal-overlay .echo-oauth-button{
  box-sizing:border-box;width:100%;height:56px;min-width:0;
  display:flex;align-items:center;justify-content:center;
@@ -67,7 +68,7 @@
  --oauthlist--item_background_color:#000!important
 }
 .echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_list{
- display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+ display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;
  gap:12px!important;width:100%!important;min-width:0!important
 }
 .echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_item{
@@ -85,11 +86,17 @@
 .echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_item:hover{
  background:#181818!important
 }
+/* When moved into the SDK grid, both ECHO buttons share the same size. */
+.echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_list > .echo-oauth-button{
+ height:100%!important;min-height:56px!important;width:100%!important;
+ margin:0!important;align-self:stretch!important
+}
 @media(max-width:480px){
  .echo-modal-overlay .echo-login-providers,
  .echo-modal-overlay .echo-oauth-methods,
  .echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_list{gap:6px}
  .echo-modal-overlay .echo-oauth-button{height:48px;border-radius:9px;padding:5px}
+ .echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_list > .echo-oauth-button{min-height:48px!important}
  .echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_list{height:48px!important}
  .echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_item{border-radius:9px!important;padding:5px!important}
  .echo-modal-overlay .echo-login-widget .VkIdSdk_oauth_item svg{width:24px!important;height:24px!important}
