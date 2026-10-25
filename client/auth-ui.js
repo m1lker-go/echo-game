@@ -350,11 +350,6 @@ if(isVKMiniApp){
  // The Mini App always authenticates its VK user automatically.
  loginVKMiniApp();
 }else{
- // Link providers explicitly; never merge by email alone.
- const links=document.createElement('div');
- links.className='echo-oauth-links';
- links.append(oauthButton('yandex',true),oauthButton('google',true));
- document.querySelector('#echo-auth-user')?.append(links);
  const pending=new URL(location.href);
  if(pending.searchParams.has('echo_oauth')){
   pending.searchParams.delete('echo_oauth');

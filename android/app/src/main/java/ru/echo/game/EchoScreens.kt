@@ -491,16 +491,6 @@ private fun EchoSettings(
                     if (!auth.busy) confirmLogout = true
                 }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                EchoButton(tr(audio, "СВЯЗАТЬ ЯНДЕКС", "LINK YANDEX"), Modifier.weight(1f),
-                    height = css.settingsButtonHeight, fontSize = css.settingsNoteFontSp) {
-                    if (!auth.busy) onOAuthLogin("yandex", true)
-                }
-                EchoButton(tr(audio, "СВЯЗАТЬ GOOGLE", "LINK GOOGLE"), Modifier.weight(1f),
-                    height = css.settingsButtonHeight, fontSize = css.settingsNoteFontSp) {
-                    if (!auth.busy) onOAuthLogin("google", true)
-                }
-            }
         }
         if (auth.message != null) {
             EchoText(auth.message ?: "", css.settingsNoteFontSp, Secondary,
