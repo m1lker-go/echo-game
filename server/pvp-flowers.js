@@ -2,7 +2,7 @@
 
 // Pure server-owned PvP memorials. A flower is created ONLY by a resolved
 // PvP defeat; never from a client packet, random world generation or drowning.
-const MAX_FLOWERS_PER_ROOM=100;
+const MAX_FLOWERS_PER_ROOM=250;
 const FLOWER_MODEL='flowers-tall.glb';
 const MIN_SCALE=0.6;
 const MAX_SCALE=0.8;

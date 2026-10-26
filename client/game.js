@@ -11,7 +11,7 @@ import { createWorldMinimap } from './world-minimap.js?v=echo-isometric-minimap-
 import { createPlayerLabels, measurePlayerLabelBounds } from './player-labels.js?v=echo-labels-up-1';
 import {attachSpawnShield,updateSpawnShield} from './spawn-shield.js?v=echo-shield-pulse-1';
 import { createServerWaterBoundaryDebug } from './server-water-boundary-debug.js?v=echo-global-font-1';
-import { createWorldDecorations } from './world-decorations.js?v=echo-flowers-trunks-7';
+import { createWorldDecorations } from './world-decorations.js?v=echo-pvp-memorial-8';
 
 const activityProfileStorageKey = 'echo.activityProfileId';
 let activityProfileId = localStorage.getItem(activityProfileStorageKey);
@@ -159,7 +159,10 @@ async function startNewGame(){
   if(defeatReplay)defeatReplay.disabled=false;
  }
 }defeatReplay?.addEventListener('click',startNewGame);defeatMenu?.addEventListener('click',returnToMenu);
-function connectSocket(){if(!window.io){setConnection('offline','game:connection_local');return;}try{state.socket=window.io(window.ECHO_SERVER_URL||location.origin,{path:'/echo/socket.io/',transports:['websocket','polling'],reconnection:true,timeout:5000,auth:{skin:selectedModel,activityProfileId,playerName,accountToken:localStorage.getItem('echo.authToken')||null}});window.echoSocket=state.socket;document.dispatchEvent(new CustomEvent('echo:socket-ready',{detail:{socket:state.socket}}));state.socket.on('echo:world',world=>{window.echoWorld=world;if(world&&Array.isArray(world.trees))renderWorldTrees(world.trees);if(world&&Array.isArray(world.waters))renderWorldWaters(world.waters);if(world&&Array.isArray(world.decorations))decorations.setSnapshot(world.decorations);});state.socket.on('connect',()=>{state.hasServerSpawn=false;state.shieldUntil=0;setConnection('online','game:connection_online');state.socket.emit('echo:hello',{version:1,skin:selectedModel,activityProfileId,playerName});lastDailyPing=-15000;sendDailyActivityPing();});state.socket.on('disconnect',()=>setConnection('offline','game:connection_offline'));state.socket.on('connect_error',error=>{
+function connectSocket(){if(!window.io){setConnection('offline','game:connection_local');return;}try{state.socket=window.io(window.ECHO_SERVER_URL||location.origin,{path:'/echo/socket.io/',transports:['websocket','polling'],reconnection:true,timeout:5000,auth:{skin:selectedModel,activityProfileId,playerName,accountToken:localStorage.getItem('echo.authToken')||null}});window.echoSocket=state.socket;document.dispatchEvent(new CustomEvent('echo:socket-ready',{detail:{socket:state.socket}}));state.socket.on('echo:world',world=>{window.echoWorld=world;if(world&&Array.isArray(world.trees))renderWorldTrees(world.trees);if(world&&Array.isArray(world.waters))renderWorldWaters(world.waters);if(world&&Array.isArray(world.decorations))decorations.setSnapshot(world.decorations);});state.socket.on('echo:deathFlowers',data=>{
+  if(!data||!Array.isArray(data.flowers))return;
+  decorations.setDeathFlowers(data.flowers);
+});state.socket.on('connect',()=>{decorations.setDeathFlowers([]);state.hasServerSpawn=false;state.shieldUntil=0;setConnection('online','game:connection_online');state.socket.emit('echo:hello',{version:1,skin:selectedModel,activityProfileId,playerName});lastDailyPing=-15000;sendDailyActivityPing();});state.socket.on('disconnect',()=>setConnection('offline','game:connection_offline'));state.socket.on('connect_error',error=>{
   if(error?.data?.code==='ACCOUNT_ALREADY_PLAYING'){
     setConnection('offline','game:connection_offline');
     state.socket.io.reconnection(false);
@@ -198,6 +201,7 @@ function releaseGameSocket(){
  if(window.echoSocket===socket)window.echoSocket=null;
  socket.disconnect(); // Explicit disconnect disables automatic reconnect.
  state.others.clear();
+ decorations.setDeathFlowers([]);
  state.hasServerSpawn=false;state.shieldUntil=0;
  setConnection('offline','game:connection_offline');
 }
