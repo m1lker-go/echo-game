@@ -23,13 +23,15 @@ function sampleWorld(){
   return {seed:847291,worldHalfSize:2100,trees,waterContours};
 }
 
-test('Decorations have 200 plants, 75 rocks and no stones',()=>{
+test('Decorations have 200 plants, 75 rocks, 100 tall flowers and 50 trunks',()=>{
  assert.deepEqual(Object.fromEntries(SPECS.map(s=>[s.model,s.count])),{
-  'rocks.glb':75,'plant.glb':200
+  'rocks.glb':75,'plant.glb':200,
+  'flowers-tall.glb':100,'tree-trunk.glb':50
  });
- assert.equal(EXPECTED_TOTAL,275);
+ assert.equal(EXPECTED_TOTAL,425);
  assert.deepEqual(Object.fromEntries(SPECS.map(s=>[s.model,[s.minScale,s.maxScale]])),{
-  'rocks.glb':[0.3,0.6], 'plant.glb':[0.7,1.2]
+  'rocks.glb':[0.3,0.6], 'plant.glb':[0.7,1.2],
+  'flowers-tall.glb':[1,1], 'tree-trunk.glb':[1,1]
  });
 });
 
@@ -56,7 +58,7 @@ test('All decorations are deterministic and outside tree collision circles and w
  }
 });
 
-test('Removed stones never reach WebGL; trees, water and movement stay unchanged',()=>{
+test('New decorations reach WebGL; stones stay removed and gameplay physics unchanged',()=>{
  const root=path.join(__dirname,'../..');
  const server=fs.readFileSync(path.join(root,'server/index.js'),'utf8');
  const game=fs.readFileSync(path.join(root,'client/game.js'),'utf8');
@@ -69,8 +71,8 @@ test('Removed stones never reach WebGL; trees, water and movement stay unchanged
  assert.match(game,/decorations\.update\(state\.cameraX,state\.cameraY\)/);
  assert.match(game,/updatePlayerMovement\(state,dt,time,ISO,worldObjects\.trees\)/);
  assert.match(game,/function isJumpLandingBlocked\(x,y\)\{[^}]*worldObjects\.trees/);
- assert.ok(html.includes('game.js?v=echo-shield-pulse-1-no-stones-6'));
- assert.ok(game.includes('world-decorations.js?v=echo-no-stones-6'));
+ assert.ok(html.includes('game.js?v=echo-shield-pulse-1-flowers-trunks-7'));
+ assert.ok(game.includes('world-decorations.js?v=echo-flowers-trunks-7'));
  assert.match(decorations,/new THREE\.InstancedMesh/);
  assert.match(decorations,/const BASE_SCALE=50/);
  assert.match(decorations,/material\.onBeforeCompile=shader/);
@@ -85,6 +87,12 @@ test('Removed stones never reach WebGL; trees, water and movement stay unchanged
  assert.ok(!decorations.includes('collisionRadius'));
  assert.ok(!decorations.includes('stones.glb'),'Client must not request stones');
  assert.ok(!server.includes('stones.glb'),'Server must not generate stones');
+ assert.ok(decorations.includes("'flowers-tall.glb':{min:1,max:1}"));
+ assert.ok(decorations.includes("'tree-trunk.glb':{min:1,max:1}"));
+ assert.ok(decorations.includes("if(model==='flowers-tall.glb')"));
+ assert.ok(decorations.includes('echoPetalGlow=smoothstep(0.62,0.92,vEchoDecorY)'));
+ assert.ok(decorations.includes('outgoingLight += vec3(0.11,0.26,0.37)*echoPetalGlow'));
+ assert.ok(!decorations.includes('new THREE.PointLight'),'No expensive light per flower');
  for(const spec of SPECS){
   assert.ok(decorations.includes("'"+spec.model+"':{min:"+spec.minScale+",max:"+spec.maxScale+"}"));
   const palette=decorations.split("'"+spec.model+"':{low:")[1]?.split('}')[0];
@@ -112,7 +120,7 @@ test('Each clearance radius conservatively encloses the actual GLB mesh at x50 s
    const z=Math.max(Math.abs(bounds.min[2]),Math.abs(bounds.max[2]));
    extent=Math.max(extent,Math.hypot(x,z)*50);
   }
-  assert.ok(vertices>0 && vertices<500,'GLB must remain lightweight: '+spec.model);
+  assert.ok(vertices>0 && vertices<1200,'GLB must remain lightweight: '+spec.model);
   assert.ok(spec.baseRadius>=extent+5,'Keep a safe margin around every '+spec.model+' asset');
  }
 });

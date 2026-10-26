@@ -15,13 +15,17 @@ const BACKGROUND_DEPTH=-75;
 const BACKGROUND_ORDER=-5;
 const PALETTES={
   'plant.glb':{low:0x173448,mid:0x518fab,high:0xdceef7,opacity:0.5},
-  'rocks.glb':{low:0x182c3c,mid:0x4c718b,high:0xc9dce9,opacity:0.5}
+  'rocks.glb':{low:0x182c3c,mid:0x4c718b,high:0xc9dce9,opacity:0.5},
+  'flowers-tall.glb':{low:0x173448,mid:0x568da8,high:0xe2f6ff,opacity:0.5},
+  'tree-trunk.glb':{low:0x182c3c,mid:0x4c718b,high:0xc9dce9,opacity:0.5}
 };
 const ALLOWED=new Set(Object.keys(PALETTES));
 // Client scale validation mirrors the active server models.
 const SCALE_RANGES={
   'plant.glb':{min:0.7,max:1.2},
-  'rocks.glb':{min:0.3,max:0.6}
+  'rocks.glb':{min:0.3,max:0.6},
+  'flowers-tall.glb':{min:1,max:1},
+  'tree-trunk.glb':{min:1,max:1}
 };
 
 function gradientMaterial(THREE,source,geometry,model) {
@@ -56,6 +60,16 @@ float echoGrad=smoothstep(0.03,0.70,vEchoDecorY);
 vec3 echoShade=mix(${vec(low)},${vec(mid)},echoGrad);
 echoShade=mix(echoShade,${vec(high)},smoothstep(0.73,1.0,vEchoDecorY));
 diffuseColor.rgb=mix(diffuseColor.rgb,echoShade,0.96);`);
+    if(model==='flowers-tall.glb') {
+      // No extra light sources: add a soft, localized glow to the upper
+      // blossoms in the existing material shader. Stems remain unlit.
+      shader.fragmentShader=shader.fragmentShader.replace(
+        '#include <opaque_fragment>',
+        `float echoPetalGlow=smoothstep(0.62,0.92,vEchoDecorY);
+outgoingLight += vec3(0.11,0.26,0.37)*echoPetalGlow;
+#include <opaque_fragment>`
+      );
+    }
   };
   material.customProgramCacheKey=()=>`echo-decor-${model}-${bottom}-${height}`;
   material.needsUpdate=true;

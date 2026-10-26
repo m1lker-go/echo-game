@@ -4,7 +4,11 @@
 // These are visual only: NEVER add them to movement, food, damage or spawn collision checks.
 const SPECS = Object.freeze([
   {model:'rocks.glb',count:75,baseRadius:64,minScale:0.3,maxScale:0.6},
-  {model:'plant.glb',count:200,baseRadius:38,minScale:0.7,maxScale:1.2}
+  {model:'plant.glb',count:200,baseRadius:38,minScale:0.7,maxScale:1.2},
+  // New props use the same base x50 as the existing arena scenery.
+  // Radius covers their actual XZ bounds at x50 with a safe placement margin.
+  {model:'flowers-tall.glb',count:100,baseRadius:30,minScale:1,maxScale:1},
+  {model:'tree-trunk.glb',count:50,baseRadius:15,minScale:1,maxScale:1}
 ]);
 const EXPECTED_TOTAL = SPECS.reduce((n,spec)=>n+spec.count,0);
 
@@ -53,7 +57,7 @@ function createWorldDecorations({seed,worldHalfSize,trees,waterContours}) {
   const rnd=seededRandom(seed+572189);
   const between=(a,b)=>a+rnd()*(b-a);
   const entries=[];
-  // Coarse bins keep all 275 decorations cheap to validate at server startup.
+  // Coarse bins keep all 425 decorations cheap to validate at server startup.
   const cellSize=180,bins=new Map();
   const cell=(x,y)=>[Math.floor(x/cellSize),Math.floor(y/cellSize)];
   const key=(a,b)=>a+':'+b;
