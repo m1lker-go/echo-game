@@ -13,10 +13,9 @@ const FOOD_MAGNET_SPEED = 520;
 const ISO_X = 0.8660254;
 const ISO_Y = 0.5;
 
-// Temporary visual trial. Add ?food=dots to the arena URL to immediately
-// restore the ORIGINAL white glowing points without touching food mechanics.
-// The original dot renderer also stays available if the WebP cannot load.
-const FOOD_VISUAL_MODE = new URLSearchParams(window.location.search).get('food') === 'dots' ? 'dots' : 'icon';
+// White glowing dots are the default food visual. Add ?food=icon to preview
+// the animated WebP without touching food mechanics. Dots are the fallback too.
+const FOOD_VISUAL_MODE = new URLSearchParams(window.location.search).get('food') === 'icon' ? 'icon' : 'dots';
 let foodAnimation = null;
 if (FOOD_VISUAL_MODE === 'icon') {
   loadAnimatedWebpFrames('./assets/icons/food.webp?v=echo-food-animated-2')
@@ -211,7 +210,7 @@ function draw(time) {
           ctx.drawImage(currentFrame, p.x - iconSize / 2, p.y - iconSize / 2, iconSize, iconSize);
           ctx.globalAlpha = 1;
         } else {
-          // Original white dots, kept intact for ?food=dots and loading failure.
+          // Original white dots: default rendering and fallback if WebP fails to load.
           const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius * 3.2);
           halo.addColorStop(0, 'rgba(210,238,255,0.38)');
           halo.addColorStop(0.35, 'rgba(210,238,255,0.15)');
