@@ -1,4 +1,5 @@
 import { getWorldViewport } from './viewport-scale.js?v=echo-world-zoom-2';
+import { loadAnimatedWebpFrames } from './animated-webp-frames.mjs?v=echo-webp-frames-1';
 
 const foodCanvas = document.querySelector('#shared-food');
 const energyText = document.querySelector('#energy');
@@ -16,16 +17,16 @@ const ISO_Y = 0.5;
 // restore the ORIGINAL white glowing points without touching food mechanics.
 // The original dot renderer also stays available if the WebP cannot load.
 const FOOD_VISUAL_MODE = new URLSearchParams(window.location.search).get('food') === 'dots' ? 'dots' : 'icon';
-const foodIcon = new Image();
-let foodIconReady = false;
+let foodAnimation = null;
 if (FOOD_VISUAL_MODE === 'icon') {
-  foodIcon.onload = () => { foodIconReady = foodIcon.naturalWidth > 0; };
-  foodIcon.onerror = () => {
-    foodIconReady = false;
-    console.warn('[echo:food] food.webp failed to load; using original white dots');
-  };
-  foodIcon.decoding = 'async';
-  foodIcon.src = './assets/icons/food.webp?v=echo-food-icon-preview-1';
+  loadAnimatedWebpFrames('./assets/icons/food.webp?v=echo-food-animated-2')
+    .then(animation => {
+      foodAnimation = animation;
+      console.info('[echo:food] animated WebP ready:', animation.frameCount, 'frames', animation.duration, 'ms');
+    })
+    .catch(error => {
+      console.warn('[echo:food] WebP animation unavailable, using original white dots', error);
+    });
 }
 
 const food = new Map();
@@ -200,13 +201,14 @@ function draw(time) {
         if (p.x < -30 || p.y < -30 || p.x > width + 30 || p.y > height + 30) continue;
         const pulse = 0.65 + 0.35 * Math.sin(time * 0.002 + point.pulse);
         const radius = point.size * pulse;
-        if (FOOD_VISUAL_MODE === 'icon' && foodIconReady) {
-          // Draw from a single animated WebP shared by all food items.
-          // Match the old pulse and approximate pickup size without altering
-          // hitboxes, magnet travel, coordinates or server food snapshots.
+        if (FOOD_VISUAL_MODE === 'icon' && foodAnimation) {
+          // Decode the actual animation frames once, then select a cached frame
+          // every draw. Canvas.drawImage(Image) otherwise freezes animated WebP.
+          // Stagger phases between food points so 1,000 icons don't move in sync.
           const iconSize = radius * 6;
+          const currentFrame = foodAnimation.frameAt(time + point.id * 37);
           ctx.globalAlpha = 0.8 + 0.2 * pulse;
-          ctx.drawImage(foodIcon, p.x - iconSize / 2, p.y - iconSize / 2, iconSize, iconSize);
+          ctx.drawImage(currentFrame, p.x - iconSize / 2, p.y - iconSize / 2, iconSize, iconSize);
           ctx.globalAlpha = 1;
         } else {
           // Original white dots, kept intact for ?food=dots and loading failure.
