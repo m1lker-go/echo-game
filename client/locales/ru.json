@@ -253,7 +253,22 @@
     "referral_empty": "Пока нет новых наград",
     "referral_claim_failed": "Не удалось забрать награду",
     "referral_self": "Нельзя ввести собственный код",
-    "referral_already_used": "Ты уже активировал реферальный код"
+    "referral_already_used": "Ты уже активировал реферальный код",
+    "excess_title": "Лишние карты",
+    "excess_intro": "У Вас накопились лишние карты",
+    "excess_explain": "Вы можете обменять карты на",
+    "excess_reward": "Награда:",
+    "excess_question": "Обменять?",
+    "excess_later": "Не сейчас",
+    "excess_yes": "Да",
+    "excess_received": "Получено:",
+    "excess_none": "Лишних карт больше нет",
+    "excess_error": "Не удалось обменять карты",
+    "excess_rarity_common": "обычных",
+    "excess_rarity_uncommon": "необычных",
+    "excess_rarity_rare": "редких",
+    "excess_rarity_epic": "эпических",
+    "excess_rarity_legendary": "легендарных"
   },
   "game": {
     "map_short": "КАРТА",

@@ -1,0 +1,25 @@
+/* Extra hero cards modal: uses the shared ECHO modal shell. */
+.echo-modal-overlay .echo-excess-content{
+ display:flex;flex-direction:column;align-items:center;gap:12px;
+ color:#fff;text-align:center;font-size:clamp(13px,2.6vh,18px)
+}
+.echo-modal-overlay .echo-excess-intro,
+.echo-modal-overlay .echo-excess-counts,
+.echo-modal-overlay .echo-excess-question{margin:0}
+.echo-modal-overlay .echo-excess-counts{line-height:1.45}
+.echo-modal-overlay .echo-excess-explain{
+ display:flex;align-items:center;justify-content:center;
+ flex-wrap:wrap;gap:7px;margin:7px 0 0
+}
+.echo-modal-overlay .echo-excess-reward{
+ display:flex;align-items:center;justify-content:center;gap:9px;
+ font-size:clamp(17px,3vh,23px)
+}
+.echo-modal-overlay .echo-excess-question{font-weight:650}
+.echo-modal-overlay .echo-excess-coin{
+ display:inline-block;width:27px;height:27px;object-fit:contain;vertical-align:middle
+}
+.echo-modal-overlay .echo-excess-reward .echo-excess-coin{width:34px;height:34px}
+@media(max-height:520px){
+ .echo-modal-overlay .echo-excess-content{gap:7px}
+}

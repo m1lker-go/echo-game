@@ -247,6 +247,10 @@ app.get('/api/heroes',async(req,res)=>{
   res.json({heroes:await heroCollection(id)});
  }catch(error){console.error('[heroes] read failed',error);res.status(500).json({error:'Collection unavailable'});}
 });
+const heroExchange=require('./hero-exchange').createHeroExchange({
+  pool,sessionUser:echoAuth.sessionUser,heroRarities:HERO_RARITIES
+});
+app.use('/api/heroes',heroExchange.router);
 app.post('/api/heroes/claim',async(req,res)=>{
  let client;
  try{
