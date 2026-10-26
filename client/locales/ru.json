@@ -269,6 +269,26 @@
     "round_place": "Вы заняли {place} место",
     "round_reward": "Награда:",
     "round_guest_login": "Для получения монет необходимо пройти авторизацию пользователя в настройках игры.",
-    "round_continue": "ПРОДОЛЖИТЬ"
+    "round_continue": "ПРОДОЛЖИТЬ",
+    "referral_title": "РЕФЕРАЛ",
+    "referral_subtitle": "Пригласи друга и отправь ему код",
+    "referral_received": "Получено:",
+    "referral_pack": "Обычный пак",
+    "referral_claim": "Забрать",
+    "referral_code": "Код приглашения",
+    "referral_copy": "Копировать код",
+    "referral_copied": "Реферальный код скопирован",
+    "referral_copy_failed": "Не удалось скопировать код",
+    "referral_instructions": "Друг должен войти в ECHO и в настройках выбрать «Ввести код». Оба получите по 2 обычных пака.",
+    "referral_invited": "Приглашено:",
+    "referral_pending": "Не получена награда за:",
+    "referral_signin": "Войди в аккаунт, чтобы приглашать друзей.",
+    "referral_loading": "Загрузка реферального задания…",
+    "referral_load_failed": "Не удалось загрузить рефералов",
+    "referral_retry": "Повторить",
+    "referral_empty": "Пока нет новых наград",
+    "referral_claim_failed": "Не удалось забрать награду",
+    "referral_self": "Нельзя ввести собственный код",
+    "referral_already_used": "Ты уже активировал реферальный код"
   }
 }

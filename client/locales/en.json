@@ -269,6 +269,26 @@
     "round_place": "You placed #{place}",
     "round_reward": "Reward:",
     "round_guest_login": "To receive coins, you need to sign in to your account in the game settings.",
-    "round_continue": "CONTINUE"
+    "round_continue": "CONTINUE",
+    "referral_title": "REFERRALS",
+    "referral_subtitle": "Invite a friend and send them your code",
+    "referral_received": "Received:",
+    "referral_pack": "Basic pack",
+    "referral_claim": "Claim",
+    "referral_code": "Invitation code",
+    "referral_copy": "Copy code",
+    "referral_copied": "Referral code copied",
+    "referral_copy_failed": "Could not copy the code",
+    "referral_instructions": "Your friend signs into ECHO and enters the code in Settings → Enter code. You both receive 2 basic packs.",
+    "referral_invited": "Invited:",
+    "referral_pending": "Unclaimed friends:",
+    "referral_signin": "Sign in to invite friends.",
+    "referral_loading": "Loading referrals…",
+    "referral_load_failed": "Could not load referrals",
+    "referral_retry": "Retry",
+    "referral_empty": "No new rewards yet",
+    "referral_claim_failed": "Could not claim the reward",
+    "referral_self": "You cannot redeem your own code",
+    "referral_already_used": "You have already redeemed a referral code"
   }
 }
