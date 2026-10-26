@@ -57,7 +57,9 @@ test('All decorations are deterministic and outside tree collision circles and w
 });
 
 test('All 200 plants grow in separate clusters of 1, 2, 3 or 5',()=>{
- const {PLANT_CLUSTER_SIZES,PLANT_CLUSTER_MAX_OFFSET,PLANT_CLUSTER_MEMBER_GAP}=require('../world-decorations');
+ const {PLANT_CLUSTER_SIZES,PLANT_CLUSTER_MAX_OFFSET,PLANT_CLUSTER_MEMBER_GAP,
+  PLANT_CLUSTER_FIVE_MIN_OFFSET,PLANT_CLUSTER_FIVE_MAX_OFFSET,PLANT_CLUSTER_FIVE_MEMBER_GAP
+ }=require('../world-decorations');
  const placed=createWorldDecorations(sampleWorld()),groups=new Map();
  const rocks=placed.filter(p=>p.model==='rocks.glb');
  assert.equal(rocks.length,75);
@@ -72,9 +74,18 @@ test('All 200 plants grow in separate clusters of 1, 2, 3 or 5',()=>{
   assert.ok(PLANT_CLUSTER_SIZES.includes(group.length),'Unsupported patch size');
   sizes.add(group.length);
   const first=group[0];
-  for(const member of group.slice(1))assert.ok(Math.hypot(first.x-member.x,first.y-member.y)<=PLANT_CLUSTER_MAX_OFFSET+0.001);
+  for(const member of group.slice(1)){
+   const distance=Math.hypot(first.x-member.x,first.y-member.y);
+   if(group.length===5){
+    assert.ok(distance>=PLANT_CLUSTER_FIVE_MIN_OFFSET-0.001,'Five-plant patch is too cramped');
+    assert.ok(distance<=PLANT_CLUSTER_FIVE_MAX_OFFSET+0.001,'Five-plant patch is too spread out');
+   }else{
+    assert.ok(distance<=PLANT_CLUSTER_MAX_OFFSET+0.001,'Small patch spacing should not change');
+   }
+  }
   for(let i=0;i<group.length;i++)for(let j=i+1;j<group.length;j++)
-   assert.ok(Math.hypot(group[i].x-group[j].x,group[i].y-group[j].y)>=PLANT_CLUSTER_MEMBER_GAP-0.001);
+   assert.ok(Math.hypot(group[i].x-group[j].x,group[i].y-group[j].y)>=
+     (group.length===5?PLANT_CLUSTER_FIVE_MEMBER_GAP:PLANT_CLUSTER_MEMBER_GAP)-0.001);
  }
  assert.deepEqual([...sizes].sort((a,b)=>a-b),[1,2,3,5]);
  // Separate grass patches don't merge together; rocks remain isolated.

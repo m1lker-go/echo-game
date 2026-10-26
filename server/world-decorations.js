@@ -8,8 +8,12 @@ const SPECS = Object.freeze([
 ]);
 const EXPECTED_TOTAL = SPECS.reduce((n,spec)=>n+spec.count,0);
 const PLANT_CLUSTER_SIZES=Object.freeze([1,2,3,5]);
-const PLANT_CLUSTER_MAX_OFFSET=32; // Each patch is compact, unlike separate patches.
-const PLANT_CLUSTER_MEMBER_GAP=10; // Avoid exact overlaps within a patch.
+const PLANT_CLUSTER_MAX_OFFSET=32; // Keep existing groups of 1, 2 and 3 compact.
+const PLANT_CLUSTER_MEMBER_GAP=10; // Avoid exact overlaps within small patches.
+// Five-plant groups need more space to keep all five silhouettes readable.
+const PLANT_CLUSTER_FIVE_MIN_OFFSET=34;
+const PLANT_CLUSTER_FIVE_MAX_OFFSET=55;
+const PLANT_CLUSTER_FIVE_MEMBER_GAP=24;
 
 function seededRandom(seed) {
   let value=seed>>>0;
@@ -102,18 +106,26 @@ function createWorldDecorations({seed,worldHalfSize,trees,waterContours}) {
         const groupSize=availableSizes[Math.floor(rnd()*availableSizes.length)];
         const centerX=between(-worldHalfSize+135,worldHalfSize-135);
         const centerY=between(-worldHalfSize+135,worldHalfSize-135);
+        const fiveSpreadAngle=groupSize===5?between(0,Math.PI*2):0;
         const staged=[];
         for(let i=0;i<groupSize;i++){
           let member=null;
           for(let trial=0;trial<55;trial++){
-            const distance=i===0?0:between(11,PLANT_CLUSTER_MAX_OFFSET);
-            const angle=between(0,Math.PI*2);
+            const distance=i===0?0:groupSize===5
+              ? between(PLANT_CLUSTER_FIVE_MIN_OFFSET,PLANT_CLUSTER_FIVE_MAX_OFFSET)
+              : between(11,PLANT_CLUSTER_MAX_OFFSET);
+            // Five plants form an irregular ring around the central one,
+            // instead of randomly stacking on the same side of the patch.
+            const angle=groupSize===5&&i>0
+              ? fiveSpreadAngle+(i-1)*Math.PI/2+between(-0.33,0.33)
+              : between(0,Math.PI*2);
             const x=centerX+Math.cos(angle)*distance;
             const y=centerY+Math.sin(angle)*distance;
             const scale=between(spec.minScale,spec.maxScale);
             const candidate={x,y,scale,radius:spec.baseRadius*scale};
             if(!canPlace(candidate))continue;
-            if(staged.some(other=>Math.hypot(other.x-x,other.y-y)<PLANT_CLUSTER_MEMBER_GAP))continue;
+            const minGap=groupSize===5?PLANT_CLUSTER_FIVE_MEMBER_GAP:PLANT_CLUSTER_MEMBER_GAP;
+            if(staged.some(other=>Math.hypot(other.x-x,other.y-y)<minGap))continue;
             member=candidate;
             break;
           }
@@ -140,4 +152,4 @@ function createWorldDecorations({seed,worldHalfSize,trees,waterContours}) {
   return entries;
 }
 
-module.exports={createWorldDecorations,SPECS,EXPECTED_TOTAL,overlapsWater,PLANT_CLUSTER_SIZES,PLANT_CLUSTER_MAX_OFFSET,PLANT_CLUSTER_MEMBER_GAP};
+module.exports={createWorldDecorations,SPECS,EXPECTED_TOTAL,overlapsWater,PLANT_CLUSTER_SIZES,PLANT_CLUSTER_MAX_OFFSET,PLANT_CLUSTER_MEMBER_GAP,PLANT_CLUSTER_FIVE_MIN_OFFSET,PLANT_CLUSTER_FIVE_MAX_OFFSET,PLANT_CLUSTER_FIVE_MEMBER_GAP};
