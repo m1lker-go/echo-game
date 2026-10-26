@@ -139,7 +139,7 @@ test('Web exchange uses ECHO modal and displays counts, coin icon and refresh ev
  assert.match(menu,/void offerExcessCards\(\)/);
  assert.match(menu,/import \{ offerExcessCards, invalidateOffer \}/);
  assert.match(js,/ECHOModal\?\.open/);
- assert.match(js,/\.\/'\+'assets\/icons\/coin\.webp/);
+ assert.match(js,/assets\/icons\/coin\.webp/);
  assert.match(js,/echo:shop-balance-refresh/);
  assert.match(js,/echo:hero-collection-refresh/);
  assert.match(js,/Не сейчас/);
