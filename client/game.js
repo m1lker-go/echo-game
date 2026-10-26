@@ -201,7 +201,7 @@ function releaseGameSocket(){
  if(window.echoSocket===socket)window.echoSocket=null;
  socket.disconnect(); // Explicit disconnect disables automatic reconnect.
  state.others.clear();
- decorations.setDeathFlowers([]);
+ if(typeof decorations!=='undefined')decorations.setDeathFlowers([]);
  state.hasServerSpawn=false;state.shieldUntil=0;
  setConnection('offline','game:connection_offline');
 }
