@@ -4,7 +4,9 @@
 // These are visual only: NEVER add them to movement, food, damage or spawn collision checks.
 const SPECS = Object.freeze([
   {model:'rocks.glb',count:75,baseRadius:64,minScale:0.3,maxScale:0.6},
-  {model:'plant.glb',count:200,baseRadius:38,minScale:0.7,maxScale:1.2}
+  {model:'plant.glb',count:200,baseRadius:38,minScale:0.7,maxScale:1.2},
+  // This asset contains three small mushrooms per GLB; footprint <19 at x50.
+  {model:'mushrooms.glb',count:100,baseRadius:26,minScale:0.7,maxScale:1}
 ]);
 const EXPECTED_TOTAL = SPECS.reduce((n,spec)=>n+spec.count,0);
 const PLANT_CLUSTER_SIZES=Object.freeze([1,2,3,5]);
@@ -14,6 +16,12 @@ const PLANT_CLUSTER_MEMBER_GAP=10; // Avoid exact overlaps within small patches.
 const PLANT_CLUSTER_FIVE_MIN_OFFSET=34;
 const PLANT_CLUSTER_FIVE_MAX_OFFSET=55;
 const PLANT_CLUSTER_FIVE_MEMBER_GAP=24;
+const MUSHROOM_CLUSTER_SIZES=Object.freeze([1,2,3,4]);
+const MUSHROOM_CLUSTER_MAX_OFFSET=38;
+const MUSHROOM_CLUSTER_MEMBER_GAP=10;
+const MUSHROOM_WATER_GROUP_CHANCE=0.45;
+const MUSHROOM_WATER_EDGE_MIN=92;
+const MUSHROOM_WATER_EDGE_MAX=165;
 
 function seededRandom(seed) {
   let value=seed>>>0;
@@ -54,6 +62,34 @@ function overlapsWater(x,y,radius,contours) {
     }
   }
   return false;
+}
+
+function nearestWaterDistance(x,y,contours) {
+  let closest=Infinity;
+  for(const polygon of contours){
+    if(!Array.isArray(polygon)||polygon.length<3)continue;
+    if(pointInPolygon(x,y,polygon))return 0;
+    for(let i=0;i<polygon.length;i++){
+      closest=Math.min(closest,distanceToSegment(x,y,polygon[i],polygon[(i+1)%polygon.length]));
+    }
+  }
+  return closest;
+}
+
+// Choose a bank position regardless of polygon winding. Final placement
+// still tests clearance from the full water contours and every tree.
+function shorelineCandidate(contours,rnd,between) {
+  const polygons=contours.filter(poly=>Array.isArray(poly)&&poly.length>=3);
+  if(!polygons.length)return null;
+  const polygon=polygons[Math.floor(rnd()*polygons.length)];
+  const i=Math.floor(rnd()*polygon.length),a=polygon[i],b=polygon[(i+1)%polygon.length];
+  const dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy);
+  if(length<1)return null;
+  const t=between(0.1,0.9),px=a[0]+dx*t,py=a[1]+dy*t;
+  let nx=-dy/length,ny=dx/length;
+  if(pointInPolygon(px+nx*5,py+ny*5,polygon)){nx=-nx;ny=-ny;}
+  const distance=between(MUSHROOM_WATER_EDGE_MIN,MUSHROOM_WATER_EDGE_MAX);
+  return {x:px+nx*distance,y:py+ny*distance};
 }
 
 function createWorldDecorations({seed,worldHalfSize,trees,waterContours}) {
@@ -99,24 +135,30 @@ function createWorldDecorations({seed,worldHalfSize,trees,waterContours}) {
   for(const spec of SPECS){
     let count=0,attempts=0;
     const maxAttempts=Math.max(20000,spec.count*1200);
-    if(spec.model==='plant.glb'){
+    if(spec.model==='plant.glb'||spec.model==='mushrooms.glb'){
       let groupNumber=0;
       while(count<spec.count && attempts++<maxAttempts){
-        const availableSizes=PLANT_CLUSTER_SIZES.filter(n=>n<=spec.count-count);
+        const isMushroom=spec.model==='mushrooms.glb';
+        const sizes=isMushroom?MUSHROOM_CLUSTER_SIZES:PLANT_CLUSTER_SIZES;
+        const availableSizes=sizes.filter(n=>n<=spec.count-count);
         const groupSize=availableSizes[Math.floor(rnd()*availableSizes.length)];
-        const centerX=between(-worldHalfSize+135,worldHalfSize-135);
-        const centerY=between(-worldHalfSize+135,worldHalfSize-135);
-        const fiveSpreadAngle=groupSize===5?between(0,Math.PI*2):0;
+        const shore=isMushroom&&rnd()<MUSHROOM_WATER_GROUP_CHANCE
+          ? shorelineCandidate(waterContours,rnd,between):null;
+        const centerX=shore?shore.x:between(-worldHalfSize+135,worldHalfSize-135);
+        const centerY=shore?shore.y:between(-worldHalfSize+135,worldHalfSize-135);
+        const fiveSpreadAngle=!isMushroom&&groupSize===5?between(0,Math.PI*2):0;
         const staged=[];
         for(let i=0;i<groupSize;i++){
           let member=null;
           for(let trial=0;trial<55;trial++){
-            const distance=i===0?0:groupSize===5
-              ? between(PLANT_CLUSTER_FIVE_MIN_OFFSET,PLANT_CLUSTER_FIVE_MAX_OFFSET)
-              : between(11,PLANT_CLUSTER_MAX_OFFSET);
+            const distance=i===0?0:isMushroom
+              ? between(14,MUSHROOM_CLUSTER_MAX_OFFSET)
+              : groupSize===5
+                ? between(PLANT_CLUSTER_FIVE_MIN_OFFSET,PLANT_CLUSTER_FIVE_MAX_OFFSET)
+                : between(11,PLANT_CLUSTER_MAX_OFFSET);
             // Five plants form an irregular ring around the central one,
             // instead of randomly stacking on the same side of the patch.
-            const angle=groupSize===5&&i>0
+            const angle=!isMushroom&&groupSize===5&&i>0
               ? fiveSpreadAngle+(i-1)*Math.PI/2+between(-0.33,0.33)
               : between(0,Math.PI*2);
             const x=centerX+Math.cos(angle)*distance;
@@ -124,7 +166,8 @@ function createWorldDecorations({seed,worldHalfSize,trees,waterContours}) {
             const scale=between(spec.minScale,spec.maxScale);
             const candidate={x,y,scale,radius:spec.baseRadius*scale};
             if(!canPlace(candidate))continue;
-            const minGap=groupSize===5?PLANT_CLUSTER_FIVE_MEMBER_GAP:PLANT_CLUSTER_MEMBER_GAP;
+            const minGap=isMushroom?MUSHROOM_CLUSTER_MEMBER_GAP
+              : groupSize===5?PLANT_CLUSTER_FIVE_MEMBER_GAP:PLANT_CLUSTER_MEMBER_GAP;
             if(staged.some(other=>Math.hypot(other.x-x,other.y-y)<minGap))continue;
             member=candidate;
             break;
@@ -133,7 +176,7 @@ function createWorldDecorations({seed,worldHalfSize,trees,waterContours}) {
           staged.push(member);
         }
         if(staged.length!==groupSize)continue; // Commit the group as a unit.
-        const clusterId='plant_group_'+String(++groupNumber).padStart(3,'0');
+        const clusterId=(isMushroom?'mushroom_group_':'plant_group_')+String(++groupNumber).padStart(3,'0');
         for(const member of staged)register(spec,member,++count,clusterId);
       }
     }else{
@@ -152,4 +195,4 @@ function createWorldDecorations({seed,worldHalfSize,trees,waterContours}) {
   return entries;
 }
 
-module.exports={createWorldDecorations,SPECS,EXPECTED_TOTAL,overlapsWater,PLANT_CLUSTER_SIZES,PLANT_CLUSTER_MAX_OFFSET,PLANT_CLUSTER_MEMBER_GAP,PLANT_CLUSTER_FIVE_MIN_OFFSET,PLANT_CLUSTER_FIVE_MAX_OFFSET,PLANT_CLUSTER_FIVE_MEMBER_GAP};
+module.exports={createWorldDecorations,SPECS,EXPECTED_TOTAL,overlapsWater,nearestWaterDistance,PLANT_CLUSTER_SIZES,PLANT_CLUSTER_MAX_OFFSET,PLANT_CLUSTER_MEMBER_GAP,PLANT_CLUSTER_FIVE_MIN_OFFSET,PLANT_CLUSTER_FIVE_MAX_OFFSET,PLANT_CLUSTER_FIVE_MEMBER_GAP,MUSHROOM_CLUSTER_SIZES,MUSHROOM_CLUSTER_MAX_OFFSET,MUSHROOM_CLUSTER_MEMBER_GAP,MUSHROOM_WATER_GROUP_CHANCE,MUSHROOM_WATER_EDGE_MIN,MUSHROOM_WATER_EDGE_MAX};

@@ -11,7 +11,7 @@ import { createWorldMinimap } from './world-minimap.js?v=echo-isometric-minimap-
 import { createPlayerLabels, measurePlayerLabelBounds } from './player-labels.js?v=echo-labels-up-1';
 import {attachSpawnShield,updateSpawnShield} from './spawn-shield.js?v=echo-shield-pulse-1';
 import { createServerWaterBoundaryDebug } from './server-water-boundary-debug.js?v=echo-global-font-1';
-import { createWorldDecorations } from './world-decorations.js?v=echo-grass-patches-9';
+import { createWorldDecorations } from './world-decorations.js?v=echo-glowing-mushrooms-10';
 
 const activityProfileStorageKey = 'echo.activityProfileId';
 let activityProfileId = localStorage.getItem(activityProfileStorageKey);

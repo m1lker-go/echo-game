@@ -23,13 +23,13 @@ function sampleWorld(){
   return {seed:847291,worldHalfSize:2100,trees,waterContours};
 }
 
-test('Only 275 static props remain: rocks and grouped grass; no logs or random flowers',()=>{
+test('375 static decorations: 75 rocks, 200 plants, 100 mushrooms; no logs or random flowers',()=>{
  assert.deepEqual(Object.fromEntries(SPECS.map(s=>[s.model,s.count])),{
-  'rocks.glb':75,'plant.glb':200
+  'rocks.glb':75,'plant.glb':200,'mushrooms.glb':100
  });
- assert.equal(EXPECTED_TOTAL,275);
+ assert.equal(EXPECTED_TOTAL,375);
  assert.deepEqual(Object.fromEntries(SPECS.map(s=>[s.model,[s.minScale,s.maxScale]])),{
-  'rocks.glb':[0.3,0.6], 'plant.glb':[0.7,1.2]
+  'rocks.glb':[0.3,0.6], 'plant.glb':[0.7,1.2], 'mushrooms.glb':[0.7,1]
  });
 });
 
@@ -97,6 +97,60 @@ test('All 200 plants grow in separate clusters of 1, 2, 3 or 5',()=>{
  }
 });
 
+
+test('Mushrooms grow in close clusters of 1–4, with many near but never inside water',()=>{
+ const {MUSHROOM_CLUSTER_SIZES,MUSHROOM_CLUSTER_MAX_OFFSET,MUSHROOM_CLUSTER_MEMBER_GAP,
+        MUSHROOM_WATER_GROUP_CHANCE,nearestWaterDistance}=require('../world-decorations');
+ const world=sampleWorld(),placed=createWorldDecorations(world);
+ const groups=new Map(),mushrooms=placed.filter(p=>p.model==='mushrooms.glb');
+ assert.equal(mushrooms.length,100);
+ assert.equal(MUSHROOM_WATER_GROUP_CHANCE,0.45);
+ for(const obj of mushrooms){
+  assert.match(obj.clusterId,/^mushroom_group_\d{3}$/);
+  if(!groups.has(obj.clusterId))groups.set(obj.clusterId,[]);
+  groups.get(obj.clusterId).push(obj);
+ }
+ const sizes=new Set(),near=[];
+ for(const group of groups.values()){
+  assert.ok(MUSHROOM_CLUSTER_SIZES.includes(group.length));
+  sizes.add(group.length);
+  const origin=group[0];
+  near.push(nearestWaterDistance(origin.x,origin.y,world.waterContours)<215);
+  for(const member of group.slice(1)){
+   const d=Math.hypot(origin.x-member.x,origin.y-member.y);
+   assert.ok(d<=MUSHROOM_CLUSTER_MAX_OFFSET+0.001);
+   assert.ok(d>=MUSHROOM_CLUSTER_MEMBER_GAP-0.001);
+  }
+  for(let i=0;i<group.length;i++)for(let j=i+1;j<group.length;j++)
+   assert.ok(Math.hypot(group[i].x-group[j].x,group[i].y-group[j].y)>=MUSHROOM_CLUSTER_MEMBER_GAP-0.001);
+ }
+ assert.deepEqual([...sizes].sort((a,b)=>a-b),[1,2,3,4]);
+ assert.ok(near.filter(Boolean).length>=Math.floor(near.length*0.2),
+    'A meaningful fraction of mushroom patches should grow by the shore');
+ assert.ok(near.some(x=>!x),'Not all mushrooms should be by the shore');
+ // Clusters respect the same exclusion radii as existing rocks and plants.
+ const others=placed.filter(p=>p.model!=='mushrooms.glb');
+ for(const m of mushrooms)for(const o of others){
+  const s=byModel.get(o.model);
+  assert.ok(Math.hypot(m.x-o.x,m.y-o.y)>=26*m.scale+s.baseRadius*o.scale+6-0.001);
+ }
+});
+
+test('Mushrooms GLB includes three cap height regions and stays lightweight at x50',()=>{
+ const glb=fs.readFileSync(path.join(__dirname,'../../client/assets/models/objects/mushrooms.glb'));
+ assert.equal(glb.toString('ascii',0,4),'glTF');
+ const jsonLength=glb.readUInt32LE(12);
+ const data=JSON.parse(glb.subarray(20,20+jsonLength).toString('utf8'));
+ const pos=data.accessors[data.meshes[0].primitives[0].attributes.POSITION];
+ assert.equal(pos.count,240);
+ assert.ok(pos.max[1]>0.28);
+ assert.ok(pos.min[1]<=0.001);
+ const footprint=Math.hypot(
+  Math.max(Math.abs(pos.min[0]),Math.abs(pos.max[0])),
+  Math.max(Math.abs(pos.min[2]),Math.abs(pos.max[2])))*50;
+ assert.ok(26>=footprint+5,'Keep shore and tree clearances around the whole model');
+});
+
 test('New decorations reach WebGL; stones stay removed and gameplay physics unchanged',()=>{
  const root=path.join(__dirname,'../..');
  const server=fs.readFileSync(path.join(root,'server/index.js'),'utf8');
@@ -110,8 +164,8 @@ test('New decorations reach WebGL; stones stay removed and gameplay physics unch
  assert.match(game,/decorations\.update\(state\.cameraX,state\.cameraY\)/);
  assert.match(game,/updatePlayerMovement\(state,dt,time,ISO,worldObjects\.trees\)/);
  assert.match(game,/function isJumpLandingBlocked\(x,y\)\{[^}]*worldObjects\.trees/);
- assert.ok(html.includes('game.js?v=echo-shield-pulse-1-grass-patches-9'));
- assert.ok(game.includes('world-decorations.js?v=echo-grass-patches-9'));
+ assert.ok(html.includes('game.js?v=echo-shield-pulse-1-glowing-mushrooms-10'));
+ assert.ok(game.includes('world-decorations.js?v=echo-glowing-mushrooms-10'));
  assert.match(decorations,/new THREE\.InstancedMesh/);
  assert.match(decorations,/const BASE_SCALE=50/);
  assert.match(decorations,/material\.onBeforeCompile=shader/);
@@ -127,6 +181,11 @@ test('New decorations reach WebGL; stones stay removed and gameplay physics unch
  assert.ok(!decorations.includes('stones.glb'),'Client must not request stones');
  assert.ok(!server.includes('stones.glb'),'Server must not generate stones');
  assert.ok(!server.includes('tree-trunk.glb'),'Server must not generate logs');
+ assert.ok(decorations.includes("'mushrooms.glb':{min:0.7,max:1}"));
+ assert.ok(decorations.includes("'mushrooms.glb':{low:0x18384a,mid:0x5d8ba5,high:0xccecff,opacity:0.5}"));
+ assert.ok(decorations.includes("if(model==='mushrooms.glb')"));
+ assert.ok(decorations.includes('vEchoMushroomCap=smoothstep(echoCapBase,echoCapBase+0.043,position.y)'));
+ assert.ok(decorations.includes('outgoingLight += vec3(0.13,0.38,0.62)*echoBlueCap'));
  assert.ok(decorations.includes("'flowers-tall.glb':{min:0.6,max:0.8}"));
  assert.ok(!decorations.includes('tree-trunk.glb'),'Client must not load logs');
  assert.match(decorations,/deathFlowers=snapshot\.slice\(0,250\)/);
