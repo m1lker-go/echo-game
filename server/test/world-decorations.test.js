@@ -99,8 +99,8 @@ test('New decorations reach WebGL; stones stay removed and gameplay physics unch
  assert.match(game,/decorations\.update\(state\.cameraX,state\.cameraY\)/);
  assert.match(game,/updatePlayerMovement\(state,dt,time,ISO,worldObjects\.trees\)/);
  assert.match(game,/function isJumpLandingBlocked\(x,y\)\{[^}]*worldObjects\.trees/);
- assert.ok(html.includes('game.js?v=echo-shield-pulse-1-pvp-memorial-8'));
- assert.ok(game.includes('world-decorations.js?v=echo-pvp-memorial-8'));
+ assert.ok(html.includes('game.js?v=echo-shield-pulse-1-grass-patches-9'));
+ assert.ok(game.includes('world-decorations.js?v=echo-grass-patches-9'));
  assert.match(decorations,/new THREE\.InstancedMesh/);
  assert.match(decorations,/const BASE_SCALE=50/);
  assert.match(decorations,/material\.onBeforeCompile=shader/);
