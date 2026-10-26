@@ -49,12 +49,17 @@ test('authenticated users do not see account-link buttons in settings',()=>{
 });
 test('browser refreshes OAuth client assets after the visibility fix',()=>{
  const page=read('index.html');
- assert.match(page,/auth-ui\.js\?v=echo-vkid-separate-clients-1/);
+ assert.match(page,/auth-ui\.js\?v=echo-vkid-api-recovery-1/);
  assert.match(page,/auth\.css\?v=echo-five-shared-row-1/);
 });
 
-test('ECHO Web auth uses only its Web VK ID client',()=>{
+test('ECHO Web auth never falls back to Cat Fighting and keeps its Web VK ID',()=>{
  const code=read('auth-ui.js');
- assert.match(code,/if\(Number\(config\?\.appId\)===54832804\)/);
+ assert.match(code,/const ECHO_AUTH_BASE='\/echo\/api\/auth\/'/);
+ assert.doesNotMatch(code,/const bases=/);
+ assert.match(code,/const ECHO_WEB_VK_CLIENT_ID=54832804/);
+ assert.match(code,/VKID\.Config\.init\(\{app:ECHO_WEB_VK_CLIENT_ID/);
+ assert.match(code,/VPS VK_ID_APP_ID mismatch/);
+ assert.match(code,/oauthList:\['vkid','ok_ru','mail_ru'\]/);
  assert.doesNotMatch(code,/54853387/);
 });
