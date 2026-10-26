@@ -3,10 +3,10 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const {pathToFileURL}=require('node:url');
 
 const project=path.resolve(__dirname,'../..');
-const modulePath=pathToFileURL(path.join(project,'client/animated-webp-frames.mjs')).href;
+const decoderSource=fs.readFileSync(path.join(project,'client/animated-webp-frames.js'),'utf8');
+const modulePath='data:text/javascript;charset=utf-8,'+encodeURIComponent(decoderSource);
 
 test('Food WebP has real animated frames, not a still poster',async()=>{
  const {parseAnimatedWebp,makeStillWebp}=await import(modulePath);
@@ -32,7 +32,7 @@ test('Food WebP has real animated frames, not a still poster',async()=>{
 test('WebP frames render explicitly and the white dot fallback stays available',()=>{
  const food=fs.readFileSync(path.join(project,'client/shared-food.js'),'utf8');
  const html=fs.readFileSync(path.join(project,'client/index.html'),'utf8');
- const decoder=fs.readFileSync(path.join(project,'client/animated-webp-frames.mjs'),'utf8');
+ const decoder=fs.readFileSync(path.join(project,'client/animated-webp-frames.js'),'utf8');
  assert.ok(food.includes('foodAnimation.frameAt(time + point.id * 37)'));
  assert.ok(food.includes("get('food') === 'dots' ? 'dots' : 'icon'"));
  assert.ok(food.includes("foodAnimation = null"));

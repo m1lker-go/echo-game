@@ -1,5 +1,5 @@
 import { getWorldViewport } from './viewport-scale.js?v=echo-world-zoom-2';
-import { loadAnimatedWebpFrames } from './animated-webp-frames.mjs?v=echo-webp-frames-1';
+import { loadAnimatedWebpFrames } from './animated-webp-frames.js?v=echo-webp-frames-1';
 
 const foodCanvas = document.querySelector('#shared-food');
 const energyText = document.querySelector('#energy');
