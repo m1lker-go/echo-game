@@ -77,7 +77,7 @@ jobs:
           "$TOOLS_DIR/apksigner" verify --verbose --print-certs "$APK"
           BADGING="$("$TOOLS_DIR/aapt" dump badging "$APK")"
           printf '%s\n' "$BADGING" | grep -m 1 "^package:"
-          [[ "$BADGING" == *"name='ru.echo.game'"* ]] || { echo "::error::Unexpected Android package"; exit 1; }
+          [[ "$BADGING" == *"name='ru.echogame.arena'"* ]] || { echo "::error::Unexpected Android package"; exit 1; }
           [[ "$BADGING" == *"versionCode='19'"* ]] || { echo "::error::Unexpected versionCode"; exit 1; }
           [[ "$BADGING" == *"versionName='1.0.0'"* ]] || { echo "::error::Unexpected versionName"; exit 1; }
           if printf '%s\n' "$BADGING" | grep -q "^application-debuggable"; then

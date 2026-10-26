@@ -23,7 +23,7 @@ Independent Android Studio project. Main website and server are unchanged.
 
 ## Still to implement
 
-Native server data integration for fully native Heroes, Shop and Quests. Those screens intentionally use the live web implementation until native functionality is equivalent. Paid Android purchases still require platform-specific work. VK ID requires separate Android client configuration for ECHO app id 54832804 (package, SHA-1 and protected client key). See `VK_ID_AUTH.md`. Do not assume a VK Mini App account signs in automatically in Android.
+Native server data integration for fully native Heroes, Shop and Quests. Those screens intentionally use the live web implementation until native functionality is equivalent. Paid Android purchases still require platform-specific work. VK ID Android uses client 54853387 and application ID `ru.echogame.arena` (package, SHA-1 and protected client key). Browser VK ID remains 54832804. See `VK_ID_AUTH.md`. Do not assume a VK Mini App account signs in automatically in Android.
 
 WebView also has its own session storage, but shares origin-based WebView cookies/localStorage between ECHO WebView screens. The game requires internet.
 

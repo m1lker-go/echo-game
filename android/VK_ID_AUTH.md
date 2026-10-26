@@ -29,10 +29,11 @@ and Android tokens with `ECHO_VK_ANDROID_APP_ID=54853387` on `/auth/vk/android`.
 Both flows resolve the same VK user ID to the same ECHO game account.
 
 In the VK ID developer portal, register the Android package matching the
-APK's `applicationId` (currently `ru.echo.game`) and the appropriate signing
-SHA-1 fingerprints. If changing `applicationId` to resolve a RuStore package
-name collision, update VK ID's Android package configuration to match before
-building and testing. Keep the existing production signing certificate.
+APK's `applicationId` (`ru.echogame.arena`) and the appropriate signing
+SHA-1 fingerprints. This package replaces the old `ru.echo.game` application
+ID to avoid the RuStore package-name collision. The Android package setting
+in VK ID client **54853387** must be updated to `ru.echogame.arena` before
+building and testing. Keep the **same production signing certificate**.
 
 To obtain the debug SHA-1:
 Android Studio -> Gradle -> `:app:signingReport` (or use keytool against

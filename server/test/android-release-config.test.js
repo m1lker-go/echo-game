@@ -8,7 +8,7 @@ const read=file=>fs.readFileSync(nodePath.join(root,file),'utf8');
 
 test('RuStore APK package and first public version stay consistent',()=>{
   const gradle=read('android/app/build.gradle.kts');
-  assert.match(gradle,/applicationId = "ru\.echo\.game"/);
+  assert.match(gradle,/applicationId = "ru\.echogame\.arena"/);
   assert.match(gradle,/minSdk = 26/);
   assert.match(gradle,/targetSdk = 35/);
   assert.match(gradle,/versionCode = 19/);
@@ -32,6 +32,7 @@ test('release workflow never runs on each APK branch push',()=>{
   assert.match(yaml,/tags:\s*\n\s*- 'echo-v\*'/);
   assert.doesNotMatch(yaml,/branches:\s*\n\s*- apk/);
   assert.match(yaml,/assembleRelease/);
+  assert.match(yaml,/name='ru\.echogame\.arena'/);
   assert.match(yaml,/apksigner" verify --verbose --print-certs/);
   assert.match(yaml,/application-debuggable/);
   assert.match(yaml,/Upload verified signed APK/);

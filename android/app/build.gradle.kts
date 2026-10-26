@@ -20,7 +20,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "ru.echo.game"
+        applicationId = "ru.echogame.arena"
         minSdk = 26
         targetSdk = 35
         versionCode = 19
