@@ -13,6 +13,7 @@ if(root){
  function beginHints(){clearInterval(hintTimer);hintIndex=0;showHint(tr(hints[0],'Открой пак! ✨'));hintTimer=setInterval(()=>{if(!root.hidden&&progress<1){hintIndex++;showHint(tr(hints[hintIndex%hints.length],''));}},5500);}
  const source='./assets/packs/basiccard.webp';
  let decoder=null,frames=1,progress=0,active=false,busy=false,wanted=-1,shown=-1,down=false,lastX=0;
+ let fallbackImage=null,fallbackMode=false;
  let generation=0,frameWidth=2,frameHeight=3,fanTriggered=false;
  const cache=new Map(),MAX_CACHE=14;
  function resize(){
@@ -23,6 +24,23 @@ if(root){
  function draw(){
   const w=canvas.width,h=canvas.height;
   ctx.fillStyle='#07101e';ctx.fillRect(0,0,w,h);
+  if(fallbackMode){
+   if(!fallbackImage)return;
+   const iw=fallbackImage.naturalWidth,ih=fallbackImage.naturalHeight;
+   const scale=Math.min(w/iw,h/ih),dw=iw*scale,dh=ih*scale;
+   const x=(w-dw)/2,y=(h-dh)/2;
+   // Safari cannot seek animated WebP. Use static pack art and a finger-driven tear.
+   ctx.drawImage(fallbackImage,x,y,dw,dh);
+   if(progress>0){
+    const tearWidth=dw*progress;
+    ctx.fillStyle='#07101e';
+    ctx.fillRect(x,y,tearWidth,dh*.29);
+    ctx.strokeStyle='#a6eaff';ctx.lineWidth=Math.max(2,w*.004);
+    ctx.beginPath();ctx.moveTo(x,y+dh*.29);ctx.lineTo(x+tearWidth,y+dh*.29);ctx.stroke();
+    if(progress>=1)ctx.fillRect(x,y,dw,dh);
+   }
+   return;
+  }
   const frame=cache.get(shown);
   if(!frame)return;
   const scale=Math.min(w/frameWidth,h/frameHeight);
@@ -37,7 +55,9 @@ if(root){
   if(progress>=1){resetButton.hidden=false;clearInterval(hintTimer);if(!fanTriggered){fanTriggered=true;showHint(tr('pack_hint_done','Пак открыт! 🎉'));window.dispatchEvent(new CustomEvent('echo:pack-opened',{detail:{type:packType}}));}}
  }
  function requestFrame(){
-  if(!active||!decoder)return;
+  if(!active)return;
+  if(fallbackMode){draw();return;}
+  if(!decoder)return;
   wanted=Math.max(0,Math.min(frames-1,Math.round(progress*(frames-1))));
   if(cache.has(wanted)){shown=wanted;draw();return;}
   pump();
@@ -64,10 +84,26 @@ if(root){
   }catch(err){console.warn('[Echo Pack] WebP frame decode failed:',err);info(tr('pack_decode_failed','Не удалось прочитать кадр WebP. Проверь анимацию и обнови страницу.'));}
   finally{busy=false;if(active&&token===generation&&wanted>=0&&!cache.has(wanted))queueMicrotask(pump);}
  }
+ async function prepareFallback(){
+  fallbackMode=true;
+  if(fallbackImage){active=true;requestFrame();return;}
+  info(tr('pack_loading','Загружаем кадры упаковки…'));
+  try{
+   const image=new Image();
+   image.src='./assets/packs/basiccardpic.webp';
+   await image.decode();
+   if(root.hidden)return;
+   fallbackImage=image;active=true;requestFrame();
+   showHint(tr('pack_hint_drag','Тяни вправо! 👉'));
+  }catch(error){
+   console.warn('[Echo Pack] Safari fallback image failed',error);
+   info(tr('pack_init_failed','Не удалось загрузить упаковку.'));
+  }
+ }
  async function prepare(){
   if(decoder){active=true;requestFrame();return;}
   if(typeof ImageDecoder==='undefined'){
-   info(tr('pack_decoder_unsupported','Для покадрового открытия нужен браузер с поддержкой ImageDecoder (например, Chrome).'));return;
+   await prepareFallback();return;
   }
   const token=++generation;
   try{
@@ -84,7 +120,7 @@ if(root){
     next.close();throw new Error('basiccard.webp is not recognized as animated WebP');
    }
    decoder=next;frames=track.frameCount;active=true;requestFrame();updateUI();
-  }catch(err){console.warn('[Echo Pack] Animation init failed',err);info(tr('pack_init_failed','Анимированный WebP не удалось открыть покадрово.'));}
+  }catch(err){console.warn('[Echo Pack] Animation init failed',err);await prepareFallback();}
  }
  function reset(){window.dispatchEvent(new Event('echo:pack-reset'));fanTriggered=false;progress=0;down=false;shown=cache.has(0)?0:-1;resetButton.hidden=true;window.dispatchEvent(new CustomEvent('echo:pack-prepare',{detail:{type:packType,cards:awardedCards}}));updateUI();requestFrame();beginHints();}
  function showAwardedPack(type,cards){
