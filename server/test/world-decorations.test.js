@@ -69,16 +69,16 @@ test('The arena uses the same server snapshot on reconnect without changing move
  assert.match(decorations,/const BASE_SCALE=50/);
  assert.match(decorations,/material\.onBeforeCompile=shader/);
  assert.match(decorations,/frustumCulled=true/);
- assert.match(game,/world-decorations\\.js\\?v=echo-iso-depth-2/);
+ assert.match(game,/world-decorations\.js\?v=echo-iso-depth-2/);
  // The player is at z=0 in ECHO's orthographic scene. Scenery is behind
  // the character and must pass the WebGL depth test.
  assert.match(decorations,/const BACKGROUND_DEPTH=-75/);
  assert.match(decorations,/const BACKGROUND_ORDER=-5/);
- assert.match(decorations,/mesh\\.renderOrder=BACKGROUND_ORDER/);
- assert.match(decorations,/material\\.depthTest=true/);
- assert.match(decorations,/material\\.depthWrite=false/);
- assert.match(decorations,/object\\.position\\.set\\([^;]*BACKGROUND_DEPTH\\)/);
- assert.match(decorations,/object\\.rotation\\.set\\(ISOMETRIC_TILT,ISOMETRIC_YAW\\+value\\.rotation,0,'XYZ'\\)/);
+ assert.match(decorations,/mesh\.renderOrder=BACKGROUND_ORDER/);
+ assert.match(decorations,/material\.depthTest=true/);
+ assert.match(decorations,/material\.depthWrite=false/);
+ assert.match(decorations,/object\.position\.set\([^;]*BACKGROUND_DEPTH\)/);
+ assert.match(decorations,/object\.rotation\.set\(ISOMETRIC_TILT,ISOMETRIC_YAW\+value\.rotation,0,'XYZ'\)/);
  assert.ok(!decorations.includes('collisionRadius'));
 });
 
