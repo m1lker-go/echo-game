@@ -16,6 +16,7 @@ const BACKGROUND_ORDER=-5;
 const PALETTES={
   'plant.glb':{low:0x173448,mid:0x518fab,high:0xdceef7,opacity:0.5},
   'rocks.glb':{low:0x182c3c,mid:0x4c718b,high:0xc9dce9,opacity:0.5},
+  'mushrooms.glb':{low:0x18384a,mid:0x5d8ba5,high:0xccecff,opacity:0.5},
   'flowers-tall.glb':{low:0x173448,mid:0x568da8,high:0xe2f6ff,opacity:0.5}
 };
 const ALLOWED=new Set(Object.keys(PALETTES));
@@ -23,6 +24,7 @@ const ALLOWED=new Set(Object.keys(PALETTES));
 const SCALE_RANGES={
   'plant.glb':{min:0.7,max:1.2},
   'rocks.glb':{min:0.3,max:0.6},
+  'mushrooms.glb':{min:0.7,max:1},
   'flowers-tall.glb':{min:0.6,max:0.8}
 };
 
@@ -58,6 +60,24 @@ float echoGrad=smoothstep(0.03,0.70,vEchoDecorY);
 vec3 echoShade=mix(${vec(low)},${vec(mid)},echoGrad);
 echoShade=mix(echoShade,${vec(high)},smoothstep(0.73,1.0,vEchoDecorY));
 diffuseColor.rgb=mix(diffuseColor.rgb,echoShade,0.96);`);
+    if(model==='mushrooms.glb') {
+      // The GLB has three differently-sized mushrooms sharing one material.
+      // Identify each cap by its local position (not global Y) so the short
+      // mushrooms also glow while the three stems stay blue-grey.
+      shader.vertexShader=shader.vertexShader
+        .replace('#include <common>','#include <common>\nvarying float vEchoMushroomCap;')
+        .replace('#include <project_vertex>',`float echoCapBase=position.x>0.015 && position.z<0.04 ? 0.163 :
+  position.z>0.04 ? 0.092 : 0.054;
+vEchoMushroomCap=smoothstep(echoCapBase,echoCapBase+0.043,position.y);
+#include <project_vertex>`);
+      shader.fragmentShader=shader.fragmentShader
+        .replace('#include <common>','#include <common>\nvarying float vEchoMushroomCap;')
+        .replace('diffuseColor.rgb=mix(diffuseColor.rgb,echoShade,0.96);',`diffuseColor.rgb=mix(diffuseColor.rgb,echoShade,0.96);
+float echoBlueCap=clamp(vEchoMushroomCap,0.0,1.0);
+diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.19,0.71,1.0),echoBlueCap*0.92);`)
+        .replace('#include <opaque_fragment>',`outgoingLight += vec3(0.13,0.38,0.62)*echoBlueCap;
+#include <opaque_fragment>`);
+    }
     if(model==='flowers-tall.glb') {
       // No extra light sources: add a soft, localized glow to the upper
       // blossoms in the existing material shader. Stems remain unlit.
