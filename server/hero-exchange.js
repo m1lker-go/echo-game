@@ -2,7 +2,7 @@
 
 // Card exchange is server-authoritative: prices and ownership are never taken
 // from the browser. Claiming a hero does not subtract its unlocking fragments.
-const PRICES = Object.freeze({common:2,uncommon:5,rare:7,epic:10,legendary:15});
+const PRICES = Object.freeze({common:2,uncommon:3,rare:5,epic:7,legendary:10});
 const REQUIRED = Object.freeze({common:25,uncommon:30,rare:40,epic:50,legendary:60});
 const STARTERS = new Set(['character-female-b.glb','character-male-a.glb','character-female-c.glb']);
 const RARITIES = Object.keys(PRICES);
