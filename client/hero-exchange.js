@@ -13,7 +13,7 @@ const element=(tag,cls,text)=>{
  if(text!==undefined)el.textContent=text;
  return el;
 };
-let requestId=0,confirming=false;
+let requestId=0;
 const authToken=()=>localStorage.getItem('echo.authToken');
 function coinImage(size=26){
  const img=element('img','echo-excess-coin');
@@ -23,7 +23,7 @@ function coinImage(size=26){
 async function offerExcessCards(){
  const id=++requestId;
  const original=authToken();
- if(!original||confirming)return;
+ if(!original)return;
  try{
   const response=await fetch(API+'excess',{
    headers:{Authorization:'Bearer '+original},cache:'no-store'
@@ -31,7 +31,7 @@ async function offerExcessCards(){
   if(!response.ok)throw new Error('Exchange preview HTTP '+response.status);
   const preview=await response.json();
   if(id!==requestId||original!==authToken()||document.querySelector('#menu-character')?.hidden||
-      !Number(preview.totalCards)||confirming)return;
+      !Number(preview.totalCards))return;
   // Never replace another dialog (for example an account confirmation).
   if(document.body.classList.contains('echo-modal-open'))return;
   const content=element('div','echo-excess-content');
@@ -51,8 +51,7 @@ async function offerExcessCards(){
   reward.append(element('strong','',t('excess_reward','Награда:','Reward:')+' '+preview.totalCoins),coinImage(34));
   content.append(reward,element('p','echo-excess-question',t('excess_question','Обменять?','Exchange?')));
 
-  confirming=true;
-  const modal=window.ECHOModal?.open({
+  window.ECHOModal?.open({
    title:t('excess_title','Лишние карты','Extra cards'),
    contentElement:content,
    buttons:[
@@ -85,7 +84,6 @@ async function offerExcessCards(){
     }}
    ]
   });
-  if(!modal)confirming=false;
  }catch(error){
   console.warn('[echo heroes] extra card preview unavailable',error);
  }
