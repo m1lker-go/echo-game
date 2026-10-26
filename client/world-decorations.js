@@ -13,35 +13,20 @@ const ISOMETRIC_YAW=-Math.PI/4;
 // leaving tree placement, player movement and physics entirely unchanged.
 const BACKGROUND_DEPTH=-75;
 const BACKGROUND_ORDER=-5;
-// stones.glb is only 0.05 high (rocks.glb is 0.4 high). Scale its
-// local vertical axis independently so large, flat stones read as real props.
-// X/Z footprint and the server's water/tree clearance remain unchanged.
-const MODEL_HEIGHT_MULTIPLIERS=Object.freeze({'stones.glb':4});
-// The model canvas (#models) is above the 2D grid (#world) in style.css.
-// These stones were not hidden by the grid. Keep their entire 3D geometry
-// behind the characters (z=0), but retain the GLB's visible projected shape.
-const STONES_BACKGROUND_DEPTH=-160;
 const PALETTES={
   'plant.glb':{low:0x173448,mid:0x518fab,high:0xdceef7,opacity:0.5},
-  'rocks.glb':{low:0x182c3c,mid:0x4c718b,high:0xc9dce9,opacity:0.5},
-  'stones.glb':{low:0x405b73,mid:0x91bad4,high:0xe4f6ff,opacity:0.5}
+  'rocks.glb':{low:0x182c3c,mid:0x4c718b,high:0xc9dce9,opacity:0.5}
 };
 const ALLOWED=new Set(Object.keys(PALETTES));
-// Server-controlled model-specific size ranges: large stones must not be filtered out.
+// Client scale validation mirrors the active server models.
 const SCALE_RANGES={
-  'stones.glb':{min:2,max:4},
   'plant.glb':{min:0.7,max:1.2},
   'rocks.glb':{min:0.3,max:0.6}
 };
 
 function gradientMaterial(THREE,source,geometry,model) {
   const colors=PALETTES[model];
-  // The unusually flat stones GLB is poorly legible with standard lighting.
-  // An unlit material preserves its geometry + the ECHO height gradient,
-  // making the stones visible without increasing opacity above 50%.
-  const material=model==='stones.glb'
-    ? new THREE.MeshBasicMaterial({color:0xffffff})
-    : (source?.clone?.()||new THREE.MeshStandardMaterial({color:0xffffff}));
+  const material=source?.clone?.()||new THREE.MeshStandardMaterial({color:0xffffff});
   // Keep material lighting, but replace unknown GLB textures with our ECHO palette.
   material.map=null;
   material.color.set(0xffffff);
@@ -116,13 +101,12 @@ export function createWorldDecorations({THREE,loader,scene,iso}) {
         mesh.renderOrder=BACKGROUND_ORDER;
         for(let i=0;i<values.length;i++){
           const value=values[i];
-          object.position.set((value.x-value.y)*iso.x,-(value.x+value.y)*iso.y,model==='stones.glb'?STONES_BACKGROUND_DEPTH:BACKGROUND_DEPTH);
+          object.position.set((value.x-value.y)*iso.x,-(value.x+value.y)*iso.y,BACKGROUND_DEPTH);
           // Tilt the imported horizontal XZ plane toward the isometric camera.
           // Euler XYZ evaluates as Rx(tilt)*Ry(yaw); randomized yaw stays flat
           // on the ground rather than rolling rocks around their sides.
           object.rotation.set(ISOMETRIC_TILT,ISOMETRIC_YAW+value.rotation,0,'XYZ');
           object.scale.setScalar(BASE_SCALE*value.scale);
-          object.scale.y*=MODEL_HEIGHT_MULTIPLIERS[model]||1;
           object.updateMatrix();
           transform.multiplyMatrices(object.matrix,part.matrix);
           mesh.setMatrixAt(i,transform);
