@@ -751,6 +751,13 @@ function createWorldTrees(waters) {
   return trees;
 }
 const WORLD_TREES = createWorldTrees(WORLD_WATERS);
+// Decorations use a separate RNG and never modify the existing tree/water layout.
+const WORLD_DECORATIONS = require('./world-decorations').createWorldDecorations({
+  seed: WORLD_SEED,
+  worldHalfSize: WORLD_HALF_SIZE,
+  trees: WORLD_TREES,
+  waterContours: WORLD_WATERS.map(water=>getWaterWorldContour(water))
+});
 
 // Damage is based only on the actual water polygon contour. No body radius,
 // center-distance shortcut, or extra shoreline buffer is used.
@@ -780,6 +787,8 @@ function createWorldSnapshot() {
   return {
     seed: WORLD_SEED,
     trees: WORLD_TREES.map(({ id, type, x, y, scale, rotation, collisionRadius }) => ({ id, type, x, y, scale, rotation, collisionRadius })),
+    // Visual-only objects: no collision radius is supplied or used by gameplay.
+    decorations: WORLD_DECORATIONS,
     // Client collision and red debug overlay consume this exact server polygon.
     waters: WORLD_WATERS.map(({ id, type, model, x, y, scale, rotation, collisionRadius, worldContour }) => ({
       id, type, model, x, y, scale, rotation, collisionRadius,
