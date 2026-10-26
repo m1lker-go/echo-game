@@ -12,6 +12,22 @@ const FOOD_MAGNET_SPEED = 520;
 const ISO_X = 0.8660254;
 const ISO_Y = 0.5;
 
+// Temporary visual trial. Add ?food=dots to the arena URL to immediately
+// restore the ORIGINAL white glowing points without touching food mechanics.
+// The original dot renderer also stays available if the WebP cannot load.
+const FOOD_VISUAL_MODE = new URLSearchParams(window.location.search).get('food') === 'dots' ? 'dots' : 'icon';
+const foodIcon = new Image();
+let foodIconReady = false;
+if (FOOD_VISUAL_MODE === 'icon') {
+  foodIcon.onload = () => { foodIconReady = foodIcon.naturalWidth > 0; };
+  foodIcon.onerror = () => {
+    foodIconReady = false;
+    console.warn('[echo:food] food.webp failed to load; using original white dots');
+  };
+  foodIcon.decoding = 'async';
+  foodIcon.src = './assets/icons/food.webp?v=echo-food-icon-preview-1';
+}
+
 const food = new Map();
 let activeIds = new Set();
 let lastTime = performance.now();
@@ -184,18 +200,29 @@ function draw(time) {
         if (p.x < -30 || p.y < -30 || p.x > width + 30 || p.y > height + 30) continue;
         const pulse = 0.65 + 0.35 * Math.sin(time * 0.002 + point.pulse);
         const radius = point.size * pulse;
-        const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius * 3.2);
-        halo.addColorStop(0, 'rgba(210,238,255,0.38)');
-        halo.addColorStop(0.35, 'rgba(210,238,255,0.15)');
-        halo.addColorStop(1, 'rgba(210,238,255,0)');
-        ctx.fillStyle = halo;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, radius * 3.2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = `rgba(220,242,255,${0.65 + 0.35 * pulse})`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-        ctx.fill();
+        if (FOOD_VISUAL_MODE === 'icon' && foodIconReady) {
+          // Draw from a single animated WebP shared by all food items.
+          // Match the old pulse and approximate pickup size without altering
+          // hitboxes, magnet travel, coordinates or server food snapshots.
+          const iconSize = radius * 6;
+          ctx.globalAlpha = 0.8 + 0.2 * pulse;
+          ctx.drawImage(foodIcon, p.x - iconSize / 2, p.y - iconSize / 2, iconSize, iconSize);
+          ctx.globalAlpha = 1;
+        } else {
+          // Original white dots, kept intact for ?food=dots and loading failure.
+          const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius * 3.2);
+          halo.addColorStop(0, 'rgba(210,238,255,0.38)');
+          halo.addColorStop(0.35, 'rgba(210,238,255,0.15)');
+          halo.addColorStop(1, 'rgba(210,238,255,0)');
+          ctx.fillStyle = halo;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, radius * 3.2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = `rgba(220,242,255,${0.65 + 0.35 * pulse})`;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
         visibleCount += 1;
       }
       if (time - lastDebugLog > 5000) {
