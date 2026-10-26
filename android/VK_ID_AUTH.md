@@ -22,13 +22,16 @@ VK ID app and backend.
 
 ## VK ID app configuration is required
 
-The current ECHO web VK ID app id is **54832804**, NOT Cat Fighting's
-54525890. For native login, in ECHO's VK ID developer portal add/configure an
-Android client for **package `ru.echo.game`**, including the debug and production
-SHA-1 signing certificate fingerprints and SDK redirect settings. Confirm that
-app id 54832804 can be used with your Android registration. If the portal gives
-a distinct Android app id, the ECHO server VK ID config and SDK must agree
-before using it; do not silently substitute Cat Fighting's id.
+The new ECHO Web + Android VK ID app id is **54853387**, NOT Cat Fighting's
+54525890. The previous ECHO Web-only client was **54832804**. The browser
+accepts both app IDs during migration, but native Android and the server
+`VK_ID_APP_ID` must use **54853387** together for token verification.
+
+In the VK ID developer portal, register the Android package matching the
+APK's `applicationId` (currently `ru.echo.game`) and the appropriate signing
+SHA-1 fingerprints. If changing `applicationId` to resolve a RuStore package
+name collision, update VK ID's Android package configuration to match before
+building and testing. Keep the existing production signing certificate.
 
 To obtain the debug SHA-1:
 Android Studio -> Gradle -> `:app:signingReport` (or use keytool against
