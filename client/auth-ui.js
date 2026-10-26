@@ -170,8 +170,8 @@ async function selectApiBase(){
    const res=await fetch(new URL(base+'config',location.origin),{cache:'no-store'});
    if(!res.ok)continue;
    const config=await res.json();
-   // Accept both ECHO VK ID apps during the Web + Android client migration.
-   if([54832804,54853387].includes(Number(config?.appId))){activeBase=base;return base;}
+   // ECHO Web VK ID is separate from the Android client.
+   if(Number(config?.appId)===54832804){activeBase=base;return base;}
   }catch(error){console.warn('[echo auth] endpoint unavailable',base,error);}
  }
  throw new Error('ECHO authentication API is not reachable');
