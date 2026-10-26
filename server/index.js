@@ -26,7 +26,6 @@ app.use(cors({ origin: allowedOrigin === '*' ? true : allowedOrigin.split(',').m
 app.use(express.json());
 app.use('/api/auth', echoAuth.router);
 app.use('/api/auth/oauth', echoOAuth.oauthRouter({sessionUser:echoAuth.sessionUser}));
-app.use('/api/codes', require('./code-redemption').createCodeRedemption({sessionUser:echoAuth.sessionUser}));
 
 const io = new Server(server, {
   cors: {
@@ -186,6 +185,13 @@ const freePacks = require('./free-packs').createFreePacks({
 });
 const purchaseHistory=createPurchaseHistory({pool,sessionUser:echoAuth.sessionUser});
 app.use('/api/packs/free', freePacks.router);
+const referrals = require('./referrals').createReferrals({
+  pool, sessionUser: echoAuth.sessionUser, grantPack: freePacks.grant
+});
+app.use('/api/referrals', referrals.router);
+app.use('/api/codes', require('./code-redemption').createCodeRedemption({
+  sessionUser: echoAuth.sessionUser, referralRedeem: referrals.redeem
+}));
 const specialQuests = require('./special-quests').createSpecialQuests({
   pool, sessionUser: echoAuth.sessionUser, grantPack: freePacks.grant
 });
@@ -1357,6 +1363,7 @@ server.listen(port, '0.0.0.0', async () => {
     await echoAuth.initialize();
     await echoOAuth.initialize();
     await freePacks.initialize();
+    await referrals.initialize();
     await specialQuests.initialize();
     await vkPayments.initialize();
     await robokassaPayments.initialize();

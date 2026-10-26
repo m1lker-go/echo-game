@@ -1,8 +1,9 @@
 'use strict';
 const express = require('express');
 const CF_CODE = /^CF-[A-HJ-NP-Z2-9]{12}$/;
+const { CODE_PATTERN: REF_CODE, ReferralError } = require('./referrals');
 const URL = 'https://cat-fight.ru/codes/partner/redeem';
-function createCodeRedemption({sessionUser, secret=require('./partner-code-secret').getPartnerSecret,
+function createCodeRedemption({sessionUser, referralRedeem, secret=require('./partner-code-secret').getPartnerSecret,
   redeem=async(code,echoAccountId,key)=>{
     const r=await fetch(URL,{method:'POST',headers:{'Content-Type':'application/json','x-echo-partner-secret':key},
       body:JSON.stringify({code,echoAccountId}),signal:AbortSignal.timeout(5000),redirect:'error'});
@@ -14,11 +15,21 @@ function createCodeRedemption({sessionUser, secret=require('./partner-code-secre
     const user=await sessionUser(req);
     if(!user)return res.status(401).json({error:'Unauthorized'});
     const code=typeof req.body?.code==='string'?req.body.code.trim().toUpperCase():'';
-    if(!CF_CODE.test(code))return res.status(400).json({error:'Unknown or invalid code'});
+    if(!CF_CODE.test(code) && !REF_CODE.test(code))return res.status(400).json({error:'Unknown or invalid code'});
     const key=String(user.id),t=Date.now(),attempts=(recent.get(key)||[]).filter(x=>t-x<60000);
     if(attempts.length>=8)return res.status(429).json({error:'Too many code attempts'});
     attempts.push(t);recent.set(key,attempts);
     if(recent.size>10000)recent.clear();
+    if (REF_CODE.test(code)) {
+      if (typeof referralRedeem !== 'function') return res.status(503).json({error:'Referrals not configured'});
+      try { return res.json(await referralRedeem(user.id,code)); }
+      catch (error) {
+        if (error instanceof ReferralError)
+          return res.status(error.status).json({error:error.code});
+        console.error('[code-redemption] referral unavailable:',error.message);
+        return res.status(500).json({error:'Referral activation unavailable'});
+      }
+    }
     const shared=secret();
     if(typeof shared!=='string'||shared.length<32)return res.status(503).json({error:'Partner integration is not configured'});
     try {

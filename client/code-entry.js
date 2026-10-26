@@ -49,10 +49,27 @@
               const messages={400:'code_invalid',404:'code_not_found',409:'code_used',410:'code_expired',429:'code_limited',503:'code_not_configured'};
               const fallback={400:'Неверный код',404:'Код не найден',409:'Код уже использован',410:'Срок действия кода истёк',429:'Слишком много попыток',503:'Связь игр пока не настроена'};
               const status=messages[response.status]||'code_error';
-              window.ECHOToast?.show(t(status,fallback[response.status]||'Не удалось проверить код'));
+              const referral={REFERRAL_SELF:t('referral_self','Нельзя ввести собственный код'),
+                REFERRAL_ALREADY_USED:t('referral_already_used','Ты уже активировал реферальный код'),
+                REFERRAL_NOT_FOUND:t('code_not_found','Код не найден')};
+              window.ECHOToast?.show(referral[data.error]||t(status,fallback[response.status]||'Не удалось проверить код'));
               return false;
             }
-            window.ECHOToast?.show(t('code_accepted','Код принят! Вернись в Cat Fighting и нажми «Проверка».'));
+            if(data.type==='referral'){
+              const toast=document.createElement('span');
+              toast.className='echo-quest-reward-toast';
+              const label=document.createElement('span');
+              label.textContent=t('referral_received','Получено:')+' '+(data.reward?.quantity||2);
+              const icon=document.createElement('img');
+              icon.src='./assets/packs/icon_echocard_basic.webp';
+              icon.alt=t('referral_pack','Обычный пак');icon.width=27;icon.height=27;
+              toast.append(label,icon);
+              window.ECHOToast?.show(toast);
+              window.dispatchEvent(new Event('echo:shop-balance-refresh'));
+              window.dispatchEvent(new Event('echo:referrals-refresh'));
+            }else{
+              window.ECHOToast?.show(t('code_accepted','Код принят! Вернись в Cat Fighting и нажми «Проверка».'));
+            }
             return true;
           } catch (error) {
             console.warn('[echo codes] activation failed:',error);
