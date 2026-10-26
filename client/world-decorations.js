@@ -16,16 +16,14 @@ const BACKGROUND_ORDER=-5;
 const PALETTES={
   'plant.glb':{low:0x173448,mid:0x518fab,high:0xdceef7,opacity:0.5},
   'rocks.glb':{low:0x182c3c,mid:0x4c718b,high:0xc9dce9,opacity:0.5},
-  'flowers-tall.glb':{low:0x173448,mid:0x568da8,high:0xe2f6ff,opacity:0.5},
-  'tree-trunk.glb':{low:0x182c3c,mid:0x4c718b,high:0xc9dce9,opacity:0.5}
+  'flowers-tall.glb':{low:0x173448,mid:0x568da8,high:0xe2f6ff,opacity:0.5}
 };
 const ALLOWED=new Set(Object.keys(PALETTES));
 // Client scale validation mirrors the active server models.
 const SCALE_RANGES={
   'plant.glb':{min:0.7,max:1.2},
   'rocks.glb':{min:0.3,max:0.6},
-  'flowers-tall.glb':{min:0.6,max:0.8},
-  'tree-trunk.glb':{min:3,max:4}
+  'flowers-tall.glb':{min:0.6,max:0.8}
 };
 
 function gradientMaterial(THREE,source,geometry,model) {
