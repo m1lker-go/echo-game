@@ -14,11 +14,17 @@ const ISOMETRIC_YAW=-Math.PI/4;
 const BACKGROUND_DEPTH=-75;
 const BACKGROUND_ORDER=-5;
 const PALETTES={
-  'plant.glb':{low:0x173448,mid:0x518fab,high:0xdceef7,opacity:0.54},
-  'rocks.glb':{low:0x182c3c,mid:0x4c718b,high:0xc9dce9,opacity:0.76},
-  'stones.glb':{low:0x253543,mid:0x67879b,high:0xdcebf3,opacity:0.69}
+  'plant.glb':{low:0x173448,mid:0x518fab,high:0xdceef7,opacity:0.5},
+  'rocks.glb':{low:0x182c3c,mid:0x4c718b,high:0xc9dce9,opacity:0.5},
+  'stones.glb':{low:0x253543,mid:0x67879b,high:0xdcebf3,opacity:0.5}
 };
 const ALLOWED=new Set(Object.keys(PALETTES));
+// Server-controlled model-specific size ranges: large stones must not be filtered out.
+const SCALE_RANGES={
+  'stones.glb':{min:2,max:4},
+  'plant.glb':{min:0.7,max:1.2},
+  'rocks.glb':{min:0.2,max:0.4}
+};
 
 function gradientMaterial(THREE,source,geometry,model) {
   const colors=PALETTES[model];
@@ -143,7 +149,8 @@ export function createWorldDecorations({THREE,loader,scene,iso}) {
     if(!Array.isArray(snapshot))return;
     entries=snapshot.filter(item=>item&&ALLOWED.has(item.model)&&
       typeof item.id==='string'&&Number.isFinite(item.x)&&Number.isFinite(item.y)&&
-      Number.isFinite(item.scale)&&item.scale>0&&item.scale<=1.3&&
+      Number.isFinite(item.scale)&&item.scale>=SCALE_RANGES[item.model].min&&
+      item.scale<=SCALE_RANGES[item.model].max&&
       Number.isFinite(item.rotation));
     for(const model of ALLOWED) {
       if(models.has(model)){

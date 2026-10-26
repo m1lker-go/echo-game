@@ -3,9 +3,9 @@
 // Fixed, server-seeded decorations shared by all ECHO clients.
 // These are visual only: NEVER add them to movement, food, damage or spawn collision checks.
 const SPECS = Object.freeze([
-  {model:'rocks.glb',count:75,baseRadius:64,minScale:0.85,maxScale:1.15},
-  {model:'stones.glb',count:150,baseRadius:48,minScale:0.8,maxScale:1.2},
-  {model:'plant.glb',count:200,baseRadius:38,minScale:0.8,maxScale:1.2}
+  {model:'rocks.glb',count:75,baseRadius:64,minScale:0.2,maxScale:0.4},
+  {model:'stones.glb',count:150,baseRadius:32,minScale:2,maxScale:4},
+  {model:'plant.glb',count:200,baseRadius:38,minScale:0.7,maxScale:1.2}
 ]);
 const EXPECTED_TOTAL = SPECS.reduce((n,spec)=>n+spec.count,0);
 
