@@ -24,8 +24,8 @@ const ALLOWED=new Set(Object.keys(PALETTES));
 const SCALE_RANGES={
   'plant.glb':{min:0.7,max:1.2},
   'rocks.glb':{min:0.3,max:0.6},
-  'flowers-tall.glb':{min:1,max:1},
-  'tree-trunk.glb':{min:1,max:1}
+  'flowers-tall.glb':{min:0.6,max:0.8},
+  'tree-trunk.glb':{min:3,max:4}
 };
 
 function gradientMaterial(THREE,source,geometry,model) {
@@ -80,6 +80,7 @@ export function createWorldDecorations({THREE,loader,scene,iso}) {
   const holder=new THREE.Group();
   scene.add(holder);
   let entries=[];
+  let deathFlowers=[]; // Per-room PvP memorials, sent by the authoritative server.
   const models=new Map();
   const tilesByModel=new Map();
 
@@ -95,7 +96,9 @@ export function createWorldDecorations({THREE,loader,scene,iso}) {
     clearModel(model);
     const parts=models.get(model);
     if(!parts)return;
-    const matches=entries.filter(item=>item.model===model);
+    const matches=model==='flowers-tall.glb'
+      ? deathFlowers
+      : entries.filter(item=>item.model===model);
     if(!matches.length)return;
     const groups=new Map();
     for(const entry of matches){
@@ -150,7 +153,7 @@ export function createWorldDecorations({THREE,loader,scene,iso}) {
       });
       models.set(model,parts);
       createInstances(model);
-      console.info('[echo] decorations loaded: '+model+' ('+entries.filter(x=>x.model===model).length+' instances)');
+      console.info('[echo] decorations loaded: '+model+' ('+(model==='flowers-tall.glb'?deathFlowers:entries.filter(x=>x.model===model)).length+' instances)');
     },undefined,error=>{
       models.delete(model);
       console.warn('[echo] decoration GLB failed: '+model,error);
@@ -159,7 +162,7 @@ export function createWorldDecorations({THREE,loader,scene,iso}) {
 
   function setSnapshot(snapshot) {
     if(!Array.isArray(snapshot))return;
-    entries=snapshot.filter(item=>item&&ALLOWED.has(item.model)&&
+    entries=snapshot.filter(item=>item&&item.model!=='flowers-tall.glb'&&ALLOWED.has(item.model)&&
       typeof item.id==='string'&&Number.isFinite(item.x)&&Number.isFinite(item.y)&&
       Number.isFinite(item.scale)&&item.scale>=SCALE_RANGES[item.model].min&&
       item.scale<=SCALE_RANGES[item.model].max&&
@@ -170,8 +173,20 @@ export function createWorldDecorations({THREE,loader,scene,iso}) {
       }else if(entries.some(item=>item.model===model))loadModel(model);
     }
   }
+  function setDeathFlowers(snapshot){
+    if(!Array.isArray(snapshot))return;
+    deathFlowers=snapshot.slice(0,250).filter(item=>item&&
+      item.model==='flowers-tall.glb'&&typeof item.id==='string'&&
+      Number.isFinite(item.x)&&Number.isFinite(item.y)&&
+      Number.isFinite(item.rotation)&&Number.isFinite(item.scale)&&
+      item.scale>=SCALE_RANGES['flowers-tall.glb'].min&&
+      item.scale<=SCALE_RANGES['flowers-tall.glb'].max);
+    if(models.has('flowers-tall.glb')){
+      if(models.get('flowers-tall.glb'))createInstances('flowers-tall.glb');
+    }else if(deathFlowers.length)loadModel('flowers-tall.glb');
+  }
   function update(cameraX,cameraY) {
     holder.position.set(-(cameraX-cameraY)*iso.x,(cameraX+cameraY)*iso.y,0);
   }
-  return {setSnapshot,update};
+  return {setSnapshot,setDeathFlowers,update};
 }

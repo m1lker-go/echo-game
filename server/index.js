@@ -372,6 +372,7 @@ app.post('/api/daily-quests/claim', async (req, res) => {
 const players = new Map();
 const roomManager = createRoomManager();
 const roomFood = new Map();
+const pvpFlowers = require('./pvp-flowers').createPvpFlowers();
 function roomKey(player) { return `echo:${player.roundId}:${player.roomId}`; }
 function ensureRoomFood(roundId, roomId) {
   const key = `echo:${roundId}:${roomId}`;
@@ -961,6 +962,10 @@ function advanceRoomRound() {
   roundScores.clear();
   activeFights.clear();
   roomFood.clear();
+  // Clear PvP memorials at every 15-minute round boundary, including
+  // for already defeated players whose socket remains in the old room.
+  const memorialRooms=pvpFlowers.reset();
+  for(const key of memorialRooms)io.to(key).emit('echo:deathFlowers',{roundId:nextRound.id,flowers:[]});
   for (const player of players.values()) {
     const socket = io.sockets.sockets.get(player.id);
     if (!socket) { players.delete(player.id); continue; }
@@ -991,6 +996,7 @@ function advanceRoomRound() {
     socket.emit('echo:room', { roomId: player.roomId, round: assignment.round, occupancy: assignment.occupancy });
     socket.emit('echo:combatResult', { result: 'round-reset', energy: 0 });
     socket.emit('echo:spawn', {x:player.x,y:player.y,shieldUntil:player.shieldUntil});
+    socket.emit('echo:deathFlowers',{roundId:player.roundId,flowers:[]});
   }
   for (const player of players.values()) {
     broadcastPlayers(player);
@@ -1050,6 +1056,18 @@ function finishFight(fight) {
     result: 'lose',
     energy: 0,
     opponentId: winnerState.id,
+  });
+
+  // Only a resolved PvP fight creates a flower, at the defeated hero's
+  // server-verified coordinates. Broadcast current room state, not a client
+  // requested spawn, to keep everyone synchronized.
+  const memorial=pvpFlowers.add({
+    roundId:loserState.roundId,roomId:loserState.roomId,
+    fightId:fight.id,x:loserState.x,y:loserState.y
+  });
+  if(memorial)io.to(roomKey(loserState)).emit('echo:deathFlowers',{
+    roundId:loserState.roundId,
+    flowers:pvpFlowers.list(loserState.roundId,loserState.roomId)
   });
 
   players.delete(loserState.id);
@@ -1269,6 +1287,10 @@ io.on('connection', (socket) => {
   broadcastPlayers(players.get(socket.id));
   broadcastFood(players.get(socket.id));
   socket.emit('echo:world', createWorldSnapshot());
+  socket.emit('echo:deathFlowers',{
+    roundId:assignment.round.id,
+    flowers:pvpFlowers.list(assignment.round.id,assignment.roomId)
+  });
 
   socket.on('echo:dailyPing', receiveActivityPing);
 
@@ -1281,6 +1303,10 @@ io.on('connection', (socket) => {
     if (current) current.name = socket.data.verifiedNickname || normalizePlayerName(null, activityProfileId || socket.id);
 
     socket.emit('echo:world', createWorldSnapshot());
+    if (current) socket.emit('echo:deathFlowers',{
+      roundId:current.roundId,
+      flowers:pvpFlowers.list(current.roundId,current.roomId)
+    });
     if (current) {
       // A client widget may attach after a delayed VK Mini Apps login. Resend
       // the room and clock on hello so it does not stay stuck on "Room —".

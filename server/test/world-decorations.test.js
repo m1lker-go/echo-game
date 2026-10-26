@@ -23,15 +23,15 @@ function sampleWorld(){
   return {seed:847291,worldHalfSize:2100,trees,waterContours};
 }
 
-test('Decorations have 200 plants, 75 rocks, 100 tall flowers and 50 trunks',()=>{
+test('Only 325 static props are preplaced; PvP flowers are generated on death',()=>{
  assert.deepEqual(Object.fromEntries(SPECS.map(s=>[s.model,s.count])),{
   'rocks.glb':75,'plant.glb':200,
-  'flowers-tall.glb':100,'tree-trunk.glb':50
+  'tree-trunk.glb':50
  });
- assert.equal(EXPECTED_TOTAL,425);
+ assert.equal(EXPECTED_TOTAL,325);
  assert.deepEqual(Object.fromEntries(SPECS.map(s=>[s.model,[s.minScale,s.maxScale]])),{
   'rocks.glb':[0.3,0.6], 'plant.glb':[0.7,1.2],
-  'flowers-tall.glb':[1,1], 'tree-trunk.glb':[1,1]
+  'tree-trunk.glb':[3,4]
  });
 });
 
@@ -39,7 +39,7 @@ test('All decorations are deterministic and outside tree collision circles and w
  const source=sampleWorld();
  const objects=createWorldDecorations(source);
  assert.equal(objects.length,EXPECTED_TOTAL);
- assert.equal(objects.some(item=>item.model==='stones.glb'),false);
+ assert.equal(objects.some(item=>item.model==='stones.glb'||item.model==='flowers-tall.glb'),false);
  assert.deepEqual(createWorldDecorations(source),objects,'The same map must be shared by all players');
  assert.equal(new Set(objects.map(x=>x.id)).size,EXPECTED_TOTAL);
  for(const obj of objects){
@@ -71,8 +71,8 @@ test('New decorations reach WebGL; stones stay removed and gameplay physics unch
  assert.match(game,/decorations\.update\(state\.cameraX,state\.cameraY\)/);
  assert.match(game,/updatePlayerMovement\(state,dt,time,ISO,worldObjects\.trees\)/);
  assert.match(game,/function isJumpLandingBlocked\(x,y\)\{[^}]*worldObjects\.trees/);
- assert.ok(html.includes('game.js?v=echo-shield-pulse-1-flowers-trunks-7'));
- assert.ok(game.includes('world-decorations.js?v=echo-flowers-trunks-7'));
+ assert.ok(html.includes('game.js?v=echo-shield-pulse-1-pvp-memorial-8'));
+ assert.ok(game.includes('world-decorations.js?v=echo-pvp-memorial-8'));
  assert.match(decorations,/new THREE\.InstancedMesh/);
  assert.match(decorations,/const BASE_SCALE=50/);
  assert.match(decorations,/material\.onBeforeCompile=shader/);
@@ -87,8 +87,13 @@ test('New decorations reach WebGL; stones stay removed and gameplay physics unch
  assert.ok(!decorations.includes('collisionRadius'));
  assert.ok(!decorations.includes('stones.glb'),'Client must not request stones');
  assert.ok(!server.includes('stones.glb'),'Server must not generate stones');
- assert.ok(decorations.includes("'flowers-tall.glb':{min:1,max:1}"));
- assert.ok(decorations.includes("'tree-trunk.glb':{min:1,max:1}"));
+ assert.ok(decorations.includes("'flowers-tall.glb':{min:0.6,max:0.8}"));
+ assert.ok(decorations.includes("'tree-trunk.glb':{min:3,max:4}"));
+ assert.match(decorations,/deathFlowers=snapshot\.slice\(0,250\)/);
+ assert.match(game,/state\.socket\.on\('echo:deathFlowers'/);
+ assert.match(game,/decorations\.setDeathFlowers\(data\.flowers\)/);
+ assert.match(server,/pvpFlowers\.add\(\{/);
+ assert.match(server,/const memorialRooms=pvpFlowers\.reset\(\)/);
  assert.ok(decorations.includes("if(model==='flowers-tall.glb')"));
  assert.ok(decorations.includes('echoPetalGlow=smoothstep(0.62,0.92,vEchoDecorY)'));
  assert.ok(decorations.includes('outgoingLight += vec3(0.11,0.26,0.37)*echoPetalGlow'));
