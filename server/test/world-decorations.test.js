@@ -64,11 +64,21 @@ test('The arena uses the same server snapshot on reconnect without changing move
  assert.match(game,/decorations\.update\(state\.cameraX,state\.cameraY\)/);
  assert.match(game,/updatePlayerMovement\(state,dt,time,ISO,worldObjects\.trees\)/);
  assert.match(game,/function isJumpLandingBlocked\(x,y\)\{[^}]*worldObjects\.trees/);
- assert.match(html,/game\.js\?v=echo-shield-pulse-1-decorations-1/);
+ assert.match(html,/game\.js\?v=echo-shield-pulse-1-decorations-iso-depth-2/);
  assert.match(decorations,/new THREE\.InstancedMesh/);
  assert.match(decorations,/const BASE_SCALE=50/);
  assert.match(decorations,/material\.onBeforeCompile=shader/);
  assert.match(decorations,/frustumCulled=true/);
+ assert.match(game,/world-decorations\.js\?v=echo-iso-depth-2/);
+ // The player is at z=0 in ECHO's orthographic scene. Scenery is behind
+ // the character and must pass the WebGL depth test.
+ assert.match(decorations,/const BACKGROUND_DEPTH=-75/);
+ assert.match(decorations,/const BACKGROUND_ORDER=-5/);
+ assert.match(decorations,/mesh\.renderOrder=BACKGROUND_ORDER/);
+ assert.match(decorations,/material\.depthTest=true/);
+ assert.match(decorations,/material\.depthWrite=false/);
+ assert.match(decorations,/object\.position\.set\([^;]*BACKGROUND_DEPTH\)/);
+ assert.match(decorations,/object\.rotation\.set\(ISOMETRIC_TILT,ISOMETRIC_YAW\+value\.rotation,0,'XYZ'\)/);
  assert.ok(!decorations.includes('collisionRadius'));
 });
 
@@ -91,4 +101,19 @@ test('Each clearance radius conservatively encloses the actual GLB mesh at x50 s
   assert.ok(vertices>0 && vertices<500,'GLB must remain lightweight: '+spec.model);
   assert.ok(spec.baseRadius>=extent+10,'Keep a safe margin around every '+spec.model+' asset');
  }
+});
+
+test('The flat GLB ground axes project at ECHO isometric slopes rather than side-on',()=>{
+ // The 2.5D world axes in ECHO project to (±sqrt(3)/2,-1/2).
+ // The GLB local XZ ground plane has to project to the same directions.
+ const tilt=Math.asin(1/Math.sqrt(3)),yaw=-Math.PI/4;
+ const sin=Math.sin(tilt),cos=Math.cos(yaw);
+ const xAxis={x:cos,y:-sin*(-Math.sin(yaw))};
+ const zAxis={x:Math.sin(yaw),y:-sin*Math.cos(yaw)};
+ const slope=1/Math.sqrt(3);
+ assert.ok(Math.abs(Math.abs(xAxis.y/xAxis.x)-slope)<1e-12);
+ assert.ok(Math.abs(Math.abs(zAxis.y/zAxis.x)-slope)<1e-12);
+ assert.ok(Math.sign(xAxis.x)!==Math.sign(zAxis.x));
+ // The 'top' of both ground axes moves toward the background on screen.
+ assert.ok(xAxis.y<0 && zAxis.y<0);
 });

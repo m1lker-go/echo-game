@@ -3,6 +3,16 @@
 const MODEL_URL='./assets/models/objects/';
 const BASE_SCALE=50;
 const TILE_SIZE=650;
+// ECHO uses a straight-on +Z camera and projects the ground to isometric XY.
+// Rotate the local GLB XZ floor before placing each copy in that 2.5D scene.
+// sin(tilt)=1/sqrt(3) makes its projected footprint follow the same 2:1
+// screen-axis slopes as worldToScreenPrecise in game.js.
+const ISOMETRIC_TILT=Math.asin(1/Math.sqrt(3));
+const ISOMETRIC_YAW=-Math.PI/4;
+// Every prop is decorative. Keep it behind characters in camera depth while
+// leaving tree placement, player movement and physics entirely unchanged.
+const BACKGROUND_DEPTH=-75;
+const BACKGROUND_ORDER=-5;
 const PALETTES={
   'plant.glb':{low:0x173448,mid:0x518fab,high:0xdceef7,opacity:0.54},
   'rocks.glb':{low:0x182c3c,mid:0x4c718b,high:0xc9dce9,opacity:0.76},
@@ -20,7 +30,9 @@ function gradientMaterial(THREE,source,geometry,model) {
   material.transparent=true;
   material.opacity=colors.opacity;
   material.depthWrite=false;
-  material.depthTest=false; // Like trees: characters remain visible through scenery.
+  // Unlike the old decorative layer, respect the hero's depth buffer so
+  // transparent rocks/plants never paint over a player in front of them.
+  material.depthTest=true;
   material.side=THREE.DoubleSide;
   if(!geometry.boundingBox)geometry.computeBoundingBox();
   const bottom=geometry.boundingBox?.min.y??0;
@@ -82,11 +94,14 @@ export function createWorldDecorations({THREE,loader,scene,iso}) {
         mesh.frustumCulled=true;
         mesh.castShadow=false;
         mesh.receiveShadow=false;
-        mesh.renderOrder=0;
+        mesh.renderOrder=BACKGROUND_ORDER;
         for(let i=0;i<values.length;i++){
           const value=values[i];
-          object.position.set((value.x-value.y)*iso.x,-(value.x+value.y)*iso.y,0);
-          object.rotation.set(0,value.rotation,0);
+          object.position.set((value.x-value.y)*iso.x,-(value.x+value.y)*iso.y,BACKGROUND_DEPTH);
+          // Tilt the imported horizontal XZ plane toward the isometric camera.
+          // Euler XYZ evaluates as Rx(tilt)*Ry(yaw); randomized yaw stays flat
+          // on the ground rather than rolling rocks around their sides.
+          object.rotation.set(ISOMETRIC_TILT,ISOMETRIC_YAW+value.rotation,0,'XYZ');
           object.scale.setScalar(BASE_SCALE*value.scale);
           object.updateMatrix();
           transform.multiplyMatrices(object.matrix,part.matrix);
