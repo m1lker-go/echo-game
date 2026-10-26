@@ -29,12 +29,12 @@ function gradientMaterial(THREE,source,geometry,model) {
   const vec=color=>`vec3(${color.r.toFixed(6)},${color.g.toFixed(6)},${color.b.toFixed(6)})`;
   material.onBeforeCompile=shader=>{
     shader.vertexShader=shader.vertexShader
-      .replace('#include <common>','#include <common>\\nvarying float vEchoDecorY;')
+      .replace('#include <common>','#include <common>\nvarying float vEchoDecorY;')
       .replace('#include <begin_vertex>',
         `#include <begin_vertex>
 vEchoDecorY=clamp((position.y-${bottom.toFixed(6)})/${height.toFixed(6)},0.0,1.0);`);
     shader.fragmentShader=shader.fragmentShader
-      .replace('#include <common>','#include <common>\\nvarying float vEchoDecorY;')
+      .replace('#include <common>','#include <common>\nvarying float vEchoDecorY;')
       .replace('#include <color_fragment>',`#include <color_fragment>
 float echoGrad=smoothstep(0.03,0.70,vEchoDecorY);
 vec3 echoShade=mix(${vec(low)},${vec(mid)},echoGrad);
