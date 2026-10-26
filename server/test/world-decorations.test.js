@@ -71,3 +71,24 @@ test('The arena uses the same server snapshot on reconnect without changing move
  assert.match(decorations,/frustumCulled=true/);
  assert.ok(!decorations.includes('collisionRadius'));
 });
+
+test('Each clearance radius conservatively encloses the actual GLB mesh at x50 scale',()=>{
+ const assetDir=path.join(__dirname,'../../client/assets/models/objects');
+ for(const spec of SPECS){
+  const glb=fs.readFileSync(path.join(assetDir,spec.model));
+  assert.equal(glb.toString('ascii',0,4),'glTF');
+  const length=glb.readUInt32LE(12);
+  assert.equal(glb.toString('ascii',16,20),'JSON');
+  const data=JSON.parse(glb.subarray(20,20+length).toString('utf8'));
+  let extent=0,vertices=0;
+  for(const mesh of data.meshes||[])for(const primitive of mesh.primitives||[]){
+   const bounds=data.accessors[primitive.attributes.POSITION];
+   vertices+=bounds.count;
+   const x=Math.max(Math.abs(bounds.min[0]),Math.abs(bounds.max[0]));
+   const z=Math.max(Math.abs(bounds.min[2]),Math.abs(bounds.max[2]));
+   extent=Math.max(extent,Math.hypot(x,z)*50);
+  }
+  assert.ok(vertices>0 && vertices<500,'GLB must remain lightweight: '+spec.model);
+  assert.ok(spec.baseRadius>=extent+10,'Keep a safe margin around every '+spec.model+' asset');
+ }
+});
