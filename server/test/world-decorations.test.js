@@ -29,7 +29,7 @@ test('Decorative GLBs use precisely 200 plants, 75 rocks and 150 stones',()=>{
  });
  assert.equal(EXPECTED_TOTAL,425);
  assert.deepEqual(Object.fromEntries(SPECS.map(x=>[x.model,[x.minScale,x.maxScale]])),{
-  'rocks.glb':[0.2,0.4],
+  'rocks.glb':[0.3,0.6],
   'stones.glb':[2,4],
   'plant.glb':[0.7,1.2]
  });
@@ -69,7 +69,7 @@ test('The arena uses the same server snapshot on reconnect without changing move
  assert.match(game,/decorations\.update\(state\.cameraX,state\.cameraY\)/);
  assert.match(game,/updatePlayerMovement\(state,dt,time,ISO,worldObjects\.trees\)/);
  assert.match(game,/function isJumpLandingBlocked\(x,y\)\{[^}]*worldObjects\.trees/);
- assert.match(html,/game\.js\?v=echo-shield-pulse-1-decorations-iso-depth-scale-stones-height-4/);
+ assert.match(html,/game\.js\?v=echo-shield-pulse-1-stones-legibility-5/);
  assert.match(decorations,/new THREE\.InstancedMesh/);
  assert.match(decorations,/const BASE_SCALE=50/);
  // Height is adjusted locally in Three.js; never enlarge the X/Z collision footprint.
@@ -78,7 +78,7 @@ test('The arena uses the same server snapshot on reconnect without changing move
  assert.match(decorations,/object\.scale\.y\*=MODEL_HEIGHT_MULTIPLIERS\[model\]\|\|1/);
  assert.match(decorations,/material\.onBeforeCompile=shader/);
  assert.match(decorations,/frustumCulled=true/);
- assert.match(game,/world-decorations\.js\?v=echo-iso-depth-scale-stones-height-4/);
+ assert.match(game,/world-decorations\.js\?v=echo-stones-legibility-5/);
  // The player is at z=0 in ECHO's orthographic scene. Scenery is behind
  // the character and must pass the WebGL depth test.
  assert.match(decorations,/const BACKGROUND_DEPTH=-75/);
@@ -86,7 +86,12 @@ test('The arena uses the same server snapshot on reconnect without changing move
  assert.match(decorations,/mesh\.renderOrder=BACKGROUND_ORDER/);
  assert.match(decorations,/material\.depthTest=true/);
  assert.match(decorations,/material\.depthWrite=false/);
- assert.match(decorations,/object\.position\.set\([^;]*BACKGROUND_DEPTH\)/);
+ assert.match(decorations,/object\.position\.set\([^;]*STONES_BACKGROUND_DEPTH:BACKGROUND_DEPTH\)/);
+ assert.match(decorations,/const STONES_BACKGROUND_DEPTH=-160/);
+ assert.match(decorations,/model==='stones\.glb'/);
+ assert.match(decorations,/new THREE\.MeshBasicMaterial\(\{color:0xffffff\}\)/);
+ assert.match(decorations,/material\.opacity=colors\.opacity/);
+ assert.match(decorations,/material\.depthTest=true/);
  assert.match(decorations,/object\.rotation\.set\(ISOMETRIC_TILT,ISOMETRIC_YAW\+value\.rotation,0,'XYZ'\)/);
  assert.ok(!decorations.includes('collisionRadius'));
  // The scale ranges are mirrored on the client: stones above 1.3 must render.
@@ -152,4 +157,17 @@ test('stones.glb is a valid but exceptionally flat 3D mesh that needs a vertical
  // into the visibly raised terrain while leaving X/Z footprint untouched.
  assert.ok(height*50*2*4>19);
  assert.ok(height*50*4*4<45);
+});
+
+test('The grid is behind WebGL models and visible stones are still behind the player',()=>{
+ const css=fs.readFileSync(path.join(__dirname,'../../client/style.css'),'utf8');
+ const js=fs.readFileSync(path.join(__dirname,'../../client/world-decorations.js'),'utf8');
+ assert.match(css,/#world\s*\{\s*z-index:\s*1/);
+ assert.match(css,/#models\s*\{[^}]*z-index:\s*3/);
+ assert.match(js,/const STONES_BACKGROUND_DEPTH=-160/);
+ assert.match(js,/const BACKGROUND_ORDER=-5/);
+ assert.match(js,/material\.depthWrite=false/);
+ assert.match(js,/material\.depthTest=true/);
+ assert.match(js,/model==='stones\.glb'/);
+ assert.match(js,/MeshBasicMaterial/);
 });
