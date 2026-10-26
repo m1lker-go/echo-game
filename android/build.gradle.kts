@@ -18,7 +18,7 @@ val echoVkSecret = System.getenv("ECHO_VK_CLIENT_SECRET")
 
 vkidManifestPlaceholders {
     init(
-        clientId = "54832804",
+        clientId = "54853387",
         clientSecret = echoVkSecret.ifBlank { "ECHO_VK_ID_NOT_CONFIGURED" }
     )
 }
