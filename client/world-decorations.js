@@ -13,6 +13,10 @@ const ISOMETRIC_YAW=-Math.PI/4;
 // leaving tree placement, player movement and physics entirely unchanged.
 const BACKGROUND_DEPTH=-75;
 const BACKGROUND_ORDER=-5;
+// stones.glb is only 0.05 high (rocks.glb is 0.4 high). Scale its
+// local vertical axis independently so large, flat stones read as real props.
+// X/Z footprint and the server's water/tree clearance remain unchanged.
+const MODEL_HEIGHT_MULTIPLIERS=Object.freeze({'stones.glb':4});
 const PALETTES={
   'plant.glb':{low:0x173448,mid:0x518fab,high:0xdceef7,opacity:0.5},
   'rocks.glb':{low:0x182c3c,mid:0x4c718b,high:0xc9dce9,opacity:0.5},
@@ -109,6 +113,7 @@ export function createWorldDecorations({THREE,loader,scene,iso}) {
           // on the ground rather than rolling rocks around their sides.
           object.rotation.set(ISOMETRIC_TILT,ISOMETRIC_YAW+value.rotation,0,'XYZ');
           object.scale.setScalar(BASE_SCALE*value.scale);
+          object.scale.y*=MODEL_HEIGHT_MULTIPLIERS[model]||1;
           object.updateMatrix();
           transform.multiplyMatrices(object.matrix,part.matrix);
           mesh.setMatrixAt(i,transform);
