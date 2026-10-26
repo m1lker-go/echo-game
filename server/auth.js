@@ -6,6 +6,7 @@ const { pool } = require('./db');
 const { validateNickname } = require('./nickname-policy');
 const { verifyVKMiniAppLaunch } = require('./vk-launch');
 const APP_ID = String(process.env.VK_ID_APP_ID || '');
+const ANDROID_APP_ID = String(process.env.ECHO_VK_ANDROID_APP_ID || '');
 const MINI_APP_ID = String(process.env.VK_MINI_APP_ID || '');
 const MINI_APP_SECRET = process.env.VK_MINI_APP_SECRET || '';
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
@@ -84,16 +85,16 @@ router.get('/config', (_req, res) => res.json({
   googleEnabled: echoOAuth.hasCredentials('google'),
   yandexEnabled: echoOAuth.hasCredentials('yandex')
 }));
-router.post('/vk', async (req,res) => {
+const vkLoginHandler = appId => async (req,res) => {
   const accessToken = req.body?.accessToken;
-  if (!/^\d+$/.test(APP_ID) || typeof accessToken !== 'string' || accessToken.length < 20 || accessToken.length > 4096)
+  if (!/^\d+$/.test(appId) || typeof accessToken !== 'string' || accessToken.length < 20 || accessToken.length > 4096)
     return res.status(400).json({ error: 'Invalid VK ID request' });
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 6500);
     let data;
     try {
-      const response = await fetch('https://id.vk.com/oauth2/user_info?client_id=' + encodeURIComponent(APP_ID), {
+      const response = await fetch('https://id.vk.com/oauth2/user_info?client_id=' + encodeURIComponent(appId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ access_token: accessToken }),
@@ -109,7 +110,10 @@ router.post('/vk', async (req,res) => {
     console.error('[auth] VK ID login failed:',error.message);
     res.status(502).json({error:'VK ID login failed'});
   }
-});
+};
+// Validate Web and native Android tokens against their own registered VK ID clients.
+router.post('/vk', vkLoginHandler(APP_ID));
+router.post('/vk/android', vkLoginHandler(ANDROID_APP_ID));
 // VK Mini App uses signed launch params, not the browser VK ID OAuth token.
 router.post('/vk-launch', async (req, res) => {
   if (!/^\d+$/.test(MINI_APP_ID) || !MINI_APP_SECRET)

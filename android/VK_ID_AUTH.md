@@ -10,7 +10,7 @@ VK ID app and backend.
 2. The Settings account button launches `VKID.instance.authorize(activity, callback)`,
    not the web VK ID OAuthList which previously redirected into Chrome.
 3. VK's native `AccessToken` is exchanged by HTTPS POST
-   `https://cat-fight.ru/echo/api/auth/vk`, JSON: `{"accessToken":"..."}`.
+   `https://cat-fight.ru/echo/api/auth/vk/android`, JSON: `{"accessToken":"..."}`.
    Server verifies the token against ECHO's VK ID app, then returns
    `{token,nickname,accountId}` (ECHO's own session, not Cat Fighting's).
 4. App-private SharedPreferences store only the ECHO session and nickname.
@@ -22,10 +22,11 @@ VK ID app and backend.
 
 ## VK ID app configuration is required
 
-The new ECHO Web + Android VK ID app id is **54853387**, NOT Cat Fighting's
-54525890. The previous ECHO Web-only client was **54832804**. The browser
-accepts both app IDs during migration, but native Android and the server
-`VK_ID_APP_ID` must use **54853387** together for token verification.
+Android uses ECHO's **54853387** VK ID client, while ECHO Web retains its
+existing **54832804** client. VK Mini Apps is separate (**54838920**).
+The server verifies web tokens with `VK_ID_APP_ID=54832804` on `/auth/vk`
+and Android tokens with `ECHO_VK_ANDROID_APP_ID=54853387` on `/auth/vk/android`.
+Both flows resolve the same VK user ID to the same ECHO game account.
 
 In the VK ID developer portal, register the Android package matching the
 APK's `applicationId` (currently `ru.echo.game`) and the appropriate signing

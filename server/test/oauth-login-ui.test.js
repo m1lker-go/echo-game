@@ -49,11 +49,12 @@ test('authenticated users do not see account-link buttons in settings',()=>{
 });
 test('browser refreshes OAuth client assets after the visibility fix',()=>{
  const page=read('index.html');
- assert.match(page,/auth-ui\.js\?v=echo-vkid-54853387-1/);
+ assert.match(page,/auth-ui\.js\?v=echo-vkid-separate-clients-1/);
  assert.match(page,/auth\.css\?v=echo-five-shared-row-1/);
 });
 
-test('ECHO API detection allows both VK ID clients during migration',()=>{
+test('ECHO Web auth uses only its Web VK ID client',()=>{
  const code=read('auth-ui.js');
- assert.match(code,/\[54832804,54853387\]\.includes\(Number\(config\?\.appId\)\)/);
+ assert.match(code,/if\(Number\(config\?\.appId\)===54832804\)/);
+ assert.doesNotMatch(code,/54853387/);
 });

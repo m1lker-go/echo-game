@@ -128,7 +128,7 @@ internal class EchoAuthSession(context: Context) {
     fun exchangeVkToken(vkAccessToken: String): EchoLoginResult {
         require(vkAccessToken.length in 20..4096) { "Некорректный токен VK ID" }
         val body = JSONObject().put("accessToken", vkAccessToken).toString()
-        val json = request("POST", "vk", body)
+        val json = request("POST", "vk/android", body)
         val gameToken = json.optString("token")
         require(TOKEN_PATTERN.matches(gameToken)) { "Сервер ECHO не вернул сессию" }
         val nickname = json.optString("nickname").ifBlank { "Игрок ECHO" }
