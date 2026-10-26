@@ -70,7 +70,7 @@ function harness(initial=[]){
 }
 
 test('Hero exchange rates match ECHO economy',()=>{
- assert.deepEqual(PRICES,{common:2,uncommon:5,rare:7,epic:10,legendary:15});
+ assert.deepEqual(PRICES,{common:2,uncommon:3,rare:5,epic:7,legendary:10});
 });
 test('claimed heroes retain the assembly requirement; starters exchange all drops',()=>{
  const rows=[
@@ -85,7 +85,7 @@ test('claimed heroes retain the assembly requirement; starters exchange all drop
  const s=summarizeExcess(rows,RARITIES);
  assert.deepEqual(s.counts,{common:5,uncommon:2,rare:3,epic:5,legendary:1});
  assert.equal(s.totalCards,16);
- assert.equal(s.totalCoins,106);
+ assert.equal(s.totalCoins,76);
  assert.ok(!s.changes.some(x=>x.model==='locked.glb'));
  const starter=summarizeExcess([{model:'character-female-b.glb',fragments:4,claimed:false}],RARITIES);
  assert.equal(starter.counts.common,4);
@@ -107,18 +107,18 @@ test('exchange is atomic and cannot pay twice for the same cards',async()=>{
   {model:'locked.glb',fragments:300,claimed:false}
  ]);
  const p=await h.request('GET','/excess');
- assert.equal(p.payload.totalCoins,106);
+ assert.equal(p.payload.totalCoins,76);
  const x=await h.request('POST','/exchange');
  assert.equal(x.status,200);
- assert.equal(x.payload.coinsGranted,106);
- assert.equal(x.payload.balance,106);
+ assert.equal(x.payload.coinsGranted,76);
+ assert.equal(x.payload.balance,76);
  assert.equal(h.fragments.get('owned-common.glb').fragments,25);
  assert.equal(h.fragments.get('owned-legendary.glb').fragments,60);
  assert.equal(h.fragments.get('locked.glb').fragments,300);
  const second=await h.request('POST','/exchange');
  assert.equal(second.payload.exchanged,false);
  assert.equal(second.payload.coinsGranted,0);
- assert.equal(h.wallet.get(user),106);
+ assert.equal(h.wallet.get(user),76);
  assert.equal((await h.request('GET','/excess')).payload.totalCards,0);
  assert.ok(h.sql.some(x=>x.includes('ORDER BY model FOR UPDATE')));
 });
