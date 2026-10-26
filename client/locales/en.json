@@ -253,7 +253,22 @@
     "referral_empty": "No new rewards yet",
     "referral_claim_failed": "Could not claim the reward",
     "referral_self": "You cannot redeem your own code",
-    "referral_already_used": "You have already redeemed a referral code"
+    "referral_already_used": "You have already redeemed a referral code",
+    "excess_title": "Extra cards",
+    "excess_intro": "You have extra character cards",
+    "excess_explain": "Exchange your cards for",
+    "excess_reward": "Reward:",
+    "excess_question": "Exchange?",
+    "excess_later": "Not now",
+    "excess_yes": "Yes",
+    "excess_received": "Received:",
+    "excess_none": "No extra cards remain",
+    "excess_error": "Could not exchange cards",
+    "excess_rarity_common": "common",
+    "excess_rarity_uncommon": "uncommon",
+    "excess_rarity_rare": "rare",
+    "excess_rarity_epic": "epic",
+    "excess_rarity_legendary": "legendary"
   },
   "game": {
     "map_short": "MAP",

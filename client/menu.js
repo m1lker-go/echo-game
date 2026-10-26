@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createCharacterLoaderSelector } from './character-textures.js?v=echo-isolated-character-atlas-1';
 import { getCharacterRarity } from './character-rarity.js';
+import { offerExcessCards, invalidateOffer } from './hero-exchange.js?v=1';
 
 const RARITY_CARDS = {
   common: { art: 'card_common.webp', ru: 'ОБЫЧНЫЙ', en: 'COMMON' },
@@ -172,13 +173,17 @@ function openSettings() {
 }
 
 startButton.addEventListener('click', startGame);
-characterButton.addEventListener('click', () => {showScreen('character');void loadHeroCollection();});
+characterButton.addEventListener('click', () => {
+ showScreen('character');
+ void loadHeroCollection();
+ void offerExcessCards();
+});
 settingsButton.addEventListener('click', openSettings);
 shopButton.addEventListener('click', () => showScreen('shop'));
 document.querySelector('#shop-back')?.addEventListener('click', openMenu);
 questsButton.addEventListener('click', () => { showScreen('quests'); window.dispatchEvent(new Event('echo:quests-open')); });
 document.querySelector('#quests-back')?.addEventListener('click', openMenu);
-characterBack.addEventListener('click', openMenu);
+characterBack.addEventListener('click', () => { invalidateOffer();openMenu(); });
 placeholderBack.addEventListener('click', openMenu);
 settingsBack?.addEventListener('click', openMenu);
 console.info('[echo menu] Main menu click handlers ready');
