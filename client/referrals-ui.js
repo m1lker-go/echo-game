@@ -126,10 +126,12 @@
   copy.addEventListener('click',()=>void copyCode());
   codeRow.append(value,copy);article.append(codeRow);
   article.append(node('p','echo-special-instruction',
-   t('referral_instructions','Друг должен войти в ECHO и в настройках выбрать «Ввести код». Оба получите по 2 обычных пака.')));
-  article.append(node('p','echo-referral-stats',
+   t('referral_instructions','Друг должен войти в игру и ввести код. Вы оба получите награду.')));
+  const stats=node('p','echo-referral-stats',
    t('referral_invited','Приглашено:')+' '+Math.max(0,Number(data.totalFriends)||0)+
-   ' · '+t('referral_pending','Не получена награда за:')+' '+pending));
+   '\n'+t('referral_pending','Наград собрано:')+' '+pending);
+  stats.style.whiteSpace='pre-line';
+  article.append(stats);
   if(failed)article.append(node('p','echo-referral-state',t('referral_load_failed','Не удалось обновить рефералов')));
   mount.append(article);
  }

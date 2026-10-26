@@ -163,12 +163,14 @@ test('client integrates referral quest into special tab and authenticated code m
  const codes=read('client/code-entry.js');
  const serverCodes=read('server/code-redemption.js');
  assert.match(html,/id="quests-referral"/);
- assert.match(html,/referrals-ui\.js\?v=1/);
+ assert.match(html,/referrals-ui\.js\?v=2/);
  assert.match(ui,/\/echo\/api\/referrals\/claim/);
  assert.match(ui,/echo-special-card echo-referral-card/);
  assert.match(ui,/icon_echocard_basic\.webp/);
  assert.match(ui,/×'\+pending/);
  assert.match(ui,/echo:shop-balance-refresh/);
+ assert.match(ui,/stats\.style\.whiteSpace='pre-line'/);
+ assert.match(ui,/Наград собрано:/);
  assert.match(codes,/data\.type==='referral'/);
  assert.match(codes,/icon_echocard_basic\.webp/);
  assert.match(serverCodes,/REF_CODE\.test\(code\)/);
@@ -177,5 +179,6 @@ test('client integrates referral quest into special tab and authenticated code m
   const data=JSON.parse(read('client/locales/'+lang+'.json'));
   assert.ok(data.menu.referral_title);
   assert.ok(data.menu.referral_claim);
+  assert.equal(data.menu.referral_pending,lang==='ru'?'Наград собрано:':'Rewards earned:');
  }
 });
