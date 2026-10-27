@@ -245,18 +245,52 @@ function loginMessage(message){
  if(loginError)loginError.textContent=message;
 }
 let vkSDKLoading=null;
-async function ensureVKID(){
- const config=await request('config');
+const VK_SDK_URLS=[
+ 'https://unpkg.com/@vkid/sdk@2.6.9/dist-sdk/umd/index.js',
+ 'https://cdn.jsdelivr.net/npm/@vkid/sdk@2.6.9/dist-sdk/umd/index.js'
+];
+// Third-party CDN access is sometimes interrupted inside iOS Safari/PWA.
+// An error or a hung script must not make VK / Mail / OK disappear forever.
+function loadVKIDSource(src){
+ return new Promise((resolve,reject)=>{
+  const script=document.createElement('script');
+  script.src=src;
+  script.async=true;
+  let finished=false;
+  const timeout=setTimeout(()=>complete(new Error('VK ID SDK request timed out')),7000);
+  function complete(error){
+   if(finished)return;
+   finished=true;
+   clearTimeout(timeout);
+   script.onload=null;script.onerror=null;
+   if(error){script.remove();reject(error);}
+   else resolve();
+  }
+  script.onload=()=>complete(window.VKIDSDK?null:new Error('VK ID SDK global is missing'));
+  script.onerror=()=>complete(new Error('VK ID SDK script failed to load'));
+  document.head.append(script);
+ });
+}
+async function loadVKIDWithFallback(){
+ let lastError;
+ for(const source of VK_SDK_URLS){
+  if(window.VKIDSDK)return;
+  try{await loadVKIDSource(source);return;}
+  catch(error){
+   console.warn('[VKID] failed to load SDK source:',source,error.message);
+   lastError=error;
+  }
+ }
+ throw lastError||new Error('VK ID SDK unavailable');
+}
+async function ensureVKID(preloadedConfig=null){
+ const config=preloadedConfig||await request('config');
  if(!config.enabled || Number(config.appId)!==ECHO_WEB_VK_CLIENT_ID){
   throw new Error('VK ID client is not configured for ECHO');
  }
  if(!window.VKIDSDK){
   if(!vkSDKLoading){
-   vkSDKLoading=new Promise((resolve,reject)=>{
-    const script=document.createElement('script');
-    script.src='https://unpkg.com/@vkid/sdk@2.6.9/dist-sdk/umd/index.js';
-    script.onload=resolve;script.onerror=reject;document.head.append(script);
-   }).finally(()=>{vkSDKLoading=null});
+   vkSDKLoading=loadVKIDWithFallback().finally(()=>{vkSDKLoading=null});
   }
   await vkSDKLoading;
  }
@@ -325,22 +359,57 @@ async function linkVK(){
  }
 }
 
+// VK ID may insert its icon list asynchronously after OAuthList.render().
+function placeOAuthButtons(widget){
+ const vkList=widget?.querySelector('.VkIdSdk_oauth_list');
+ if(!vkList)return false;
+ const yandex=oauthButtons.get('yandex:login');
+ const google=oauthButtons.get('google:login');
+ if(yandex&&google)vkList.prepend(yandex,google);
+ return true;
+}
+function awaitVKIcons(widget){
+ if(placeOAuthButtons(widget))return;
+ const observer=new MutationObserver(()=>{
+  if(!widget.isConnected){observer.disconnect();return;}
+  if(placeOAuthButtons(widget))observer.disconnect();
+ });
+ observer.observe(widget,{childList:true,subtree:true});
+ setTimeout(()=>observer.disconnect(),10000);
+}
+let loginRetry=null;
+function loginVKUnavailable(message){
+ loginMessage(message);
+ if(loginRetry)loginRetry.hidden=false;
+}
 async function start(){
  if(started||current)return;
+ const widget=loginWidget;
+ if(!widget?.isConnected)return;
  started=true;
+ if(loginRetry)loginRetry.hidden=true;
+ loginMessage(t('vk_login_loading','Загружаем ВКонтакте, Mail и Одноклассники…'));
  try{
   const config=await request('config');
-  if(!config.enabled){loginMessage(t('auth_not_configured','Ожидается настройка сервера'));return;}
+  if(!config.enabled){loginVKUnavailable(t('vk_login_unavailable','Не удалось загрузить VK ID. Попробуй ещё раз.'));return;}
   if(Number(config.appId)!==ECHO_WEB_VK_CLIENT_ID){
    console.error('[echo auth] VPS VK_ID_APP_ID mismatch. Expected Web VK ID',
     ECHO_WEB_VK_CLIENT_ID,'received',config.appId);
-   loginMessage('На сервере ECHO указан неверный VK ID. Проверь VK_ID_APP_ID и перезапусти echo-server.');
+   loginVKUnavailable(t('vk_login_unavailable','Не удалось загрузить VK ID. Попробуй ещё раз.'));
    return;
   }
-  const VKID=await ensureVKID();
-  new VKID.OAuthList().render({container:loginWidget,scheme:'dark',styles:{borderRadius:12,height:56},oauthList:['vkid','ok_ru','mail_ru']})
-   .on(VKID.WidgetEvents.ERROR,error=>{console.error('[VKID]',error);loginMessage(t('auth_failed','Ошибка авторизации'));})
+  const VKID=await ensureVKID(config);
+  // The player could have closed this dialog while the external SDK loaded.
+  if(widget!==loginWidget||!widget.isConnected)return;
+  widget.replaceChildren();
+  new VKID.OAuthList().render({container:widget,scheme:'dark',styles:{borderRadius:12,height:56},oauthList:['vkid','ok_ru','mail_ru']})
+   .on(VKID.WidgetEvents.ERROR,error=>{
+    if(widget!==loginWidget||!widget.isConnected)return;
+    console.error('[VKID]',error);
+    loginVKUnavailable(t('vk_login_unavailable','Не удалось загрузить VK ID. Попробуй ещё раз.'));
+   })
    .on(VKID.OAuthListInternalEvents.LOGIN_SUCCESS,async payload=>{
+    if(widget!==loginWidget||!widget.isConnected)return;
     try{
      const auth=await VKID.Auth.exchangeCode(payload.code,payload.device_id);
      const account=await request('vk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accessToken:auth.access_token})});
@@ -349,19 +418,13 @@ async function start(){
      window.ECHOModal?.close();
     }catch(error){console.error('[VKID]',error);loginMessage(t('auth_failed','Ошибка авторизации'));}
    });
-  // Place both ECHO OAuth controls inside the SDK's own three-provider
-  // icon list. All five become siblings in ONE grid row, and VK ID's
-  // original delegated click handler remains attached to its parent.
-  // Our buttons have no data-oauth, so VK ID will ignore their clicks.
-  const vkList=loginWidget?.querySelector('.VkIdSdk_oauth_list');
-  if(vkList){
-   const yandex=oauthButtons.get('yandex:login');
-   const google=oauthButtons.get('google:login');
-   if(yandex&&google)vkList.prepend(yandex,google);
-  }
+  awaitVKIcons(widget);
+  loginMessage('');
  }catch(error){
-  console.error('[VKID]',error);
-  loginMessage(t('auth_unavailable','Сервер авторизации ECHO недоступен'));
+  console.error('[VKID] login providers unavailable:',error);
+  if(widget===loginWidget&&widget.isConnected){
+   loginVKUnavailable(t('vk_login_unavailable','Не удалось загрузить VK ID. Попробуй ещё раз.'));
+  }
  }finally{started=false;}
 }
 document.querySelector('#menu-settings')?.addEventListener('click',()=>{if(token)refresh();});
@@ -384,7 +447,13 @@ document.querySelector('#echo-open-login')?.addEventListener('click',()=>{
  loginError=document.createElement('p');
  loginError.className='echo-login-error';
  loginError.setAttribute('role','status');
- content.append(intro,providers,loginError);
+ loginRetry=document.createElement('button');
+ loginRetry.type='button';
+ loginRetry.className='echo-vk-login-retry';
+ loginRetry.textContent=t('vk_login_retry','Повторить загрузку ВК / Mail / ОК');
+ loginRetry.hidden=true;
+ loginRetry.addEventListener('click',()=>void start());
+ content.append(intro,providers,loginError,loginRetry);
  window.ECHOModal?.open({
   title:t('auth_modal_title','АВТОРИЗАЦИЯ'),
   contentElement:content,

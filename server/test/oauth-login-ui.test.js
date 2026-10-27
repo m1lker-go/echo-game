@@ -13,7 +13,7 @@ test('Google and Yandex choices are visible outside VK Mini Apps even before OAu
  assert.match(code,/intro\.textContent=t\('login_select_method','Выберите способ входа'\)/);
  assert.match(code,/providers\.append\(oauthMethods,loginWidget\)/);
  assert.match(code,/styles:\{borderRadius:12,height:56\}/);
- assert.match(code,/const vkList=loginWidget\?\.querySelector\('\.VkIdSdk_oauth_list'\)/);
+ assert.match(code,/const vkList=widget\?\.querySelector\('\.VkIdSdk_oauth_list'\)/);
  assert.match(code,/if\(yandex&&google\)vkList\.prepend\(yandex,google\)/);
  assert.match(code,/button\.dataset\.configured=String\(ready\)/);
  assert.match(code,/startOAuth\(provider,link\)/);
@@ -49,8 +49,8 @@ test('authenticated users do not see account-link buttons in settings',()=>{
 });
 test('browser refreshes OAuth client assets after the visibility fix',()=>{
  const page=read('index.html');
- assert.match(page,/auth-ui\.js\?v=echo-vk-link-1/);
- assert.match(page,/auth\.css\?v=echo-five-shared-row-1/);
+ assert.match(page,/auth-ui\.js\?v=echo-vk-sdk-retry-1/);
+ assert.match(page,/auth\.css\?v=echo-vk-sdk-retry-1/);
 });
 
 test('ECHO Web auth never falls back to Cat Fighting and keeps its Web VK ID',()=>{
@@ -62,4 +62,26 @@ test('ECHO Web auth never falls back to Cat Fighting and keeps its Web VK ID',()
  assert.match(code,/VPS VK_ID_APP_ID mismatch/);
  assert.match(code,/oauthList:\['vkid','ok_ru','mail_ru'\]/);
  assert.doesNotMatch(code,/54853387/);
+});
+
+test('VK ID buttons have resilient SDK loading with retry and late SVG/icon insertion',()=>{
+ const code=read('auth-ui.js'),css=read('auth.css'),page=read('index.html');
+ assert.match(code,/https:\/\/unpkg\.com\/@vkid\/sdk@2\.6\.9/);
+ assert.match(code,/https:\/\/cdn\.jsdelivr\.net\/npm\/@vkid\/sdk@2\.6\.9/);
+ assert.match(code,/setTimeout\(\(\)=>complete\(new Error\('VK ID SDK request timed out'\)\),7000\)/);
+ assert.match(code,/const observer=new MutationObserver\(/);
+ assert.match(code,/observer\.observe\(widget,\{childList:true,subtree:true\}\)/);
+ assert.match(code,/if\(widget!==loginWidget\|\|!widget\.isConnected\)return/);
+ assert.match(code,/loginRetry\.addEventListener\('click',\(\)=>void start\(\)\)/);
+ assert.match(code,/loginRetry\.hidden=true/);
+ assert.match(code,/loginVKUnavailable\(/);
+ assert.match(css,/\.echo-vk-login-retry\[hidden\]\{display:none!important\}/);
+ assert.match(page,/auth-ui\.js\?v=echo-vk-sdk-retry-1/);
+ assert.match(page,/auth\.css\?v=echo-vk-sdk-retry-1/);
+ for(const lang of ['ru','en']){
+  const dictionary=JSON.parse(read('locales/'+lang+'.json'));
+  for(const label of ['vk_login_loading','vk_login_unavailable','vk_login_retry']){
+   assert.ok(dictionary.menu[label],lang+' is missing '+label);
+  }
+ }
 });

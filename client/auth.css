@@ -103,3 +103,13 @@
  .echo-modal-overlay .echo-oauth-icon-yandex{font-size:29px}
  .echo-modal-overlay .echo-oauth-icon-google{width:26px;height:26px}
 }
+
+/* Recover from third-party VK ID SDK being blocked or timing out on iPhone. */
+.echo-modal-overlay .echo-vk-login-retry{
+ display:block;margin:10px auto 0;padding:10px 16px;max-width:100%;
+ background:#000;border:1px solid #fff;border-radius:10px;color:#fff;
+ font:500 clamp(12px,2vh,14px)/1.25 Inter,system-ui,sans-serif;
+ cursor:pointer;touch-action:manipulation;
+}
+.echo-modal-overlay .echo-vk-login-retry[hidden]{display:none!important}
+.echo-modal-overlay .echo-vk-login-retry:hover{background:#182333}
