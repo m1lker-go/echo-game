@@ -34,5 +34,5 @@ test('In-game local character follows current selected model and authoritative s
  assert.match(game,/if\(p\.id===state\.socket\.id\)\{applyGameHero\(p\.skin\)/);
  assert.match(game,/createLocalModel\(file\)/);
  assert.match(html,/menu\.js\?v=echo-hero-persistence-1/);
- assert.match(html,/game\.js\?v=echo-hero-persistence-1/);
+ assert.match(html,/game\.js\?v=echo-ios-visible-size-1/);
 });
