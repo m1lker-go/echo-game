@@ -22,6 +22,9 @@ test('Visible iOS window height is measured from both viewports and updated on r
  assert.match(js,/window\.visualViewport\?\.addEventListener\('resize'/);
  assert.match(js,/window\.addEventListener\('orientationchange'/);
  assert.match(js,/echo-ios-short-window/);
+ assert.match(css,/echo-ios-device\.echo-ios-short-window/);
+ const game=fs.readFileSync(path.join(root,'game.js'),'utf8');
+ assert.match(game,/addEventListener\('echo:viewport-resized',resize/);
  assert.match(js,/if\(!ios\)return/);
 });
 test('Compact iPhone layout has scrollable main menu and playable landscape/portrait touch controls',()=>{
