@@ -196,6 +196,10 @@ const specialQuests = require('./special-quests').createSpecialQuests({
   pool, sessionUser: echoAuth.sessionUser, grantPack: freePacks.grant
 });
 app.use('/api/special-quests', specialQuests.router);
+const vkCommunityQuest = require('./vk-community-quest').createVKCommunityQuest({
+  pool, sessionUser:echoAuth.sessionUser, grantPack:freePacks.grant
+});
+app.use('/api/special-quests/vk-community', vkCommunityQuest.router);
 app.use('/api/payments/vk', express.urlencoded({ extended: false }), vkPayments.router);
 app.use('/api/payments/robokassa', express.urlencoded({ extended: false }), robokassaPayments.router);
 app.use('/api/purchases',purchaseHistory.router);
@@ -1404,6 +1408,7 @@ server.listen(port, '0.0.0.0', async () => {
     await freePacks.initialize();
     await referrals.initialize();
     await specialQuests.initialize();
+    await vkCommunityQuest.initialize();
     await vkPayments.initialize();
     await robokassaPayments.initialize();
     await purchaseHistory.initialize();

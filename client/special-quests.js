@@ -16,7 +16,10 @@
   const url = path => '/echo' + path;
   let activeTab = 'daily';
   let quest = null;
+  let vkQuest = null;
   let busy = false;
+  let vkBusy = false;
+  let vkLoadError = false;
   let copiedCode = null;
   let loadError = false;
   let lastExpiryAttempt = 0;
@@ -44,7 +47,7 @@
   function action(label, callback, cls = '') {
     const button = node('button', 'echo-special-action ' + cls, label);
     button.type = 'button';
-    button.disabled = busy;
+    button.disabled = busy || vkBusy;
     button.addEventListener('click', callback);
     return button;
   }
@@ -133,17 +136,122 @@
       showToast(t('special_error', 'Не удалось проверить задание'));
     } finally { busy = false; render(); }
   }
+  const VK_COMMUNITY_URL = 'https://vk.ru/club242489870';
+
+  async function checkVKCommunity() {
+    if (busy || vkBusy || !auth() || vkQuest?.claimed) return;
+    const originalToken = auth();
+    vkBusy = true;
+    render();
+    try {
+      const response = await fetch(url('/api/special-quests/vk-community/check'), {
+        method:'POST', headers:{Authorization:'Bearer '+originalToken}, cache:'no-store'
+      });
+      if(auth() !== originalToken)return;
+      const data = await response.json();
+      if(!response.ok){
+        const messages={
+          not_subscribed:t('special_vk_not_subscribed','Сначала подпишись на сообщество «ЭХО.»'),
+          vk_account_required:t('special_vk_account_required','Для проверки войди в ECHO через ВКонтакте'),
+          vk_verification_not_configured:t('special_vk_unavailable','Проверка подписки временно недоступна'),
+          vk_verification_unavailable:t('special_vk_unavailable','Проверка подписки временно недоступна')
+        };
+        showToast(messages[data.error] || t('special_vk_error','Не удалось проверить подписку'));
+        return;
+      }
+      vkQuest=data.quest;
+      if(data.claimedNow){
+        showPackRewardToast(data.reward?.quantity || 1);
+        window.dispatchEvent(new Event('echo:shop-balance-refresh'));
+      }else{
+        showToast(t('special_already_done','Задание уже выполнено'));
+      }
+    }catch(error){
+      console.warn('[special-quests] VK check failed:',error);
+      showToast(t('special_vk_error','Не удалось проверить подписку'));
+    }finally{vkBusy=false;render();}
+  }
+
+  function renderVKCommunity() {
+    if(!vkQuest)return;
+    const article=node('article','echo-special-card echo-special-vk-card'+(vkQuest.claimed?' is-complete':''));
+    const head=node('div','echo-special-head');
+    const logo=node('span','echo-special-logo');
+    const image=node('img','echo-special-logo-image');
+    image.src='./assets/icons/icon_echo.webp';
+    image.alt='';
+    logo.setAttribute('aria-hidden','true');
+    logo.append(image);
+    const heading=node('div','echo-special-heading');
+    heading.append(node('strong','',t('special_vk_name','СООБЩЕСТВО «ЭХО.»')));
+    if(!vkQuest.claimed)heading.append(node('span','',t('special_vk_join','Подпишись на сообщество ВКонтакте')));
+    const link=node('a','echo-special-visit');
+    link.href=VK_COMMUNITY_URL;
+    link.target='_blank';
+    link.rel='noopener noreferrer';
+    link.title=t('special_vk_open','Открыть сообщество «ЭХО.»');
+    link.setAttribute('aria-label',link.title);
+    const visitIcon=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    visitIcon.setAttribute('viewBox','0 0 24 24');
+    visitIcon.setAttribute('fill','none');
+    visitIcon.setAttribute('stroke','currentColor');
+    visitIcon.setAttribute('stroke-width','2.1');
+    visitIcon.setAttribute('stroke-linecap','round');
+    visitIcon.setAttribute('stroke-linejoin','round');
+    visitIcon.setAttribute('aria-hidden','true');
+    visitIcon.innerHTML='<path d="M4 9V4.5A1.5 1.5 0 0 1 5.5 3h13A1.5 1.5 0 0 1 20 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19.5V15"/><path d="M2 12h13m-5-5 5 5-5 5"/>';
+    link.append(visitIcon);
+    link.addEventListener('click',event=>{
+      if(!window.isVKMiniApp || !window.vkBridge?.send || event.button!==0 ||
+          event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)return;
+      event.preventDefault();
+      window.vkBridge.send('VKWebAppOpenURL',{url:VK_COMMUNITY_URL,target:'external'})
+        .catch(error=>{
+          console.warn('[special-quests] VK group open failed:',error);
+          showToast(t('special_vk_open_failed','Не удалось открыть сообщество'));
+        });
+    });
+    head.append(logo,heading,link);
+    article.append(head);
+    if(!vkQuest.claimed){
+      const rewardLine=node('div','echo-special-reward');
+      const label=node('span','echo-special-reward-label',t('special_reward_title','Награда:'));
+      const rewardIcon=node('img','echo-special-reward-icon');
+      rewardIcon.src=specialPackIcon;
+      rewardIcon.alt=t('special_reward_pack_name','Специальный набор');
+      rewardIcon.width=36;
+      rewardIcon.height=36;
+      const quantity=node('span','echo-special-reward-quantity',t('special_reward_quantity','1 шт.'));
+      rewardLine.append(label,rewardIcon,quantity);
+      rewardLine.append(action(t('special_check','Проверка'),checkVKCommunity,'echo-special-check'));
+      article.append(rewardLine);
+      if(!vkQuest.vkLinked){
+        article.append(node('p','echo-special-instruction',t('special_vk_account_required','Для проверки войди в ECHO через ВКонтакте')));
+      }else if(!vkQuest.verificationAvailable){
+        article.append(node('p','echo-special-instruction',t('special_vk_unavailable','Проверка подписки временно недоступна')));
+      }
+    }
+    specialList.append(article);
+  }
+
   function render() {
     if (activeTab !== 'special') return;
     specialList.replaceChildren();
     specialStatus.textContent = '';
-    if (loadError) { specialStatus.textContent = t('special_error', 'Не удалось загрузить особое задание'); return; }
     if (!auth()) {
       specialStatus.textContent = t('quests_guest', 'Задания доступны только авторизованным пользователям.');
       return;
     }
+    renderVKCommunity();
+    if (loadError) {
+      specialStatus.textContent = t('special_error', 'Не удалось загрузить особое задание');
+      return;
+    }
+    if (vkLoadError && !vkQuest) {
+      specialStatus.textContent = t('special_vk_load_error', 'Не удалось загрузить задание сообщества VK');
+    }
     if (!quest) {
-      specialStatus.textContent = t('special_loading', 'Загружаем особое задание…');
+      if (!specialStatus.textContent) specialStatus.textContent = t('special_loading', 'Загружаем особое задание…');
       return;
     }
     const article = node('article', 'echo-special-card' + (quest.claimed ? ' is-complete' : ''));
@@ -229,26 +337,44 @@
     specialList.append(article);
   }
   async function refresh() {
-    if (screen.hidden || activeTab !== 'special' || busy) return;
+    if (screen.hidden || activeTab !== 'special' || busy || vkBusy) return;
     const originalToken = auth();
-    if (!originalToken) { quest = null; render(); return; }
+    if (!originalToken) { quest = null; vkQuest = null; render(); return; }
     busy = true;
-    if (!quest) render();
+    if (!quest && !vkQuest) render();
     try {
-      const response = await fetch(url('/api/special-quests'), {
-        headers: { Authorization: 'Bearer ' + originalToken }, cache: 'no-store'
-      });
+      const [catResult, vkResult] = await Promise.allSettled([
+        fetch(url('/api/special-quests'), {
+          headers:{Authorization:'Bearer '+originalToken}, cache:'no-store'
+        }),
+        fetch(url('/api/special-quests/vk-community'), {
+          headers:{Authorization:'Bearer '+originalToken}, cache:'no-store'
+        })
+      ]);
       if (auth() !== originalToken) return;
-      if (!response.ok) throw new Error(String(response.status));
-      const data = await response.json();
-      quest = data.quest;
-      loadError = false;
-      if (!copiedCode) {
-        try { copiedCode = sessionStorage.getItem('echo.specialCopied'); } catch {}
+      if (catResult.status === 'fulfilled' && catResult.value.ok) {
+        const data = await catResult.value.json();
+        quest = data.quest;
+        loadError = false;
+        if (!copiedCode) {
+          try { copiedCode = sessionStorage.getItem('echo.specialCopied'); } catch {}
+        }
+      } else {
+        console.warn('[special-quests] Cat Fighting quest unavailable');
+        loadError = true;
+      }
+      if (vkResult.status === 'fulfilled' && vkResult.value.ok) {
+        const data = await vkResult.value.json();
+        vkQuest = data.quest;
+        vkLoadError = false;
+      } else {
+        console.warn('[special-quests] VK community quest unavailable');
+        vkLoadError = true;
       }
     } catch (error) {
-      console.warn('[special-quests] fetch failed:', error);
+      console.warn('[special-quests] refresh failed:',error);
       loadError = true;
+      vkLoadError = true;
     } finally {
       busy = false;
       render();
@@ -264,7 +390,7 @@
     specialTab.textContent = t('quests_tab_special', 'Особые');
     render();
   });
-  document.addEventListener('echo:auth-changed', () => { quest = null; copiedCode = null; if (activeTab === 'special') void refresh(); });
+  document.addEventListener('echo:auth-changed', () => { quest = null; vkQuest = null; copiedCode = null; loadError = false; vkLoadError = false; if (activeTab === 'special') void refresh(); });
   document.addEventListener('visibilitychange', () => { if (!document.hidden && activeTab === 'special') void refresh(); });
   window.addEventListener('focus', () => { if (activeTab === 'special') void refresh(); });
   // Updates expiration, and requests the next 30-minute code when the old one lapses.
