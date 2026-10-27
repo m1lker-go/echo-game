@@ -1,6 +1,7 @@
 // ECHO main menu, character selection and menu background animation.
 // Character selection is persisted locally and passed to the game through localStorage.
 import * as THREE from 'three';
+import { isMobilePerformanceDevice, renderPixelRatio, targetFrameInterval } from './render-performance.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createCharacterLoaderSelector } from './character-textures.js?v=echo-isolated-character-atlas-1';
 import { getCharacterRarity } from './character-rarity.js';
@@ -100,6 +101,9 @@ let selectedModel = localStorage.getItem(storageKey) || defaultModel;
 window.ECHO_SELECTED_MODEL = selectedModel;
 ensureUnlockedSelection();
 
+const ECHO_MOBILE_RENDER=isMobilePerformanceDevice(navigator.userAgent,window.matchMedia?.('(pointer: coarse)')?.matches);
+const ECHO_PREVIEW_INTERVAL=1000/(ECHO_MOBILE_RENDER?24:30);
+const ECHO_MENU_INTERVAL=targetFrameInterval(ECHO_MOBILE_RENDER);
 const menu = document.querySelector('#main-menu');
 const mainScreen = document.querySelector('#menu-main');
 const characterScreen = document.querySelector('#menu-character');
@@ -218,7 +222,7 @@ const cardViews = new Map();
 // the number of simultaneously active WebGL contexts; one renderer per card
 // causes some previews to turn white or lose their context on phones.
 let previewRenderer = null;
-let previewPixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+let previewPixelRatio = renderPixelRatio(window.devicePixelRatio,true);
 try {
   previewRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' });
   previewRenderer.setPixelRatio(previewPixelRatio);
@@ -559,8 +563,13 @@ i18nReady.then(() => {
 // Render visible previews sequentially through one shared GPU context.
 let lastPreviewTime = 0;
 function renderCharacterPreviews(time) {
+  requestAnimationFrame(renderCharacterPreviews);
+  if(document.hidden||menu.classList.contains('is-hidden')||characterScreen.hidden){
+    lastPreviewTime=0;return;
+  }
+  if(lastPreviewTime&&time-lastPreviewTime<ECHO_PREVIEW_INTERVAL-1)return;
   if (previewRenderer) {
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    const dpr = renderPixelRatio(window.devicePixelRatio,true);
     if (dpr !== previewPixelRatio) {
       previewPixelRatio = dpr;
       previewRenderer.setPixelRatio(dpr);
@@ -601,7 +610,6 @@ function renderCharacterPreviews(time) {
     }
   }
   lastPreviewTime = time;
-  requestAnimationFrame(renderCharacterPreviews);
 }
 requestAnimationFrame(renderCharacterPreviews);
 
@@ -615,14 +623,21 @@ const food = Array.from({ length: 46 }, (_, index) => ({
 }));
 const foodCtx = foodCanvas.getContext('2d');
 function resizeFood() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = renderPixelRatio(window.devicePixelRatio,ECHO_MOBILE_RENDER);
   foodCanvas.width = Math.round(window.innerWidth * dpr);
   foodCanvas.height = Math.round(window.innerHeight * dpr);
   foodCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 window.addEventListener('resize', resizeFood, { passive: true });
 resizeFood();
+let lastMenuFoodAt=0;
 function drawFood(time) {
+  requestAnimationFrame(drawFood);
+  if(document.hidden||menu.classList.contains('is-hidden')||mainScreen.hidden){
+    lastMenuFoodAt=0;return;
+  }
+  if(lastMenuFoodAt&&time-lastMenuFoodAt<ECHO_MENU_INTERVAL-1)return;
+  lastMenuFoodAt=time;
   const w = window.innerWidth;
   const h = window.innerHeight;
   foodCtx.clearRect(0, 0, w, h);
@@ -640,7 +655,6 @@ function drawFood(time) {
     foodCtx.fillStyle = `rgba(235,248,255,${0.28 + pulse * 0.42})`;
     foodCtx.beginPath(); foodCtx.arc(x, y, r, 0, Math.PI * 2); foodCtx.fill();
   }
-  requestAnimationFrame(drawFood);
 }
 requestAnimationFrame(drawFood);
 

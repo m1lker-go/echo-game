@@ -20,7 +20,7 @@ test('White food dots are default while WebP preview preserves authoritative pic
  assert.match(script,/socket\.on\('echo:food', syncFood\)/);
  assert.match(server,/point\.active = false/);
  assert.match(server,/createFoodSnapshot/);
- assert.match(html,/shared-food\.js\?v=echo-food-dots-1/);
+ assert.match(html,/shared-food\.js\?v=echo-render-budget-1/);
 });
 
 test('The preview asset is animated transparent WebP and its dimensions suit a food icon',()=>{

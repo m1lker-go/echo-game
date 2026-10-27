@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { isMobilePerformanceDevice, renderPixelRatio, targetFrameInterval, shouldDrawScene } from './render-performance.js';
 import { playGameSound } from './audio-effects.js?v=echo-sfx-1';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createCharacterLoaderSelector } from './character-textures.js?v=echo-isolated-character-atlas-1';
@@ -31,7 +32,9 @@ localStorage.setItem('echo.playerName', guestPlayerName);
 const canvas=document.querySelector('#world'),modelCanvas=document.querySelector('#models'),ctx=canvas.getContext('2d',{alpha:true}),energyText=document.querySelector('#energy'),coordsText=document.querySelector('#coords'),connectionDot=document.querySelector('#connection-dot'),connectionLabel=document.querySelector('#connection-label'),gameExitButton=document.querySelector('#game-exit'),joystick=document.querySelector('#joystick'),stick=document.querySelector('#stick'),boostButton=document.querySelector('#boost'),jumpButton=document.querySelector('#jump'),defeatScreen=document.querySelector('#defeat-screen'),defeatReplay=document.querySelector('#defeat-replay'),defeatMenu=document.querySelector('#defeat-menu');
 const state={x:0,y:0,vx:0,vy:0,energy:0,cameraX:0,cameraY:0,inputX:0,inputY:0,width:1,height:1,dpr:1,keys:new Set(),lastTime:0,boostUntil:0,boostCooldownUntil:0,jumpUntil:0,jumpStart:0,jumpFromX:0,jumpFromY:0,jumpToX:0,jumpToY:0,combatUntil:0,combatOpponentId:null,combatFightId:null,defeated:false,socket:null,others:new Map(),lastSent:0,lastSnapshotAt:0,hasServerSpawn:false,shieldUntil:0};
 const WORLD={spacing:84},ISO={x:.8660254,y:.5},JUMP_DISTANCE=420,JUMP_DURATION=200,FIGHT_DURATION=1000;
-const modelScene=new THREE.Scene(),modelCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,1000);modelCamera.position.z=100;const modelRenderer=new THREE.WebGLRenderer({canvas:modelCanvas,alpha:true,antialias:true});modelRenderer.setPixelRatio(Math.min(devicePixelRatio||1,2));modelRenderer.outputColorSpace=THREE.SRGBColorSpace;modelRenderer.setClearColor(0,0);const ambientLight=new THREE.AmbientLight(0x4f6b7d,4.0);modelScene.add(ambientLight);const keyLight=new THREE.DirectionalLight(0xb9dcf5,3.6);keyLight.position.set(-100,57.735,0);modelScene.add(keyLight);
+const ECHO_MOBILE_RENDER=isMobilePerformanceDevice(navigator.userAgent,window.matchMedia?.('(pointer: coarse)')?.matches);
+const ECHO_FRAME_INTERVAL=targetFrameInterval(ECHO_MOBILE_RENDER);
+const modelScene=new THREE.Scene(),modelCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,1000);modelCamera.position.z=100;const modelRenderer=new THREE.WebGLRenderer({canvas:modelCanvas,alpha:true,antialias:true,powerPreference:ECHO_MOBILE_RENDER?'low-power':'default'});modelRenderer.setPixelRatio(renderPixelRatio(devicePixelRatio,ECHO_MOBILE_RENDER));modelRenderer.outputColorSpace=THREE.SRGBColorSpace;modelRenderer.setClearColor(0,0);const ambientLight=new THREE.AmbientLight(0x4f6b7d,4.0);modelScene.add(ambientLight);const keyLight=new THREE.DirectionalLight(0xb9dcf5,3.6);keyLight.position.set(-100,57.735,0);modelScene.add(keyLight);
 const mobileFloorReflections=createMobileFloorReflections({THREE,renderer:modelRenderer,scene:modelScene,camera:modelCamera,cloneSkeleton});
 const loader=new GLTFLoader(),DEFAULT_MODEL='character-female-a.glb',ALLOWED_MODELS=new Set(['character-female-a.glb','character-female-b.glb','character-female-c.glb','character-female-d.glb','character-female-e.glb','character-female-f.glb','character-male-a.glb','character-male-b.glb','character-male-c.glb','character-male-d.glb','character-male-e.glb','character-male-f.glb','character-ghost.glb','character-keeper.glb','character-skeleton.glb','character-zombie.glb','character-human.glb','character-orc.glb']),modelCache={source:null,clips:[],local:null,localAnimation:null,others:new Map(),otherSources:new Map(),ready:false};
 let selectedModel=ALLOWED_MODELS.has(localStorage.getItem('echo.selectedModel'))?localStorage.getItem('echo.selectedModel'):DEFAULT_MODEL;
@@ -137,7 +140,7 @@ function resize(){
   const rect=canvas.getBoundingClientRect();
   const pixelWidth=Math.max(1,rect.width),pixelHeight=Math.max(1,rect.height);
   const viewport=getWorldViewport(pixelWidth,pixelHeight);
-  state.dpr=Math.min(devicePixelRatio||1,2);
+  state.dpr=renderPixelRatio(devicePixelRatio,ECHO_MOBILE_RENDER);
   // Fixed zoomed-in vertical field of view (350 world units at 2x zoom).
   // Aspect ratio controls ONLY the visible horizontal field of view.
   state.width=viewport.width;
@@ -281,4 +284,28 @@ function getSafeJumpTarget(startX,startY,dx,dy){for(let distance=JUMP_DISTANCE;d
 function triggerJump(){const now=performance.now();if(now<state.jumpUntil||state.defeated||state.combatUntil>now)return;let l=Math.hypot(state.vx,state.vy),dx,dy;if(l>=1){dx=state.vx/l;dy=state.vy/l;}else{const screenX=state.inputX+(state.keys.has('ArrowRight')||state.keys.has('d')?1:0)-(state.keys.has('ArrowLeft')||state.keys.has('a')?1:0),screenY=state.inputY+(state.keys.has('ArrowDown')||state.keys.has('s')?1:0)-(state.keys.has('ArrowUp')||state.keys.has('w')?1:0),inputLength=Math.hypot(screenX,screenY);if(inputLength>0.01){const x=screenX/inputLength,y=screenY/inputLength;dx=x/(2*ISO.x)+y/(2*ISO.y);dy=-x/(2*ISO.x)+y/(2*ISO.y);const worldLength=Math.hypot(dx,dy);dx/=worldLength;dy/=worldLength;}else{const facing=modelCache.local?.children?.[0]?.rotation?.y??modelCache.local?.rotation?.y??0;dx=Math.sin(facing);dy=Math.cos(facing);if(Math.hypot(dx,dy)<.01){dx=0;dy=1;}}}const target=getSafeJumpTarget(state.x,state.y,dx,dy);if(Math.hypot(target.x-state.x,target.y-state.y)<24)return;playGameSound('jump');window.dispatchEvent(new CustomEvent('echo:player-movement',{detail:{vx:0,vy:0}}));state.jumpStart=now;state.jumpUntil=now+JUMP_DURATION;state.jumpFromX=state.x;state.jumpFromY=state.y;state.jumpToX=target.x;state.jumpToY=target.y;}jumpButton?.addEventListener('pointerdown',triggerJump);
 function update(dt,time){sendDailyActivityPing(time);if(state.defeated){state.vx=0;state.vy=0;window.dispatchEvent(new CustomEvent('echo:player-movement',{detail:{vx:0,vy:0}}))}else if(time<state.combatUntil){state.vx=0;state.vy=0;window.dispatchEvent(new CustomEvent('echo:player-movement',{detail:{vx:0,vy:0}}))}else if(time<state.jumpUntil){const p=Math.min(1,(time-state.jumpStart)/200);state.x=state.jumpFromX+(state.jumpToX-state.jumpFromX)*p;state.y=state.jumpFromY+(state.jumpToY-state.jumpFromY)*p;state.vx=(state.jumpToX-state.jumpFromX)/.2;state.vy=(state.jumpToY-state.jumpFromY)/.2}else{if(state.jumpStart){state.vx=0;state.vy=0;state.jumpStart=0}const inWater=isPlayerInWater();state.speedMultiplier=inWater?.5:1;window.dispatchEvent(new CustomEvent('echo:water-state',{detail:{inWater,x:state.x,y:state.y,vx:state.vx,vy:state.vy,cameraX:state.cameraX,cameraY:state.cameraY}}));updatePlayerMovement(state,dt,time,ISO,worldObjects.trees)}state.cameraX=state.x;state.cameraY=state.y;coordsText.textContent=`${Math.round(state.x)} · ${Math.round(state.y)}`;if(state.socket?.connected&&state.hasServerSpawn&&!state.defeated&&time-state.lastSent>80){state.lastSent=time;state.socket.emit('echo:move',{x:state.x,y:state.y,energy:state.energy,vx:state.vx,vy:state.vy,skin:selectedModel});}}
 function triggerBoost(){const now=performance.now();if(now<state.boostCooldownUntil||state.defeated||state.combatUntil>now)return;playGameSound('dash');state.boostUntil=now+700;state.boostCooldownUntil=now+3000;boostButton.classList.remove('cooldown','ready');boostButton.classList.add('active');setTimeout(()=>boostButton.classList.remove('active'),700);const countdown=document.createElement('span');countdown.className='ability-cooldown';countdown.setAttribute('aria-hidden','true');boostButton.appendChild(countdown);boostButton.classList.add('cooldown');const phases=[{value:'2',start:0,duration:850},{value:'1',start:1150,duration:1550}];let last=-1;const tick=()=>{const elapsed=performance.now()-now;if(elapsed>=3000){countdown.remove();boostButton.classList.remove('cooldown');boostButton.classList.add('ready');setTimeout(()=>boostButton.classList.remove('ready'),450);return;}const i=phases.findIndex(p=>elapsed>=p.start&&elapsed<p.start+p.duration);if(i!==last){last=i;countdown.classList.remove('countdown-pop');if(i>=0){countdown.textContent=phases[i].value;countdown.style.animationDuration=`${phases[i].duration}ms`;void countdown.offsetWidth;countdown.classList.add('countdown-pop')}else countdown.textContent='';}requestAnimationFrame(tick)};tick();}
-loadWorldTreeModel();loadWorldWaterModels();bindPlayerControls({state,joystick,stick,boostButton,triggerBoost,jumpButton,triggerJump});function frame(time){const dt=state.lastTime?Math.min((time-state.lastTime)/1000,.05):0;update(dt,time);draw(time);state.lastTime=time;requestAnimationFrame(frame)}requestAnimationFrame(frame);
+loadWorldTreeModel();loadWorldWaterModels();bindPlayerControls({state,joystick,stick,boostButton,triggerBoost,jumpButton,triggerJump});
+// Render only during an active, visible battle. Never run heavy GPU passes behind menus.
+let renderRequest=0,previousRenderedAt=0;
+function frame(time){
+ renderRequest=0;
+ if(!shouldDrawScene(inActiveGame(),document.hidden)){
+  state.lastTime=0;previousRenderedAt=0;return;
+ }
+ renderRequest=requestAnimationFrame(frame);
+ if(previousRenderedAt&&time-previousRenderedAt<ECHO_FRAME_INTERVAL-1)return;
+ const dt=state.lastTime?Math.min((time-state.lastTime)/1000,.05):0;
+ update(dt,time);draw(time);
+ state.lastTime=time;previousRenderedAt=time;
+}
+function syncGameRender(){
+ if(!shouldDrawScene(inActiveGame(),document.hidden)){
+  if(renderRequest)cancelAnimationFrame(renderRequest);
+  renderRequest=0;state.lastTime=0;previousRenderedAt=0;return;
+ }
+ if(!renderRequest)renderRequest=requestAnimationFrame(frame);
+}
+document.addEventListener('visibilitychange',syncGameRender);
+document.addEventListener('echo:returned-to-menu',syncGameRender);
+document.addEventListener('echo:game-started',syncGameRender);
+syncGameRender();

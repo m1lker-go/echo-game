@@ -1,3 +1,6 @@
+import { isMobilePerformanceDevice, renderPixelRatio } from './render-performance.js';
+const mobilePowerSave=isMobilePerformanceDevice(navigator.userAgent,window.matchMedia?.('(pointer: coarse)')?.matches);
+const auraFrameInterval=1000/(mobilePowerSave?20:30);
 const game = document.querySelector('#game');
 const worldCanvas = document.querySelector('#world');
 
@@ -32,18 +35,22 @@ if (game && worldCanvas) {
 
   function resize() {
     const rect = canvas.getBoundingClientRect();
-    state.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    state.dpr = renderPixelRatio(window.devicePixelRatio,mobilePowerSave);
     state.width = rect.width;
     state.height = rect.height;
     canvas.width = Math.max(1, Math.round(rect.width * state.dpr));
     canvas.height = Math.max(1, Math.round(rect.height * state.dpr));
   }
 
+  let lastAuraAt=0;
   function drawAura(time) {
-    if (!ctx || !state.width || !state.height) {
-      requestAnimationFrame(drawAura);
-      return;
+    requestAnimationFrame(drawAura);
+    if(document.hidden || !game.classList.contains('echo-in-battle')){
+      lastAuraAt=0;return;
     }
+    if(lastAuraAt && time-lastAuraAt<auraFrameInterval-1)return;
+    lastAuraAt=time;
+    if (!ctx || !state.width || !state.height) return;
 
     ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
     ctx.clearRect(0, 0, state.width, state.height);
@@ -80,7 +87,6 @@ if (game && worldCanvas) {
     ctx.fillStyle = innerGlow;
     ctx.fillRect(0, 0, state.width, state.height);
 
-    requestAnimationFrame(drawAura);
   }
 
   window.addEventListener('resize', resize, { passive: true });

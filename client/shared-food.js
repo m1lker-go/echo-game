@@ -1,6 +1,9 @@
 import { getWorldViewport } from './viewport-scale.js?v=echo-world-zoom-2';
+import { isMobilePerformanceDevice, renderPixelRatio, targetFrameInterval } from './render-performance.js';
 import { loadAnimatedWebpFrames } from './animated-webp-frames.js?v=echo-webp-frames-1';
 
+const ECHO_MOBILE_RENDER=isMobilePerformanceDevice(navigator.userAgent,window.matchMedia?.('(pointer: coarse)')?.matches);
+const ECHO_FOOD_INTERVAL=targetFrameInterval(ECHO_MOBILE_RENDER);
 const foodCanvas = document.querySelector('#shared-food');
 const energyText = document.querySelector('#energy');
 
@@ -122,14 +125,14 @@ function findSocket() {
     attachSocket(window.echoSocket);
     return;
   }
-  requestAnimationFrame(findSocket);
+  setTimeout(findSocket,250);
 }
 findSocket();
 
 function resize() {
   if (!foodCanvas) return;
   const rect = foodCanvas.getBoundingClientRect();
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = renderPixelRatio(window.devicePixelRatio,ECHO_MOBILE_RENDER);
   foodCanvas.width = Math.max(1, Math.round(rect.width * dpr));
   foodCanvas.height = Math.max(1, Math.round(rect.height * dpr));
 }
@@ -155,15 +158,20 @@ function readCamera() {
   cameraY = match ? Number(match[2]) : 0;
 }
 
+let lastFoodFrame=0;
 function draw(time) {
-  const dt = Math.min(Math.max((time - lastTime) / 1000, 0), 0.05);
-  lastTime = time;
+  requestAnimationFrame(draw);
+  if(document.hidden||document.querySelector('#main-menu')?.classList.contains('is-hidden')!==true||!isConnected){
+    lastFoodFrame=0;lastTime=0;return;
+  }
+  if(lastFoodFrame&&time-lastFoodFrame<ECHO_FOOD_INTERVAL-1)return;
+  const dt=lastTime?Math.min(Math.max((time-lastTime)/1000,0),0.05):0;
+  lastTime=time;lastFoodFrame=time;
   readCamera();
-
   if (foodCanvas && isConnected) {
     const rect = foodCanvas.getBoundingClientRect();
     const { width, height, scale } = getWorldViewport(rect.width, rect.height);
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = renderPixelRatio(window.devicePixelRatio,ECHO_MOBILE_RENDER);
     const ctx = foodCanvas.getContext('2d');
 
     if (ctx) {
@@ -232,6 +240,5 @@ function draw(time) {
       }
     }
   }
-  requestAnimationFrame(draw);
 }
 requestAnimationFrame(draw);
