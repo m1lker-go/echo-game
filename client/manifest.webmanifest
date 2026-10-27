@@ -1,0 +1,26 @@
+{
+  "name": "ECHO — игра",
+  "short_name": "ECHO",
+  "description": "Многопользовательская игра ECHO",
+  "id": "/echo/",
+  "start_url": "/echo/",
+  "scope": "/echo/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#030406",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "./assets/icons/icon_echo.webp",
+      "sizes": "200x200",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/icons/favicon.png",
+      "sizes": "120x120",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

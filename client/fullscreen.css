@@ -208,3 +208,8 @@ html.echo-vk-mobile-mini #game > #echo-fullscreen-toggle {
   display: none !important;
   pointer-events: none !important;
 }
+
+/* iPhone standalone mode already occupies the app window, without Safari tabs. */
+#game > #echo-fullscreen-toggle[hidden]{display:none!important}
+.echo-ios-fullscreen-help{display:flex;flex-direction:column;gap:9px;text-align:left;max-width:440px;margin:0 auto}
+.echo-ios-fullscreen-help p{margin:0;color:#dce8f4;font:500 clamp(12px,2.4vh,16px)/1.45 Inter,system-ui,sans-serif}
