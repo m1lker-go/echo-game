@@ -115,35 +115,98 @@ router.get('/config', (_req, res) => res.json({
   googleEnabled: echoOAuth.hasCredentials('google'),
   yandexEnabled: echoOAuth.hasCredentials('yandex')
 }));
-const vkLoginHandler = appId => async (req,res) => {
-  const accessToken = req.body?.accessToken;
-  if (!/^\d+$/.test(appId) || typeof accessToken !== 'string' || accessToken.length < 20 || accessToken.length > 4096)
-    return res.status(400).json({ error: 'Invalid VK ID request' });
+async function verifyVKIDAccessToken(appId, accessToken) {
+  if (!/^\d+$/.test(appId) || typeof accessToken !== 'string' ||
+      accessToken.length < 20 || accessToken.length > 4096) {
+    const error = new Error('Invalid VK ID token');
+    error.status = 400;
+    throw error;
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6500);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 6500);
-    let data;
-    try {
-      const response = await fetch('https://id.vk.com/oauth2/user_info?client_id=' + encodeURIComponent(appId), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ access_token: accessToken }),
-        signal: controller.signal,
-      });
-      if (!response.ok) throw new Error('VK ID rejected token');
-      data = await response.json();
-    } finally { clearTimeout(timer); }
-    const uid = data?.user?.user_id;
-    if (!uid || !/^[a-zA-Z0-9_-]{1,120}$/.test(String(uid))) return res.status(401).json({ error: 'VK ID verification failed' });
+    const response = await fetch('https://id.vk.com/oauth2/user_info?client_id=' + encodeURIComponent(appId), {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:new URLSearchParams({access_token:accessToken}),
+      signal:controller.signal
+    });
+    if (!response.ok) throw new Error('VK ID rejected token');
+    const data=await response.json();
+    const uid=data?.user?.user_id;
+    if(!uid || !/^[a-zA-Z0-9_-]{1,120}$/.test(String(uid)))throw new Error('VK ID verification failed');
+    return String(uid);
+  } finally {clearTimeout(timer);}
+}
+const vkLoginHandler = appId => async (req,res) => {
+  try {
+    const uid=await verifyVKIDAccessToken(appId,req.body?.accessToken);
     res.json(await createVKAccountSession(uid));
-  } catch (error) {
+  } catch(error) {
     console.error('[auth] VK ID login failed:',error.message);
-    res.status(502).json({error:'VK ID login failed'});
+    res.status(error.status===400?400:502).json({error:'VK ID login failed'});
   }
 };
 // Validate Web and native Android tokens against their own registered VK ID clients.
 router.post('/vk', vkLoginHandler(APP_ID));
 router.post('/vk/android', vkLoginHandler(ANDROID_APP_ID));
+
+// Explicit VK identity link for an already authenticated Google/Yandex player.
+// This endpoint NEVER switches sessions or merges two ECHO game profiles.
+router.post('/vk/link', async (req,res) => {
+  const signedIn = await sessionUser(req);
+  if (!signedIn) return res.status(401).json({error:'Unauthorized'});
+  let uid;
+  try {uid=await verifyVKIDAccessToken(APP_ID,req.body?.accessToken);}
+  catch(error){
+    console.warn('[auth] VK linking identity verification failed:',error.message);
+    return res.status(error.status===400?400:502).json({error:'VK verification failed',code:'vk_verification_failed'});
+  }
+  let client;
+  try {
+    client=await pool.connect();
+    await client.query('BEGIN');
+    const account=await client.query(
+      "SELECT id FROM echo_accounts WHERE id=$1 AND provider IN ('google','yandex') FOR UPDATE",
+      [signedIn.id]
+    );
+    if (!account.rowCount) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({error:'This account cannot link VK',code:'vk_link_not_allowed'});
+    }
+    const current=await client.query(
+      "SELECT provider_id FROM echo_auth_identities WHERE account_id=$1 AND provider='vkid'",
+      [signedIn.id]
+    );
+    if (current.rowCount) {
+      await client.query('ROLLBACK');
+      return current.rows[0].provider_id===uid
+        ? res.json({linked:true})
+        : res.status(409).json({error:'Different VK identity already linked',code:'vk_already_linked_to_account'});
+    }
+    const owner=await client.query(
+      "SELECT account_id FROM echo_auth_identities WHERE provider='vkid' AND provider_id=$1",
+      [uid]
+    );
+    if (owner.rowCount && String(owner.rows[0].account_id)!==String(signedIn.id)) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({error:'VK identity belongs to another account',code:'vk_already_linked'});
+    }
+    await client.query(
+      "INSERT INTO echo_auth_identities(account_id,provider,provider_id) VALUES($1,'vkid',$2)",
+      [signedIn.id,uid]
+    );
+    await client.query('COMMIT');
+    res.set('Cache-Control','no-store');
+    res.json({linked:true});
+  } catch(error) {
+    if(client) await client.query('ROLLBACK').catch(()=>{});
+    if(error.code==='23505')return res.status(409).json({error:'VK identity already linked',code:'vk_already_linked'});
+    console.error('[auth] VK identity link failed:',error.message);
+    res.status(500).json({error:'VK account linking unavailable'});
+  } finally {client?.release();}
+});
+
 // VK Mini App uses signed launch params, not the browser VK ID OAuth token.
 router.post('/vk-launch', async (req, res) => {
   if (!/^\d+$/.test(MINI_APP_ID) || !MINI_APP_SECRET)

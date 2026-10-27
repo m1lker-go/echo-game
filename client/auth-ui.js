@@ -244,6 +244,88 @@ async function loginVKMiniApp(){
 function loginMessage(message){
  if(loginError)loginError.textContent=message;
 }
+let vkSDKLoading=null;
+async function ensureVKID(){
+ const config=await request('config');
+ if(!config.enabled || Number(config.appId)!==ECHO_WEB_VK_CLIENT_ID){
+  throw new Error('VK ID client is not configured for ECHO');
+ }
+ if(!window.VKIDSDK){
+  if(!vkSDKLoading){
+   vkSDKLoading=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src='https://unpkg.com/@vkid/sdk@2.6.9/dist-sdk/umd/index.js';
+    script.onload=resolve;script.onerror=reject;document.head.append(script);
+   }).finally(()=>{vkSDKLoading=null});
+  }
+  await vkSDKLoading;
+ }
+ const VKID=window.VKIDSDK;
+ if(!VKID)throw new Error('VK ID SDK unavailable');
+ VKID.Config.init({app:ECHO_WEB_VK_CLIENT_ID,redirectUrl:'https://cat-fight.ru/echo/',responseMode:VKID.ConfigResponseMode.Callback,source:VKID.ConfigSource.LOWCODE,scope:''});
+ return VKID;
+}
+let vkLinking=false;
+async function linkVK(){
+ if(isVKMiniApp || !current || !token || vkLinking)return;
+ const originalToken=token;
+ const originalAccountId=current.accountId;
+ vkLinking=true;
+ const content=document.createElement('div');
+ content.className='echo-vk-link-modal';
+ const intro=document.createElement('p');
+ intro.textContent=t('special_vk_link_intro','Подтверди аккаунт ВКонтакте, чтобы привязать его к своему профилю ECHO.');
+ const holder=document.createElement('div');
+ holder.className='echo-login-widget echo-vk-link-widget';
+ const feedback=document.createElement('p');
+ feedback.className='echo-vk-link-feedback';
+ feedback.setAttribute('role','status');
+ content.append(intro,holder,feedback);
+ window.ECHOModal?.open({
+  title:t('special_vk_link','Привязать ВК'),contentElement:content,
+  buttons:[{label:t('back','Назад'),value:false}]
+ });
+ try {
+  const VKID=await ensureVKID();
+  if(originalToken!==token || originalAccountId!==current?.accountId)return;
+  new VKID.OAuthList()
+   .render({container:holder,scheme:'dark',styles:{borderRadius:12,height:56},oauthList:['vkid']})
+   .on(VKID.WidgetEvents.ERROR,error=>{
+    console.warn('[VK link] VK SDK error:',error);
+    feedback.textContent=t('special_vk_link_failed','Не удалось привязать ВК');
+   })
+   .on(VKID.OAuthListInternalEvents.LOGIN_SUCCESS,async payload=>{
+    if(vkLinking===false)return;
+    try {
+     feedback.textContent=t('special_vk_link_wait','Проверяем аккаунт ВКонтакте…');
+     const exchanged=await VKID.Auth.exchangeCode(payload.code,payload.device_id);
+     if(originalToken!==token || originalAccountId!==current?.accountId)throw Error('ECHO account changed');
+     await request('vk/link',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({accessToken:exchanged.access_token})
+     });
+     if(originalToken!==token || originalAccountId!==current?.accountId)return;
+     vkLinking=false;
+     window.ECHOModal?.close();
+     window.ECHOToast?.show(t('special_vk_link_success','ВКонтакте привязан к аккаунту ECHO'));
+     window.dispatchEvent(new Event('echo:vk-link-changed'));
+    }catch(error){
+     console.warn('[VK link] failed:',error);
+     feedback.textContent=error.code==='vk_already_linked'
+      ?t('special_vk_link_taken','Этот ВК уже привязан к другому аккаунту ECHO')
+      :error.code==='vk_already_linked_to_account'
+      ?t('special_vk_link_other','К этому профилю уже привязан другой VK')
+      :t('special_vk_link_failed','Не удалось привязать ВК');
+    }
+   });
+ }catch(error){
+  console.warn('[VK link] widget unavailable:',error);
+  feedback.textContent=t('special_vk_link_failed','Не удалось привязать ВК');
+  vkLinking=false;
+ }
+}
+
 async function start(){
  if(started||current)return;
  started=true;
@@ -256,14 +338,7 @@ async function start(){
    loginMessage('На сервере ECHO указан неверный VK ID. Проверь VK_ID_APP_ID и перезапусти echo-server.');
    return;
   }
-  if(!window.VKIDSDK)await new Promise((resolve,reject)=>{
-   const script=document.createElement('script');
-   script.src='https://unpkg.com/@vkid/sdk@2.6.9/dist-sdk/umd/index.js';
-   script.onload=resolve;script.onerror=reject;document.head.append(script);
-  });
-  const VKID=window.VKIDSDK;
-  if(!VKID)throw new Error('VK ID SDK unavailable');
-  VKID.Config.init({app:ECHO_WEB_VK_CLIENT_ID,redirectUrl:'https://cat-fight.ru/echo/',responseMode:VKID.ConfigResponseMode.Callback,source:VKID.ConfigSource.LOWCODE,scope:''});
+  const VKID=await ensureVKID();
   new VKID.OAuthList().render({container:loginWidget,scheme:'dark',styles:{borderRadius:12,height:56},oauthList:['vkid','ok_ru','mail_ru']})
    .on(VKID.WidgetEvents.ERROR,error=>{console.error('[VKID]',error);loginMessage(t('auth_failed','Ошибка авторизации'));})
    .on(VKID.OAuthListInternalEvents.LOGIN_SUCCESS,async payload=>{
@@ -376,7 +451,11 @@ document.querySelector('#echo-logout')?.addEventListener('click',async()=>{
  token=null;localStorage.removeItem(key);showGuest();
 });
 // Share the existing authenticated API with the shop; never infer balance from local storage.
-window.ECHOAuth = Object.freeze({getMe:()=>token?request('me'):Promise.resolve(null),getCurrent:()=>current&&{accountId:current.accountId,nickname:current.nickname}});
+window.ECHOAuth = Object.freeze({
+ getMe:()=>token?request('me'):Promise.resolve(null),
+ getCurrent:()=>current&&{accountId:current.accountId,nickname:current.nickname},
+ linkVK
+});
 if(isVKMiniApp){
  // Previous browser session must never identify the VK Mini App player.
  token=null;

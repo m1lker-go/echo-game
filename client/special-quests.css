@@ -216,3 +216,31 @@
   #game #menu-quests-screen .echo-special-reward-icon { width: 28px; height: 28px; flex-basis: 28px; }
   #game #menu-quests-screen .echo-special-reward .echo-special-check { min-width: 80px; min-height: 34px; padding: 5px 7px; font-size: 12px; }
 }
+
+/* VK link request is only shown on the community quest for unlinked Google/Yandex accounts. */
+#game #menu-quests-screen .echo-special-vk-link-control{
+ display:flex;flex:0 0 auto;flex-direction:column;align-items:stretch;
+ width:clamp(128px,19vw,168px);gap:5px;margin-left:auto
+}
+#game #menu-quests-screen .echo-special-vk-link-action{
+ width:100%;min-height:40px;padding:7px 8px;white-space:nowrap;
+ border-color:#fff;border-radius:12px;font-size:clamp(12px,2vw,15px)
+}
+#game #menu-quests-screen .echo-special-vk-link-note{
+ font:500 clamp(10px,1.6vh,12px)/1.25 Inter,system-ui,sans-serif;
+ color:#aaa;text-align:center
+}
+.echo-modal-overlay .echo-vk-link-modal{width:100%;min-width:0;box-sizing:border-box;text-align:center}
+.echo-modal-overlay .echo-vk-link-modal p{color:#ddd;line-height:1.4}
+.echo-modal-overlay .echo-vk-link-widget .VkIdSdk_oauth_list{
+ grid-template-columns:minmax(0,1fr)!important;width:70px!important;margin:0 auto!important
+}
+.echo-modal-overlay .echo-vk-link-widget .VkIdSdk_oauth_item{
+ min-height:56px!important
+}
+.echo-modal-overlay .echo-vk-link-feedback{min-height:1.5em;margin:12px 0 0}
+@media(max-width:480px){
+ #game #menu-quests-screen .echo-special-vk-link-control{width:118px;gap:3px}
+ #game #menu-quests-screen .echo-special-vk-link-action{min-height:36px;padding:6px 5px;font-size:12px}
+ #game #menu-quests-screen .echo-special-vk-link-note{font-size:10px;line-height:1.15}
+}

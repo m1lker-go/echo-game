@@ -44,9 +44,10 @@ function createVKCommunityQuest({
 }) {
   if (typeof grantPack !== 'function') throw new TypeError('A pack grant function is required');
   const router = createRouter();
-  const state = (claimed, vkLinked) => ({
+  const state = (claimed, vkLinked, canLinkVK = false) => ({
     id:'vk_community', groupUrl:GROUP_URL, claimed:Boolean(claimed),
-    vkLinked:Boolean(vkLinked), verificationAvailable:Boolean(groupToken), reward:REWARD
+    vkLinked:Boolean(vkLinked), canLinkVK:Boolean(canLinkVK),
+    verificationAvailable:Boolean(groupToken), reward:REWARD
   });
 
   async function initialize() {
@@ -74,12 +75,15 @@ function createVKCommunityQuest({
     try {
       const accountId=await account(req,res);
       if(!accountId)return;
-      const [claim, vkId]=await Promise.all([
+      const [claim, vkId, provider]=await Promise.all([
         pool.query('SELECT claimed_at FROM echo_vk_community_quest_claims WHERE account_id=$1',[accountId]),
-        linkedVK(accountId)
+        linkedVK(accountId),
+        pool.query('SELECT provider FROM echo_accounts WHERE id=$1',[accountId])
       ]);
+      const canLinkVK=!vkId && !claim.rows[0]?.claimed_at &&
+        ['google','yandex'].includes(provider.rows[0]?.provider);
       res.set('Cache-Control','no-store');
-      res.json({quest:state(Boolean(claim.rows[0]?.claimed_at),Boolean(vkId))});
+      res.json({quest:state(Boolean(claim.rows[0]?.claimed_at),Boolean(vkId),canLinkVK)});
     } catch(error) {
       console.error('[vk-community-quest] status failed:',error.message);
       res.status(500).json({error:'VK quest status unavailable'});

@@ -216,7 +216,19 @@
           showToast(t('special_vk_open_failed','Не удалось открыть сообщество'));
         });
     });
-    head.append(logo,heading,link);
+    if(vkQuest.canLinkVK && !vkQuest.vkLinked && !vkQuest.claimed){
+      const linkArea=node('div','echo-special-vk-link-control');
+      const linkButton=action(t('special_vk_link','Привязать ВК'),()=>{
+        if(typeof window.ECHOAuth?.linkVK==='function')void window.ECHOAuth.linkVK();
+        else showToast(t('special_vk_link_failed','Не удалось привязать ВК'));
+      },'echo-special-vk-link-action');
+      const note=node('span','echo-special-vk-link-note',
+        t('special_vk_link_note','Необходимо для выдачи награды'));
+      linkArea.append(linkButton,note);
+      head.append(logo,heading,linkArea);
+    }else{
+      head.append(logo,heading,link);
+    }
     article.append(head);
     if(!vkQuest.claimed){
       const rewardLine=node('div','echo-special-reward');
@@ -230,7 +242,7 @@
       rewardLine.append(label,rewardIcon,quantity);
       rewardLine.append(action(t('special_check','Проверка'),checkVKCommunity,'echo-special-check'));
       article.append(rewardLine);
-      if(!vkQuest.vkLinked){
+      if(!vkQuest.vkLinked && !vkQuest.canLinkVK){
         article.append(node('p','echo-special-instruction',t('special_vk_account_required','Для проверки войди в ECHO через ВКонтакте')));
       }else if(!vkQuest.verificationAvailable){
         article.append(node('p','echo-special-instruction',t('special_vk_no_token','Сервер ECHO не видит токен сообщества VK')));
@@ -387,6 +399,9 @@
   }
   dailyTab.addEventListener('click', () => selectTab('daily'));
   specialTab.addEventListener('click', () => selectTab('special'));
+  window.addEventListener('echo:vk-link-changed', () => {
+    if(activeTab==='special')void refresh();
+  });
   window.addEventListener('echo:quests-open', () => {
     if (activeTab === 'special') void refresh();
   });
