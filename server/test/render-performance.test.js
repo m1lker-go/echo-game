@@ -47,7 +47,8 @@ test('aura and shared food never render behind menu or when hidden',()=>{
 });
 test('client cache versions updated for mobile without gameplay changes',()=>{
  const h=read('index.html');
- for(const file of ['game','menu','shared-food','player-aura'])assert.ok(h.includes(file+'.js?v=echo-render-budget-1'));
+ for(const file of ['menu','shared-food','player-aura'])assert.ok(h.includes(file+'.js?v=echo-render-budget-1'));
+ assert.ok(h.includes('game.js?v=echo-energy-mobility-1'));
  assert.match(read('game.js'),/state\.socket\.emit\('echo:move'/);
  assert.match(read('shared-food.js'),/FOOD_MAGNET_RADIUS = 60/);
 });

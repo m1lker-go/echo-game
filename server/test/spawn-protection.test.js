@@ -61,7 +61,7 @@ test('PNG shield replaces geometry for local and remote players',()=>{
  assert.ok(game.includes('attachSpawnShield(THREE,holder)'));
  assert.ok(game.includes('updateSpawnShield(modelCache.local,state.shieldUntil)'));
  assert.ok(game.includes('updateSpawnShield(e.root,p.shieldUntil)'));
- assert.ok(html.includes('game.js?v=echo-render-budget-1'));
+ assert.ok(html.includes('game.js?v=echo-energy-mobility-1'));
  assert.ok(dome.includes('material.opacity=shieldOpacity(shieldUntil,now)'));
 });
 
