@@ -189,8 +189,11 @@ const referrals = require('./referrals').createReferrals({
   pool, sessionUser: echoAuth.sessionUser, grantPack: freePacks.grant
 });
 app.use('/api/referrals', referrals.router);
+const promoCodes = require('./promo-codes').createPromoCodes({
+  pool, grantPack:freePacks.grant
+});
 app.use('/api/codes', require('./code-redemption').createCodeRedemption({
-  sessionUser: echoAuth.sessionUser, referralRedeem: referrals.redeem
+  sessionUser: echoAuth.sessionUser, referralRedeem: referrals.redeem, promoRedeem:promoCodes.redeem
 }));
 const specialQuests = require('./special-quests').createSpecialQuests({
   pool, sessionUser: echoAuth.sessionUser, grantPack: freePacks.grant
@@ -1407,6 +1410,7 @@ server.listen(port, '0.0.0.0', async () => {
     await echoOAuth.initialize();
     await freePacks.initialize();
     await referrals.initialize();
+    await promoCodes.initialize();
     await specialQuests.initialize();
     await vkCommunityQuest.initialize();
     await vkPayments.initialize();
