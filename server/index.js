@@ -388,6 +388,8 @@ function ensureRoomFood(roundId, roomId) {
 }
 
 const activeFights = new Map();
+const {createMobilityState,beginAbility,moveBudget}=require('./movement-guard');
+const playerMobility=new Map();
 const MAX_COORDINATE = 1_000_000;
 const WORLD_CELL_SIZE = 84;
 const WORLD_SIZE_CELLS = 50;
@@ -988,6 +990,7 @@ function advanceRoomRound() {
     player.roundId = assignment.round.id;
     player.roomId = assignment.roomId;
     player.energy = 0;
+    playerMobility.set(player.id,createMobilityState());
     player.fightingWith = null;
     player.fightId = null;
     player.defeated = false;
@@ -1272,6 +1275,7 @@ io.on('connection', (socket) => {
   socket.emit('echo:room', { roomId: assignment.roomId, round: assignment.round, occupancy: assignment.occupancy });
   const requestedSkin = socket.handshake.auth?.skin;
   const spawn = findOpenPlayerSpawn(assignment.round.id,assignment.roomId);
+  playerMobility.set(socket.id,createMobilityState());
   players.set(socket.id, {
     id: socket.id,
     roomId: assignment.roomId,
@@ -1325,6 +1329,13 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('echo:ability',(payload)=>{
+    const current=players.get(socket.id);
+    if(!current||current.defeated||current.fightingWith)return;
+    const mobility=playerMobility.get(socket.id);
+    if(mobility)beginAbility(mobility,current,payload);
+  });
+
   socket.on('echo:move', (payload) => {
     advanceRoomRound();
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return;
@@ -1337,6 +1348,13 @@ io.on('connection', (socket) => {
       y: finiteNumber(payload.y, current.y, -WORLD_HALF_SIZE, WORLD_HALF_SIZE),
     };
     const oldPosition = { x: current.x, y: current.y };
+    // Energy and cooldowns are always server-side values, never payload.energy.
+    const mobility=playerMobility.get(socket.id);
+    const budget=mobility?moveBudget(mobility,current,desired):{allowed:false,maxVelocity:0};
+    if(!budget.allowed){
+      socket.emit('echo:positionCorrection',{x:current.x,y:current.y});
+      return;
+    }
     if (!isValidPlayerPosition(desired)) {
       const slideX = { x: desired.x, y: oldPosition.y };
       const slideY = { x: oldPosition.x, y: desired.y };
@@ -1350,8 +1368,12 @@ io.on('connection', (socket) => {
       current.vx = 0; current.vy = 0;
     } else {
       current.x = desired.x; current.y = desired.y;
-      current.vx = finiteNumber(payload.vx, 0, -100_000, 100_000);
-      current.vy = finiteNumber(payload.vy, 0, -100_000, 100_000);
+      const vx=finiteNumber(payload.vx,0,-100_000,100_000);
+      const vy=finiteNumber(payload.vy,0,-100_000,100_000);
+      const magnitude=Math.hypot(vx,vy);
+      const ratio=magnitude>budget.maxVelocity?budget.maxVelocity/magnitude:1;
+      current.vx=vx*ratio;
+      current.vy=vy*ratio;
     }
 
     const now = Date.now();
@@ -1377,6 +1399,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', (reason) => {
+    playerMobility.delete(socket.id);
     accountSessions.release(socket.id);
     collectElapsedTime();
     clearInterval(activityInterval);
