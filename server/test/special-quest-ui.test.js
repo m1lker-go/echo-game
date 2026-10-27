@@ -41,8 +41,8 @@ test('Special quest uses the existing Cat Fighting image and black-white styling
   assert.match(css, /\.echo-special-logo-image\s*\{[^}]*object-fit:\s*contain/s);
   assert.match(js, /assets\/icons\/icon_cf\.webp/);
   assert.doesNotMatch(js, /'echo-special-logo', 'CF'/);
-  assert.match(html, /special-quests\.css\?v=6/);
-  assert.match(html, /special-quests\.js\?v=echo-vk-community-2/);
+  assert.match(html, /special-quests\.css\?v=echo-vk-link-1/);
+  assert.match(html, /special-quests\.js\?v=echo-vk-link-1/);
 });
 
 test('Special quest has a permanent icon-only visit link, code/copy row, and no extra hints', () => {
@@ -148,5 +148,5 @@ test('Claimed Cat Fighting quest keeps only the game header and link', () => {
   assert.doesNotMatch(js, /article\.append\(node\('p', 'echo-special-description', t\('special_completed'/);
   assert.match(js, /head\.append\(logo, heading, link\)/);
   assert.match(js, /link\.setAttribute\('aria-label', quest\.claimed/);
-  assert.match(html, /special-quests\.js\?v=echo-vk-community-2/);
+  assert.match(html, /special-quests\.js\?v=echo-vk-link-1/);
 });

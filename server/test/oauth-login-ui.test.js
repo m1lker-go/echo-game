@@ -49,7 +49,7 @@ test('authenticated users do not see account-link buttons in settings',()=>{
 });
 test('browser refreshes OAuth client assets after the visibility fix',()=>{
  const page=read('index.html');
- assert.match(page,/auth-ui\.js\?v=echo-vkid-api-recovery-1/);
+ assert.match(page,/auth-ui\.js\?v=echo-vk-link-1/);
  assert.match(page,/auth\.css\?v=echo-five-shared-row-1/);
 });
 

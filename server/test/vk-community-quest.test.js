@@ -22,6 +22,10 @@ function harness({token='test-token',member=true,vkId='123456',broken=false}={})
       if(q.startsWith('SELECT provider_id FROM echo_auth_identities')){
         return {rows:args[0]===A && vkId?[{provider_id:vkId}]:[],rowCount:args[0]===A&&vkId?1:0};
       }
+      if(q.startsWith('SELECT provider FROM echo_accounts WHERE id=')){
+        const provider=args[0]===B?'yandex':'vkid';
+        return {rows:[{provider}],rowCount:1};
+      }
       if(q.startsWith('SELECT claimed_at FROM echo_vk_community_quest_claims')){
         const row=rows.get(args[0]);return {rows:row?[{...row}]:[],rowCount:row?1:0};
       }
@@ -158,4 +162,22 @@ test('VK API error exposes only a safe numeric code, not the secret token',async
       return true;
     }
   );
+});
+
+test('Google/Yandex players are offered VK linking only until verified VK is saved',async()=>{
+  const h=harness();
+  const yandex=await h.request('GET','/',{account:B});
+  assert.equal(yandex.statusCode,200);
+  assert.equal(yandex.body.quest.canLinkVK,true);
+  assert.equal(yandex.body.quest.vkLinked,false);
+  const vk=await h.request('GET','/',{account:A});
+  assert.equal(vk.body.quest.canLinkVK,false);
+  assert.equal(vk.body.quest.vkLinked,true);
+});
+test('Quest UI shows VK link button and reward explanation only for eligible accounts',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'../../client/special-quests.js'),'utf8');
+  assert.match(source,/vkQuest\.canLinkVK && !vkQuest\.vkLinked && !vkQuest\.claimed/);
+  assert.match(source,/special_vk_link_note/);
+  assert.match(source,/window\.ECHOAuth\?\.linkVK/);
+  assert.match(source,/echo:vk-link-changed/);
 });

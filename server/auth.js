@@ -162,6 +162,7 @@ router.post('/vk/link', async (req,res) => {
     console.warn('[auth] VK linking identity verification failed:',error.message);
     return res.status(error.status===400?400:502).json({error:'VK verification failed',code:'vk_verification_failed'});
   }
+  if(!/^[1-9]\d{0,19}$/.test(uid))return res.status(400).json({error:'Invalid VK account',code:'vk_verification_failed'});
   let client;
   try {
     client=await pool.connect();

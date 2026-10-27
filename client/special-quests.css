@@ -232,7 +232,7 @@
 }
 .echo-modal-overlay .echo-vk-link-modal{width:100%;min-width:0;box-sizing:border-box;text-align:center}
 .echo-modal-overlay .echo-vk-link-modal p{color:#ddd;line-height:1.4}
-.echo-modal-overlay .echo-vk-link-widget .VkIdSdk_oauth_list{
+.echo-modal-overlay .echo-login-widget.echo-vk-link-widget .VkIdSdk_oauth_list{
  grid-template-columns:minmax(0,1fr)!important;width:70px!important;margin:0 auto!important
 }
 .echo-modal-overlay .echo-vk-link-widget .VkIdSdk_oauth_item{

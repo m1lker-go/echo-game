@@ -265,12 +265,10 @@ async function ensureVKID(){
  VKID.Config.init({app:ECHO_WEB_VK_CLIENT_ID,redirectUrl:'https://cat-fight.ru/echo/',responseMode:VKID.ConfigResponseMode.Callback,source:VKID.ConfigSource.LOWCODE,scope:''});
  return VKID;
 }
-let vkLinking=false;
 async function linkVK(){
- if(isVKMiniApp || !current || !token || vkLinking)return;
+ if(isVKMiniApp || !current || !token)return;
  const originalToken=token;
  const originalAccountId=current.accountId;
- vkLinking=true;
  const content=document.createElement('div');
  content.className='echo-vk-link-modal';
  const intro=document.createElement('p');
@@ -287,7 +285,9 @@ async function linkVK(){
  });
  try {
   const VKID=await ensureVKID();
-  if(originalToken!==token || originalAccountId!==current?.accountId)return;
+  const popupOpen=()=>holder.isConnected && !holder.closest('.echo-modal-overlay')?.hidden;
+  if(originalToken!==token || originalAccountId!==current?.accountId || !popupOpen())return;
+  let submitting=false;
   new VKID.OAuthList()
    .render({container:holder,scheme:'dark',styles:{borderRadius:12,height:56},oauthList:['vkid']})
    .on(VKID.WidgetEvents.ERROR,error=>{
@@ -295,7 +295,8 @@ async function linkVK(){
     feedback.textContent=t('special_vk_link_failed','Не удалось привязать ВК');
    })
    .on(VKID.OAuthListInternalEvents.LOGIN_SUCCESS,async payload=>{
-    if(vkLinking===false)return;
+    if(submitting || !popupOpen())return;
+    submitting=true;
     try {
      feedback.textContent=t('special_vk_link_wait','Проверяем аккаунт ВКонтакте…');
      const exchanged=await VKID.Auth.exchangeCode(payload.code,payload.device_id);
@@ -306,7 +307,6 @@ async function linkVK(){
       body:JSON.stringify({accessToken:exchanged.access_token})
      });
      if(originalToken!==token || originalAccountId!==current?.accountId)return;
-     vkLinking=false;
      window.ECHOModal?.close();
      window.ECHOToast?.show(t('special_vk_link_success','ВКонтакте привязан к аккаунту ECHO'));
      window.dispatchEvent(new Event('echo:vk-link-changed'));
@@ -317,12 +317,11 @@ async function linkVK(){
       :error.code==='vk_already_linked_to_account'
       ?t('special_vk_link_other','К этому профилю уже привязан другой VK')
       :t('special_vk_link_failed','Не удалось привязать ВК');
-    }
+    }finally{submitting=false;}
    });
  }catch(error){
   console.warn('[VK link] widget unavailable:',error);
   feedback.textContent=t('special_vk_link_failed','Не удалось привязать ВК');
-  vkLinking=false;
  }
 }
 
