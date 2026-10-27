@@ -33,7 +33,8 @@ const state={x:0,y:0,vx:0,vy:0,energy:0,cameraX:0,cameraY:0,inputX:0,inputY:0,wi
 const WORLD={spacing:84},ISO={x:.8660254,y:.5},JUMP_DISTANCE=420,JUMP_DURATION=200,FIGHT_DURATION=1000;
 const modelScene=new THREE.Scene(),modelCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,1000);modelCamera.position.z=100;const modelRenderer=new THREE.WebGLRenderer({canvas:modelCanvas,alpha:true,antialias:true});modelRenderer.setPixelRatio(Math.min(devicePixelRatio||1,2));modelRenderer.outputColorSpace=THREE.SRGBColorSpace;modelRenderer.setClearColor(0,0);const ambientLight=new THREE.AmbientLight(0x4f6b7d,4.0);modelScene.add(ambientLight);const keyLight=new THREE.DirectionalLight(0xb9dcf5,3.6);keyLight.position.set(-100,57.735,0);modelScene.add(keyLight);
 const mobileFloorReflections=createMobileFloorReflections({THREE,renderer:modelRenderer,scene:modelScene,camera:modelCamera,cloneSkeleton});
-const loader=new GLTFLoader(),DEFAULT_MODEL='character-female-a.glb',ALLOWED_MODELS=new Set(['character-female-a.glb','character-female-b.glb','character-female-c.glb','character-female-d.glb','character-female-e.glb','character-female-f.glb','character-male-a.glb','character-male-b.glb','character-male-c.glb','character-male-d.glb','character-male-e.glb','character-male-f.glb','character-ghost.glb','character-keeper.glb','character-skeleton.glb','character-zombie.glb','character-human.glb','character-orc.glb']),selectedModel=ALLOWED_MODELS.has(localStorage.getItem('echo.selectedModel'))?localStorage.getItem('echo.selectedModel'):DEFAULT_MODEL,modelCache={source:null,clips:[],local:null,localAnimation:null,others:new Map(),otherSources:new Map(),ready:false};
+const loader=new GLTFLoader(),DEFAULT_MODEL='character-female-a.glb',ALLOWED_MODELS=new Set(['character-female-a.glb','character-female-b.glb','character-female-c.glb','character-female-d.glb','character-female-e.glb','character-female-f.glb','character-male-a.glb','character-male-b.glb','character-male-c.glb','character-male-d.glb','character-male-e.glb','character-male-f.glb','character-ghost.glb','character-keeper.glb','character-skeleton.glb','character-zombie.glb','character-human.glb','character-orc.glb']),modelCache={source:null,clips:[],local:null,localAnimation:null,others:new Map(),otherSources:new Map(),ready:false};
+let selectedModel=ALLOWED_MODELS.has(localStorage.getItem('echo.selectedModel'))?localStorage.getItem('echo.selectedModel'):DEFAULT_MODEL;
 const worldObjects = {trees: [],treeSource: null,treeLoading: false,waters: [],waterSources: new Map(),waterLoading: new Set(),};
 const decorations=createWorldDecorations({THREE,loader,scene:modelScene,iso:ISO});
 const serverWaterBoundaryDebug = createServerWaterBoundaryDebug(document.querySelector('#game'));
@@ -102,7 +103,36 @@ function startAttackAnimation(a,v='right',until=performance.now()+FIGHT_DURATION
 function switchAnimation(a,moving,time){if(!a)return;if(time<a.combatUntil&&a.combatAction){const attack=a.mixer.clipAction(a.combatAction);if(!attack.isRunning())attack.play();return;}if(a.combatAction&&time>=a.combatUntil){a.combatAction=null;a.combatUntil=0;}const next=moving&&a.walk?a.walk:a.idle;if(!next||next===a.current)return;const current=a.mixer.clipAction(a.current),nextAction=a.mixer.clipAction(next);nextAction.reset().setLoop(THREE.LoopRepeat,Infinity).fadeIn(.15).play();current.fadeOut(.15);a.current=next;}
 const characterLoader=createCharacterLoaderSelector(THREE,GLTFLoader,loader);
 function loadCharacterModel(file,onLoaded,onError){const safe=ALLOWED_MODELS.has(file)?file:DEFAULT_MODEL;characterLoader(safe).load(`./assets/models/${safe}`,g=>onLoaded(g,safe),undefined,e=>{console.error(`[echo] failed to load character GLB: ${safe}`,e);onError?.(e,safe);});}
-function createLocalModel(file){loadCharacterModel(file,(g,file2)=>{modelCache.source=g.scene;modelCache.clips=g.animations||[];const local=new THREE.Group(),visible=prepareModel(g.scene,false);local.add(visible);modelCache.local=local;modelCache.localAnimation=setupAnimation(visible,modelCache.clips,false);local.userData.animation=modelCache.localAnimation;modelScene.add(local);local.userData.labelBounds=measurePlayerLabelBounds(THREE,local);attachSpawnShield(THREE,local);modelCache.ready=true;console.log(`[echo] GLB loaded: ${file2}; animations: ${modelCache.clips.length}`);console.log('[echo] available animations:',modelCache.clips.map(c=>c.name));});}createLocalModel(selectedModel);
+let localModelLoadId=0;
+function createLocalModel(file){
+ const loadId=++localModelLoadId;
+ if(modelCache.local)modelScene.remove(modelCache.local);
+ modelCache.local=null;modelCache.localAnimation=null;modelCache.ready=false;
+ loadCharacterModel(file,(g,file2)=>{
+  if(loadId!==localModelLoadId)return; // A previous GLB request finished after a new selection.
+  modelCache.source=g.scene;modelCache.clips=g.animations||[];
+  const local=new THREE.Group(),visible=prepareModel(g.scene,false);
+  local.add(visible);modelCache.local=local;
+  modelCache.localAnimation=setupAnimation(visible,modelCache.clips,false);
+  local.userData.animation=modelCache.localAnimation;
+  modelScene.add(local);
+  local.userData.labelBounds=measurePlayerLabelBounds(THREE,local);
+  attachSpawnShield(THREE,local);
+  modelCache.ready=true;
+  console.log(`[echo] GLB loaded: ${file2}; animations: ${modelCache.clips.length}`);
+ });
+}
+function applyGameHero(file){
+ if(!ALLOWED_MODELS.has(file)||file===selectedModel)return;
+ selectedModel=file;
+ window.ECHO_SELECTED_MODEL=file;
+ createLocalModel(file);
+}
+// A post-login verification may correct a previously selected, now-locked hero.
+document.addEventListener('echo:hero-selection-updated',event=>{
+ applyGameHero(event.detail?.model);
+});
+createLocalModel(selectedModel);
 function resize(){
   const rect=canvas.getBoundingClientRect();
   const pixelWidth=Math.max(1,rect.width),pixelHeight=Math.max(1,rect.height);
@@ -187,7 +217,7 @@ function connectSocket(){if(!window.io){setConnection('offline','game:connection
   state.combatOpponentId=null;state.combatFightId=null;state.defeated=false;
   if(defeatScreen)defeatScreen.hidden=true;
   coordsText.textContent=Math.round(state.x)+' · '+Math.round(state.y);
- });state.socket.on('echo:fight',({fightId,playerA,playerB})=>beginCombatVisual(playerA,playerB,fightId));state.socket.on('echo:combatResult',({fightId,result,energy})=>{if(fightId!==state.combatFightId)return;state.combatUntil=0;state.combatOpponentId=null;state.combatFightId=null;if(result==='lose'){state.energy=0;showDefeat();}else{state.energy=Number.isFinite(energy)?energy:state.energy;energyText.textContent=String(state.energy);}});state.socket.on('echo:players',players=>{if(!Array.isArray(players))return;const now=performance.now(),next=new Map();for(const p of players){if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;if(p.id===state.socket.id){if(typeof p.name==='string'&&p.name.trim())playerName=p.name;if(Number.isFinite(p.shieldUntil))state.shieldUntil=p.shieldUntil;if(Number.isFinite(p.energy)){state.energy=Math.max(0,Math.round(p.energy));energyText.textContent=String(state.energy);}continue;}const old=state.others.get(p.id),skin=ALLOWED_MODELS.has(p.skin)?p.skin:DEFAULT_MODEL,t={...p,skin,previousX:old?.targetX??p.x,previousY:old?.targetY??p.y,targetX:p.x,targetY:p.y,previousSnapshotAt:old?.snapshotAt??now-80,snapshotAt:now,displayX:old?.displayX??p.x,displayY:old?.displayY??p.y,vx:Number.isFinite(p.vx)?p.vx:0,vy:Number.isFinite(p.vy)?p.vy:0,combatUntil:old?.combatUntil??(p.fightingWith?now+FIGHT_DURATION:0),combatFightId:old?.combatFightId??p.fightId??null};if(!old){t.previousSnapshotAt=now-120;t.previousX=p.x;t.previousY=p.y;}next.set(p.id,t);}state.others=next;state.lastSnapshotAt=now;});}catch{setConnection('offline','game:connection_local');}}
+ });state.socket.on('echo:fight',({fightId,playerA,playerB})=>beginCombatVisual(playerA,playerB,fightId));state.socket.on('echo:combatResult',({fightId,result,energy})=>{if(fightId!==state.combatFightId)return;state.combatUntil=0;state.combatOpponentId=null;state.combatFightId=null;if(result==='lose'){state.energy=0;showDefeat();}else{state.energy=Number.isFinite(energy)?energy:state.energy;energyText.textContent=String(state.energy);}});state.socket.on('echo:players',players=>{if(!Array.isArray(players))return;const now=performance.now(),next=new Map();for(const p of players){if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;if(p.id===state.socket.id){applyGameHero(p.skin);if(typeof p.name==='string'&&p.name.trim())playerName=p.name;if(Number.isFinite(p.shieldUntil))state.shieldUntil=p.shieldUntil;if(Number.isFinite(p.energy)){state.energy=Math.max(0,Math.round(p.energy));energyText.textContent=String(state.energy);}continue;}const old=state.others.get(p.id),skin=ALLOWED_MODELS.has(p.skin)?p.skin:DEFAULT_MODEL,t={...p,skin,previousX:old?.targetX??p.x,previousY:old?.targetY??p.y,targetX:p.x,targetY:p.y,previousSnapshotAt:old?.snapshotAt??now-80,snapshotAt:now,displayX:old?.displayX??p.x,displayY:old?.displayY??p.y,vx:Number.isFinite(p.vx)?p.vx:0,vy:Number.isFinite(p.vy)?p.vy:0,combatUntil:old?.combatUntil??(p.fightingWith?now+FIGHT_DURATION:0),combatFightId:old?.combatFightId??p.fightId??null};if(!old){t.previousSnapshotAt=now-120;t.previousX=p.x;t.previousY=p.y;}next.set(p.id,t);}state.others=next;state.lastSnapshotAt=now;});}catch{setConnection('offline','game:connection_local');}}
 
 // The multiplayer connection belongs to gameplay, not to the account menu.
 // Releasing it on exit frees the server-side one-session-per-account reservation.

@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createCharacterLoaderSelector } from './character-textures.js?v=echo-isolated-character-atlas-1';
 import { getCharacterRarity } from './character-rarity.js';
+import { shouldDeferHeroFallback } from './hero-selection-policy.js';
 import { offerExcessCards, invalidateOffer } from './hero-exchange.js?v=1';
 
 const RARITY_CARDS = {
@@ -43,17 +44,34 @@ const STARTER_HEROES = new Set(['character-female-b.glb','character-male-a.glb',
 const GUEST_HEROES = new Set(characters.filter(([file])=>getCharacterRarity(file)==='common').map(([file])=>file));
 let accessRegistered = Boolean(localStorage.getItem('echo.authToken'));
 let heroCollection = {};
+let heroCollectionReady = false;
+let heroCollectionRequest = 0;
+// VK Mini Apps clears its previous browser session before verified VK login.
+let vkIdentityPending = Boolean(window.isVKMiniApp);
 const HERO_REQUIREMENTS = {common:25,uncommon:30,rare:40,epic:50,legendary:60};
 const heroText=(key,ru,en)=>window.$t?.('menu:'+key,document.documentElement.lang?.startsWith('en')?en:ru) || (document.documentElement.lang?.startsWith('en')?en:ru);
 const heroCount=file=>Math.max(0,Number(heroCollection[file]?.fragments)||0);
 async function loadHeroCollection(){
- if(!accessRegistered){heroCollection={};renderCharacterState();return;}
+ const request=++heroCollectionRequest,token=localStorage.getItem('echo.authToken');
+ if(!accessRegistered||!token){
+  heroCollection={};heroCollectionReady=false;renderCharacterState();return;
+ }
  try{
-  const response=await fetch('/echo/api/heroes',{headers:{Authorization:'Bearer '+localStorage.getItem('echo.authToken')},cache:'no-store'});
+  const response=await fetch('/echo/api/heroes',{headers:{Authorization:'Bearer '+token},cache:'no-store'});
   if(!response.ok)throw new Error('HTTP '+response.status);
-  heroCollection=(await response.json()).heroes||{};
-  ensureUnlockedSelection();renderCharacterState();
- }catch(err){console.warn('[echo heroes] Collection unavailable',err);heroCollection={};renderCharacterState();}
+  const heroes=(await response.json()).heroes||{};
+  // Never let an old account's delayed response replace the new account's hero.
+  if(request!==heroCollectionRequest||token!==localStorage.getItem('echo.authToken')||!accessRegistered)return;
+  heroCollection=heroes;
+  heroCollectionReady=true;
+  ensureUnlockedSelection();
+  renderCharacterState();
+ }catch(err){
+  if(request!==heroCollectionRequest||token!==localStorage.getItem('echo.authToken'))return;
+  // A failed request does not mean previously unlocked heroes were revoked.
+  console.warn('[echo heroes] Collection unavailable',err);
+  renderCharacterState();
+ }
 }
 async function claimHero(file){
  if(!accessRegistered||heroUnlocked(file)||heroCount(file)<HERO_REQUIREMENTS[getCharacterRarity(file)])return;
@@ -68,10 +86,13 @@ function heroUnlocked(file) {
   return accessRegistered ? (STARTER_HEROES.has(file)||Boolean(heroCollection[file]?.claimed)) : GUEST_HEROES.has(file);
 }
 function ensureUnlockedSelection() {
+  // Do not replace a claimed hero before the server's collection arrives.
+  if(shouldDeferHeroFallback({registered:accessRegistered,collectionReady:heroCollectionReady,identityPending:vkIdentityPending}))return;
   if(heroUnlocked(selectedModel))return;
   selectedModel = accessRegistered ? 'character-female-b.glb' : 'character-female-a.glb';
   localStorage.setItem(storageKey,selectedModel);
   window.ECHO_SELECTED_MODEL=selectedModel;
+  document.dispatchEvent(new CustomEvent('echo:hero-selection-updated',{detail:{model:selectedModel}}));
 }
 const storageKey = 'echo.selectedModel';
 const defaultModel = characters[0][0];
@@ -152,6 +173,7 @@ async function startGame() {
   }catch(error){
     console.warn('[ECHO interstitial] continuing without ad',error);
   }finally{
+    if(accessRegistered&&!heroCollectionReady)await loadHeroCollection();
     window.ECHO_SELECTED_MODEL = selectedModel;
     const url=new URL(window.location.href);
     url.searchParams.set('play','1');
@@ -305,6 +327,7 @@ function createCharacterCard(file, label) {
     selectedModel = file;
     localStorage.setItem(storageKey, selectedModel);
     window.ECHO_SELECTED_MODEL = selectedModel;
+    document.dispatchEvent(new CustomEvent('echo:hero-selection-updated',{detail:{model:selectedModel}}));
     renderCharacterState();
   });
   characterGrid.appendChild(button);
@@ -441,6 +464,10 @@ renderCharacterState();
 window.addEventListener('echo:hero-collection-refresh',()=>{void loadHeroCollection();});
 document.addEventListener('echo:auth-changed',event=>{
  accessRegistered=Boolean(event.detail?.authenticated);
+ vkIdentityPending=false;
+ heroCollectionReady=false;
+ heroCollection={};
+ heroCollectionRequest++; // Invalidate pending lookups from the previous account.
  ensureUnlockedSelection();
  renderCharacterState();
  void loadHeroCollection();
