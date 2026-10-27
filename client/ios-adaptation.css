@@ -1,0 +1,119 @@
+/*
+ * iPhone Safari & VK Mini Apps: CSS viewport may be taller than the visible
+ * WKWebView. Layout everything inside the actual visible viewport, not 100svh.
+ * This stylesheet is loaded last and is scoped to Apple touch devices only.
+ */
+html.echo-ios-device,
+html.echo-ios-device body{
+  height:var(--echo-ios-visible-height,100dvh)!important;
+  min-height:0!important;
+  overscroll-behavior:none;
+}
+html.echo-ios-device #game{
+  height:var(--echo-ios-visible-height,100dvh)!important;
+  min-height:0!important;
+  max-height:var(--echo-ios-visible-height,100dvh);
+  overflow:hidden;
+}
+html.echo-ios-device #main-menu{
+  --echo-menu-content-width:min(420px,calc(100vw - 32px));
+}
+html.echo-ios-device #game .menu-main-screen{
+  overflow-y:auto;
+  overflow-x:hidden;
+  justify-content:flex-start;
+  min-height:0;
+  padding-top:max(10px,env(safe-area-inset-top,0px));
+  padding-bottom:max(10px,env(safe-area-inset-bottom,0px));
+  -webkit-overflow-scrolling:touch;
+}
+html.echo-ios-device #game .menu-main-screen .menu-logo{
+  flex:0 0 auto;
+  font-size:clamp(24px,5.5vh,40px);
+}
+html.echo-ios-device #game .menu-main-screen .menu-buttons{
+  flex:0 0 auto;
+  width:var(--echo-menu-content-width)!important;
+  max-width:100%;
+  gap:clamp(5px,1.2vh,12px);
+}
+html.echo-ios-device #game .menu-main-screen .menu-buttons>.menu-button{
+  flex:0 0 auto;
+  height:clamp(34px,8vh,56px);
+  min-height:34px;
+  font-size:clamp(14px,2.9vh,21px);
+}
+
+/* Keep touch targets usable in compact landscape VK containers. */
+html.echo-ios-device #game .mobile-controls{
+  bottom:max(8px,env(safe-area-inset-bottom,0px));
+  padding-left:max(9px,env(safe-area-inset-left,0px));
+  padding-right:max(9px,env(safe-area-inset-right,0px));
+}
+html.echo-ios-device #game .joystick{
+  width:clamp(76px,24vh,136px);
+  height:clamp(76px,24vh,136px);
+}
+html.echo-ios-device #game .stick{
+  width:clamp(32px,8vh,52px);
+  height:clamp(32px,8vh,52px);
+}
+html.echo-ios-device #game .ability-stack{
+  gap:clamp(6px,2vh,14px);
+}
+html.echo-ios-device #game #boost,
+html.echo-ios-device #game #jump{
+  width:clamp(48px,15vh,84px);
+  height:clamp(48px,15vh,84px);
+}
+html.echo-ios-device #game #boost>span:not(.ability-cooldown),
+html.echo-ios-device #game #jump>span:not(.ability-cooldown){
+  font-size:clamp(22px,6vh,42px);
+}
+html.echo-ios-device #game .ability-cooldown{
+  font-size:clamp(19px,5vh,32px);
+}
+html.echo-ios-device #game .hud>.brand{
+  font-size:clamp(18px,4.5vh,32px);
+  width:auto;
+}
+html.echo-ios-device #game .echo-quests-screen,
+html.echo-ios-device #game .echo-shop-screen,
+html.echo-ios-device #game .character-screen,
+html.echo-ios-device #game #menu-settings-screen{
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+
+/* WebKit portrait host windows can remain portrait even when VK requested
+ * landscape. Permit gameplay there instead of blocking every interaction
+ * behind the rotate overlay; the normal landscape preference remains. */
+@media (orientation:portrait) and (max-width:650px){
+  html.echo-ios-device #echo-rotate-overlay{display:none!important}
+  html.echo-ios-device #game .mobile-controls{bottom:max(12px,env(safe-area-inset-bottom,0px))}
+  html.echo-ios-device #game .joystick{
+    width:clamp(90px,26vw,126px);
+    height:clamp(90px,26vw,126px);
+  }
+  html.echo-ios-device #game .ability-stack{flex-direction:column;gap:7px}
+  html.echo-ios-device #game #boost,
+  html.echo-ios-device #game #jump{
+    width:clamp(54px,16vw,76px);
+    height:clamp(54px,16vw,76px);
+  }
+  html.echo-ios-device #game .hud>.brand{font-size:clamp(17px,5vw,25px)}
+  html.echo-ios-device #game .character-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  html.echo-ios-device #game .echo-shop-packs{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-height:350px){
+  html.echo-ios-device #game .menu-main-screen{
+    gap:5px;
+    padding-top:max(6px,env(safe-area-inset-top,0px));
+    padding-bottom:max(6px,env(safe-area-inset-bottom,0px));
+  }
+  html.echo-ios-device #game .menu-main-screen .menu-logo{font-size:22px}
+  html.echo-ios-device #game .menu-main-screen .menu-buttons{gap:4px}
+  html.echo-ios-device #game .menu-main-screen .menu-buttons>.menu-button{height:34px}
+  html.echo-ios-device #game #coords{display:none}
+  html.echo-ios-device #game .hud>.brand{font-size:18px}
+}
