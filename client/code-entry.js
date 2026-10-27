@@ -1,4 +1,4 @@
-// Universal code modal; the server alone decides which partner quest the code verifies.
+// Universal code modal; the server determines referral, partner and ECHO promo rewards.
 (() => {
   'use strict';
 
@@ -52,7 +52,15 @@
               const referral={REFERRAL_SELF:t('referral_self','Нельзя ввести собственный код'),
                 REFERRAL_ALREADY_USED:t('referral_already_used','Ты уже активировал реферальный код'),
                 REFERRAL_NOT_FOUND:t('code_not_found','Код не найден')};
-              window.ECHOToast?.show(referral[data.error]||t(status,fallback[response.status]||'Не удалось проверить код'));
+              const promos={
+                PROMO_ALREADY_CLAIMED:t('promo_already_claimed','Код уже активирован'),
+                PROMO_EXHAUSTED:t('promo_exhausted','Лимит активаций кода исчерпан'),
+                PROMO_EXPIRED:t('code_expired','Срок действия кода истёк'),
+                PROMO_INACTIVE:t('promo_inactive','Этот код больше не действует'),
+                PROMO_NOT_FOUND:t('code_not_found','Код не найден'),
+                PROMO_INVALID:t('code_invalid','Неверный код')
+              };
+              window.ECHOToast?.show(promos[data.error]||referral[data.error]||t(status,fallback[response.status]||'Не удалось проверить код'));
               return false;
             }
             if(data.type==='referral'){
@@ -67,6 +75,27 @@
               window.ECHOToast?.show(toast);
               window.dispatchEvent(new Event('echo:shop-balance-refresh'));
               window.dispatchEvent(new Event('echo:referrals-refresh'));
+            }else if(data.type==='promo'){
+              const reward=data.reward||{};
+              const icons={
+                coins:['./assets/icons/coin.webp',t('promo_coins','ECHO Coins')],
+                basic_pack:['./assets/packs/icon_echocard_basic.webp',t('promo_basic_pack','Обычный пак')],
+                premium_pack:['./assets/packs/icon_echocard_special.webp',t('promo_premium_pack','Премиум-пак')]
+              };
+              const selected=icons[reward.type];
+              if(selected && Number.isSafeInteger(reward.quantity) && reward.quantity>0){
+                const toast=document.createElement('span');
+                toast.className='echo-quest-reward-toast';
+                const label=document.createElement('span');
+                label.textContent=t('promo_received','Получено:')+' +'+reward.quantity;
+                const icon=document.createElement('img');
+                icon.src=selected[0];icon.alt=selected[1];icon.width=27;icon.height=27;
+                toast.append(label,icon);
+                window.ECHOToast?.show(toast);
+              }else{
+                window.ECHOToast?.show(t('promo_success','Промокод активирован!'));
+              }
+              window.dispatchEvent(new Event('echo:shop-balance-refresh'));
             }else{
               window.ECHOToast?.show(t('code_accepted','Код принят! Вернись в Cat Fighting и нажми «Проверка».'));
             }
