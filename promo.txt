@@ -1,0 +1,42 @@
+Пример 1. Выдать 100 ECHO Coins первым 50 игрокам:
+
+
+INSERT INTO echo_promo_codes
+(code, reward_type, reward_amount, max_activations)
+VALUES
+('WELCOME100', 'coins', 100, 50);
+
+
+Пример 2. Один премиум-пак до определённой даты:
+
+
+INSERT INTO echo_promo_codes
+(code, reward_type, reward_amount, expires_at)
+VALUES
+('ECHOGIFT', 'premium_pack', 1, '2026-12-31 23:59:59+00');
+
+
+Пример 3. Два обычных пака, максимум 100 активаций и ограничение по времени:
+
+INSERT INTO echo_promo_codes
+(code, reward_type, reward_amount, max_activations, expires_at)
+VALUES
+('BONUS2026', 'basic_pack', 2, 100, '2026-12-31 23:59:59+00');
+
+
+Посмотреть все промокоды:
+
+
+SELECT
+    code,
+    reward_type,
+    reward_amount,
+    activations,
+    max_activations,
+    expires_at,
+    active
+FROM echo_promo_codes
+ORDER BY created_at DESC;
+
+
+Можно выполнять эти запросы через pgAdmin, DBeaver или psql, подключившись к базе ECHO (echo_game_db). На VPS заходить необязательно, если у тебя уже есть доступ к этой базе через SQL-клиент.
