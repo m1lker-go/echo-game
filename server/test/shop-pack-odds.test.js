@@ -48,11 +48,12 @@ test('Displayed pack base odds reflect the real server rolls, including zero com
   premium:{common:0,uncommon:28,rare:39,epic:26,legendary:7}
  };
  for(const [type,weights] of Object.entries(expected)){
-  const weightLiteral=Object.entries(weights).map(([name,n])=>name+':'+String(n).replace(/^0\./,'.')).join(',');
+  const clientWeights=Object.entries(weights).map(([name,n])=>name+':'+String(n)).join(',');
+  const serverWeights=Object.entries(weights).map(([name,n])=>name+':'+(n===0.5?'.5':String(n))).join(',');
   // Check both independent probability sources; the UI reads PACK_RULES directly.
-  assert.ok(balance.replace(/\s/g,'').includes('weights:Object.freeze({'+weightLiteral+'})'),
+  assert.ok(balance.replace(/\s/g,'').includes('weights:Object.freeze({'+clientWeights+'})'),
    'pack-balance rarity values differ for '+type);
-  assert.ok(server.replace(/\s/g,'').includes(type+':{'+weightLiteral+'}'),
+  assert.ok(server.replace(/\s/g,'').includes(type+':{'+serverWeights+'}'),
    'secure server rarity values differ for '+type);
   assert.equal(Object.values(weights).reduce((a,b)=>a+b,0),100);
  }
