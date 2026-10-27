@@ -153,10 +153,15 @@
         const messages={
           not_subscribed:t('special_vk_not_subscribed','Сначала подпишись на сообщество «ЭХО.»'),
           vk_account_required:t('special_vk_account_required','Для проверки войди в ECHO через ВКонтакте'),
-          vk_verification_not_configured:t('special_vk_unavailable','Проверка подписки временно недоступна'),
-          vk_verification_unavailable:t('special_vk_unavailable','Проверка подписки временно недоступна')
+          vk_verification_not_configured:t('special_vk_no_token','Сервер ECHO не видит токен сообщества VK'),
+          vk_verification_unavailable:t('special_vk_unavailable','Не удалось связаться с ВКонтакте для проверки')
         };
-        showToast(messages[data.error] || t('special_vk_error','Не удалось проверить подписку'));
+        const code=Number(data.vkErrorCode);
+        if(data.error==='vk_verification_unavailable' && Number.isSafeInteger(code) && code>0 && code<=999999){
+          showToast(t('special_vk_api_error','Ошибка VK API')+' №'+code);
+        }else{
+          showToast(messages[data.error] || t('special_vk_error','Не удалось проверить подписку'));
+        }
         return;
       }
       vkQuest=data.quest;
@@ -228,7 +233,7 @@
       if(!vkQuest.vkLinked){
         article.append(node('p','echo-special-instruction',t('special_vk_account_required','Для проверки войди в ECHO через ВКонтакте')));
       }else if(!vkQuest.verificationAvailable){
-        article.append(node('p','echo-special-instruction',t('special_vk_unavailable','Проверка подписки временно недоступна')));
+        article.append(node('p','echo-special-instruction',t('special_vk_no_token','Сервер ECHO не видит токен сообщества VK')));
       }
     }
     specialList.append(article);

@@ -145,3 +145,17 @@ test('Special quests show the uploaded ECHO icon, reward and permanent link afte
   assert.match(script,/VKWebAppOpenURL/);
   assert.ok(fs.existsSync(path.join(root,'client/assets/icons/icon_echo.webp')));
 });
+
+test('VK API error exposes only a safe numeric code, not the secret token',async()=>{
+  const rejection=async(_url,_options)=>({ok:true,json:async()=>({
+    error:{error_code:27,error_msg:'Group authorization failed: method is unavailable'}
+  })});
+  await assert.rejects(
+    ()=>checkVKGroupMembership('123456',GROUP_ID,'test-secret',rejection),
+    error=>{
+      assert.equal(error.vkErrorCode,27);
+      assert.doesNotMatch(error.message,/test-secret/);
+      return true;
+    }
+  );
+});

@@ -22,7 +22,15 @@ async function checkVKGroupMembership(vkId, groupId, token, fetchImpl = globalTh
   });
   if (!response.ok) throw new Error('VK membership request failed');
   const data = await response.json();
-  if (data?.error || (data?.response !== 0 && data?.response !== 1 && data?.response !== true && data?.response !== false)) {
+  if (data?.error) {
+    // Surface the numeric VK error only. Never expose tokens, request arguments or API debug payload.
+    const code = Number(data.error.error_code);
+    const safeCode = Number.isSafeInteger(code) && code > 0 && code <= 999999 ? code : null;
+    const error = new Error('VK groups.isMember rejected request' + (safeCode ? ' (code ' + safeCode + ')' : ''));
+    if (safeCode) error.vkErrorCode = safeCode;
+    throw error;
+  }
+  if (data?.response !== 0 && data?.response !== 1 && data?.response !== true && data?.response !== false) {
     throw new Error('VK membership response invalid');
   }
   return data.response === 1 || data.response === true;
@@ -97,7 +105,11 @@ function createVKCommunityQuest({
       try { member=await checkMembership(vkId,GROUP_ID,groupToken); }
       catch(error){
         console.warn('[vk-community-quest] VK verification failed:',error.message);
-        return res.status(503).json({error:'vk_verification_unavailable'});
+        const code = error.vkErrorCode;
+        return res.status(503).json({
+          error:'vk_verification_unavailable',
+          ...(Number.isSafeInteger(code) && code > 0 && code <= 999999 ? {vkErrorCode:code} : {})
+        });
       }
       if(!member)return res.status(409).json({error:'not_subscribed'});
 
