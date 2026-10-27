@@ -24,3 +24,12 @@ test('APK uses the Android-only VK ID token exchange endpoint when Android sourc
   const code = fs.readFileSync(androidFile, 'utf8');
   assert.match(code, /request\("POST", "vk\/android", body\)/);
 });
+
+test('VK browser and Mini App logins save their verified VK identity immediately',()=>{
+  const auth = source('auth.js');
+  assert.match(auth,/FROM echo_auth_identities i/);
+  assert.match(auth,/i.provider='vkid' AND i.provider_id=\$1/);
+  assert.match(auth,/INSERT INTO echo_auth_identities\(account_id,provider,provider_id\)/);
+  assert.match(auth,/VALUES\(\$1,'vkid',\$2\) ON CONFLICT\(provider,provider_id\) DO NOTHING/);
+  assert.match(auth,/VK identity belongs to a different ECHO account/);
+});

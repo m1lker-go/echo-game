@@ -43,7 +43,15 @@ async function createVKAccountSession(uid) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const existing = await client.query(
+    // VK ID may already belong to an ECHO account with a linked Google/Yandex
+    // sign-in. Resolve the verified VK identity first, preserving that account.
+    const linked = await client.query(
+      `SELECT a.id,a.nickname FROM echo_auth_identities i
+       JOIN echo_accounts a ON a.id=i.account_id
+       WHERE i.provider='vkid' AND i.provider_id=$1`,
+      [String(uid)]
+    );
+    const existing = linked.rows[0] ? linked : await client.query(
       'SELECT id,nickname FROM echo_accounts WHERE provider=$1 AND provider_id=$2',
       ['vkid', String(uid)]
     );
@@ -61,6 +69,28 @@ async function createVKAccountSession(uid) {
         ['vkid', String(uid)]
       )).rows[0];
       if (!account) throw new Error('VK account lookup failed');
+    }
+    // Persist VK identity at login, rather than relying on a one-time
+    // startup migration. Otherwise newly registered VK browser/Mini App
+    // users cannot pass VK community quests until PM2 restarts.
+    if (!linked.rows[0]) {
+      const inserted = await client.query(
+        `INSERT INTO echo_auth_identities(account_id,provider,provider_id)
+         VALUES($1,'vkid',$2) ON CONFLICT(provider,provider_id) DO NOTHING
+         RETURNING account_id`,
+        [account.id, String(uid)]
+      );
+      if (!inserted.rowCount) {
+        // A concurrent verified login/explicit link won the race. Do not
+        // create a session for an account with a conflicting VK identity.
+        const mapped = await client.query(
+          "SELECT account_id FROM echo_auth_identities WHERE provider='vkid' AND provider_id=$1",
+          [String(uid)]
+        );
+        if (String(mapped.rows[0]?.account_id) !== String(account.id)) {
+          throw new Error('VK identity belongs to a different ECHO account');
+        }
+      }
     }
     const session = crypto.randomBytes(32).toString('hex');
     await client.query(
