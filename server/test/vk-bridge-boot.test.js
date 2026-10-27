@@ -142,7 +142,7 @@ test('fullscreen button stays hidden and cannot auto-restore on mobile VK', () =
   assert.match(css, /html\.echo-vk-mobile-mini #game > #echo-fullscreen-toggle\s*\{\s*display:\s*none\s*!important/);
   assert.match(logic, /const allowFullscreenButton=!window\.isVKMobileMiniApp/);
   assert.match(logic, /if\(allowFullscreenButton\) button\?\.addEventListener/);
-  assert.match(logic, /if\(allowFullscreenButton && sessionStorage\.getItem\(preferenceKey\)===/);
+  assert.match(logic, /if\(allowFullscreenButton && typeof enterFullscreen\(\)==='function'/);
   assert.match(html, /vk-mini-bootstrap\.js\?v=echo-vk-mobile-fullscreen-1/);
-  assert.match(html, /fullscreen\.css\?v=echo-vk-mobile-fullscreen-1/);
+  assert.match(html, /fullscreen\.css\?v=echo-ios-install-1/);
 });
