@@ -133,13 +133,14 @@ test('press-and-hold starts and stops capture only with a connected transport', 
 
 
 test('microphone is anchored above jump without shifting boost/jump horizontally', () => {
-  assert.match(css, /#game\\s+\\.ability-stack\\s*\\{\\s*position:\\s*relative/);
-  const rule = css.match(/#game\\s+#echo-voice-mic\\s*\\{([^}]*)\\}/);
-  assert.ok(rule, 'voice microphone style exists');
-  assert.match(rule[1], /position:\\s*absolute/);
-  assert.match(rule[1], /bottom:\\s*calc\\(100%\\s*\\+/);
-  assert.match(rule[1], /right:\\s*calc\\(var\\(--echo-jump-size/);
-  assert.match(rule[1], /width:\\s*calc\\(var\\(--echo-jump-size/);
-  assert.match(html, /voice-ui\\.css\\?v=echo-voice-ui-2/);
+  assert.ok(css.includes('#game .ability-stack { position: relative; }'));
+  const start = css.indexOf('#game #echo-voice-mic {');
+  assert.ok(start >= 0, 'voice microphone style exists');
+  const rule = css.slice(start, css.indexOf('}', start));
+  assert.ok(rule.includes('position: absolute;'));
+  assert.ok(rule.includes('bottom: calc(100% +'));
+  assert.ok(rule.includes('right: calc(var(--echo-jump-size'));
+  assert.ok(rule.includes('width: calc(var(--echo-jump-size'));
+  assert.ok(html.includes('voice-ui.css?v=echo-voice-ui-2'));
   assert.ok(html.indexOf('id="boost"') < html.indexOf('id="jump"'));
 });
