@@ -44,7 +44,8 @@ test('sustained displacement is limited by server energy and not packet frequenc
   const desired={x:player.x+3,y:0};
   if(moveBudget(m,player,desired,1100).allowed){player.x=desired.x;accepted++;}
  }
- assert.ok(accepted<10);
+ // A bounded 180ms burst is tolerated; same-timestamp spam cannot sustain speed.
+ assert.ok(accepted*3<=155*0.8*Math.SQRT2*0.18+0.001);
 });
 test('server validates jump length AND direction, with lower range for large players',()=>{
  const m=createMobilityState(0),player={x:10,y:10,energy:500};
@@ -87,5 +88,5 @@ test('live Socket.IO handlers apply mobility server-side; rendering and joystick
  assert.match(game,/socket\?\.emit\('echo:ability',\{type:'boost'\}\)/);
  assert.match(game,/socket\.on\('echo:positionCorrection'/);
  assert.match(controls,/energyMobilityMultiplier/);
- assert.match(page,/game\.js\?v=echo-energy-mobility-1/);
+ assert.match(page,/game\.js\?v=echo-camera-jitter-1/);
 });

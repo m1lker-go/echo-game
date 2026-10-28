@@ -173,7 +173,7 @@ test('New decorations reach WebGL; stones stay removed and gameplay physics unch
  assert.match(game,/decorations\.update\(state\.cameraX,state\.cameraY\)/);
  assert.match(game,/updatePlayerMovement\(state,dt,time,ISO,worldObjects\.trees\)/);
  assert.match(game,/function isJumpLandingBlocked\(x,y\)\{[^}]*worldObjects\.trees/);
- assert.ok(html.includes('game.js?v=echo-energy-mobility-1'));
+ assert.ok(html.includes('game.js?v=echo-camera-jitter-1'));
  assert.ok(game.includes('world-decorations.js?v=echo-glowing-mushrooms-10'));
  assert.match(decorations,/new THREE\.InstancedMesh/);
  assert.match(decorations,/const BASE_SCALE=50/);

@@ -5,9 +5,10 @@ const {energySpeedMultiplier,energyJumpDistance}=require('./energy-balance');
 const NORMAL_SPEED=155, BOOST_SPEED=300, MAX_WORLD_PROJECTION=Math.SQRT2;
 const BOOST_DURATION_MS=700, BOOST_COOLDOWN_MS=3000, JUMP_DURATION_MS=200;
 const JUMP_LANDING_GRACE_MS=180, JUMP_EPSILON=32; // Up to one unsent movement tick at jump start.
-const MAX_CREDIT_SECONDS=0.125;
+// A bounded network-jitter reserve: never grants unbounded sustained speed.
+const MAX_CREDIT_SECONDS=0.18, INITIAL_CREDIT_SECONDS=0.08;
 function createMobilityState(now=Date.now()){
- return {lastAt:now,credit:0,boostUntil:0,boostCooldownUntil:0,
+ return {lastAt:now,creditSeconds:INITIAL_CREDIT_SECONDS,boostUntil:0,boostCooldownUntil:0,
   jumpUntil:0,jumpGraceUntil:0,jumpReadyAt:0,
   jumpX:0,jumpY:0,jumpDx:0,jumpDy:1,jumpLength:0};
 }
@@ -39,8 +40,8 @@ function moveBudget(m,player,desired,now=Date.now()){
  const jumping=now<=m.jumpGraceUntil;
  const multiplier=energySpeedMultiplier(player.energy);
  const maxSpeed=(now<m.boostUntil?BOOST_SPEED:NORMAL_SPEED)*multiplier*MAX_WORLD_PROJECTION;
- const creditLimit=maxSpeed*MAX_CREDIT_SECONDS;
- m.credit=Math.min(creditLimit,m.credit+maxSpeed*elapsed/1000);
+ // Store unspent travel time, so boost and energy changes remain proportional.
+ m.creditSeconds=Math.min(MAX_CREDIT_SECONDS,m.creditSeconds+elapsed/1000);
  const dx=desired.x-player.x,dy=desired.y-player.y;
  const distance=Math.hypot(dx,dy);
  if(!Number.isFinite(distance))return {allowed:false,maxVelocity:maxSpeed};
@@ -57,8 +58,8 @@ function moveBudget(m,player,desired,now=Date.now()){
   // even while the final delayed jump packet still has a grace period.
   if(now<=m.jumpUntil)return {allowed:false,maxVelocity:maxSpeed};
  }
- if(distance>m.credit+0.001)return {allowed:false,maxVelocity:maxSpeed};
- m.credit=Math.max(0,m.credit-distance);
+ if(distance>maxSpeed*m.creditSeconds+0.001)return {allowed:false,maxVelocity:maxSpeed};
+ m.creditSeconds=Math.max(0,m.creditSeconds-distance/maxSpeed);
  return {allowed:true,maxVelocity:maxSpeed};
 }
 module.exports={createMobilityState,beginAbility,moveBudget};
