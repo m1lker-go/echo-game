@@ -54,10 +54,15 @@
 }
 #game .echo-voice-mute[aria-pressed="true"] { color: #ef9b9b; }
 #game .echo-voice-mute svg { width: 16px; height: 16px; }
+/* Anchor the microphone above the right-hand jump skill without changing the skill row. */
+#game .ability-stack { position: relative; }
 #game #echo-voice-mic {
+  position: absolute;
+  bottom: calc(100% + 56px * var(--echo-ui-scale,1));
+  right: calc(var(--echo-jump-size,148px) * var(--echo-ui-scale,1) * .1);
   flex: none;
-  width: calc(var(--echo-jump-size,148px) * var(--echo-ui-scale,1));
-  height: calc(var(--echo-jump-size,148px) * var(--echo-ui-scale,1));
+  width: calc(var(--echo-jump-size,148px) * var(--echo-ui-scale,1) * .8);
+  height: calc(var(--echo-jump-size,148px) * var(--echo-ui-scale,1) * .8);
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
