@@ -81,12 +81,12 @@ function harness() {
 
 test('voice HUD uses current abilities, hidden speaking panel and no fake speakers', () => {
   assert.match(html, /id="echo-voice-mic"[^>]*class="ability echo-voice-mic"/);
-  assert.match(html, /id="echo-voice-speakers"[^>]*aria-label="Говорят рядом"/);
-  assert.match(html, /src="\.\/voice-ui\.js\?v=echo-voice-ui-3"/);
+  assert.match(html, /id="echo-voice-speakers"[^>]*aria-label="Говорят рядом" hidden/);
+  assert.match(html, /src="\.\/voice-ui\.js\?v=echo-voice-ui-4"/);
   assert.match(css, /--echo-jump-size/);
   const app = harness();
-  assert.equal(app.nodes.get('#echo-voice-speakers').hidden, false);
-  assert.equal(app.nodes.get('#echo-voice-speakers-list').children[0].textContent, 'Никто не говорит');
+  assert.equal(app.nodes.get('#echo-voice-speakers').hidden, true);
+  assert.equal(app.nodes.get('#echo-voice-speakers-list').children.length, 0);
   app.pointer('pointerdown');
   assert.equal(app.messages.length, 1);
   assert.equal(app.requests.length, 0, 'no microphone request without an audio transport');
@@ -96,7 +96,7 @@ test('speaker list filters by room and round, mute persists within one round and
   const app = harness();
   const socket = app.enterRoom(1, 'round-1');
   app.speaking({ id: 'user-alex', name: 'Alex', active: true, roomId: 2, roundId: 'round-1' });
-  assert.equal(app.nodes.get('#echo-voice-speakers-list').children[0].textContent, 'Никто не говорит');
+  assert.equal(app.nodes.get('#echo-voice-speakers').hidden, true);
   app.speaking({ id: 'user-alex', name: 'Alex', active: true, roomId: 1, roundId: 'round-1' });
   const list = app.nodes.get('#echo-voice-speakers-list');
   assert.equal(list.children.length, 1);
@@ -114,7 +114,7 @@ test('speaker list filters by room and round, mute persists within one round and
   assert.equal(app.window.ECHOVoiceUI.isMuted('user-alex'), true);
   socket.emit('echo:room', { roomId: 1, round: { id: 'round-2' } });
   assert.equal(app.window.ECHOVoiceUI.isMuted('user-alex'), false);
-  assert.equal(app.nodes.get('#echo-voice-speakers').hidden, false);
+  assert.equal(app.nodes.get('#echo-voice-speakers').hidden, true);
 });
 
 test('press-and-hold starts and stops capture only with a connected transport', async () => {
@@ -147,6 +147,6 @@ test('microphone is anchored above jump without shifting boost/jump horizontally
   assert.ok(rule.includes('bottom: calc(100% +'));
   assert.ok(rule.includes('right: calc(var(--echo-jump-size'));
   assert.ok(rule.includes('width: calc(var(--echo-jump-size'));
-  assert.ok(html.includes('voice-ui.css?v=echo-voice-ui-3'));
+  assert.ok(html.includes('voice-ui.css?v=echo-voice-ui-4'));
   assert.ok(html.indexOf('id="boost"') < html.indexOf('id="jump"'));
 });

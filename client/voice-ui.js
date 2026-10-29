@@ -82,13 +82,7 @@
     for (const [id, speaker] of speakers) if (speaker.expiresAt && speaker.expiresAt <= now) speakers.delete(id);
     speakerList.replaceChildren();
     const visible = [...speakers.values()].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 8);
-    panel.hidden = false;
-    if (visible.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'echo-voice-empty';
-      empty.textContent = label('Никто не говорит', 'Nobody speaking');
-      speakerList.append(empty);
-    }
+    panel.hidden = visible.length === 0;
     for (const speaker of visible) {
       const isMuted = muted.has(speaker.id);
       const row = document.createElement('div');
