@@ -27,17 +27,36 @@
   text-overflow: ellipsis;
 }
 #game .echo-voice-speaker.is-muted .echo-voice-speaker-name { color: #8995a4; }
+#game .echo-voice-empty {
+  padding: 2px 0;
+  color: rgba(194,216,236,.55);
+  font-size: 10px;
+}
 #game .echo-voice-speaker-indicator {
   flex: none;
-  width: 5px;
-  height: 12px;
-  border-radius: 5px;
-  background: #6fdafa;
-  box-shadow: 0 0 7px rgba(93,216,251,.7);
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 20px;
+  color: #75dfff;
+  filter: drop-shadow(0 0 5px rgba(93,216,251,.45));
 }
-#game .echo-voice-speaker.is-muted .echo-voice-speaker-indicator {
-  background: #637585;
-  box-shadow: none;
+#game .echo-voice-speaker-indicator svg { width: 15px; height: 17px; }
+#game .echo-voice-speaker.is-speaking:not(.is-muted) .echo-voice-speaker-indicator {
+  animation: echo-voice-pulse 1.2s ease-in-out infinite;
+}
+#game .echo-voice-speaker.is-muted .echo-voice-speaker-indicator,
+#game .echo-voice-speaker.is-idle .echo-voice-speaker-indicator {
+  color: #8595a6;
+  filter: none;
+  animation: none;
+}
+@keyframes echo-voice-pulse {
+  0%, 100% { opacity: .65; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #game .echo-voice-speaker-indicator { animation: none !important; }
 }
 #game .echo-voice-mute {
   flex: none;

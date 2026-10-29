@@ -38,6 +38,24 @@
       for (const id of saved.ids.slice(0, 100)) if (typeof id === 'string' && id.length <= 150) muted.add(id);
     } catch (_) {}
   }
+  function svgMicrophone() {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '1.8');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    const capsule = document.createElementNS(ns, 'rect');
+    capsule.setAttribute('x', '9'); capsule.setAttribute('y', '2');
+    capsule.setAttribute('width', '6'); capsule.setAttribute('height', '13');
+    capsule.setAttribute('rx', '3');
+    const waves = document.createElementNS(ns, 'path');
+    waves.setAttribute('d', 'M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8');
+    svg.append(capsule, waves);
+    return svg;
+  }
   function svgMute(isMuted) {
     const ns = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(ns, 'svg');
@@ -64,14 +82,22 @@
     for (const [id, speaker] of speakers) if (speaker.expiresAt && speaker.expiresAt <= now) speakers.delete(id);
     speakerList.replaceChildren();
     const visible = [...speakers.values()].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 8);
-    panel.hidden = visible.length === 0;
+    panel.hidden = false;
+    if (visible.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'echo-voice-empty';
+      empty.textContent = label('Никто не говорит', 'Nobody speaking');
+      speakerList.append(empty);
+    }
     for (const speaker of visible) {
       const isMuted = muted.has(speaker.id);
       const row = document.createElement('div');
-      row.className = 'echo-voice-speaker' + (isMuted ? ' is-muted' : '');
+      row.className = 'echo-voice-speaker' + (isMuted ? ' is-muted' : '') +
+        (speaker.expiresAt ? ' is-idle' : ' is-speaking');
       const indicator = document.createElement('span');
       indicator.className = 'echo-voice-speaker-indicator';
       indicator.setAttribute('aria-hidden', 'true');
+      indicator.append(svgMicrophone());
       const name = document.createElement('span');
       name.className = 'echo-voice-speaker-name';
       name.textContent = speaker.name;
@@ -247,7 +273,7 @@
     isMuted: id => muted.has(id),
     getScope: () => ({ roomId, roundId })
   });
-  setInterval(() => { if (!panel.hidden) renderSpeakers(); }, 500);
+  setInterval(() => { if ([...speakers.values()].some(speaker => speaker.expiresAt)) renderSpeakers(); }, 500);
   bindSocket(window.echoSocket);
   renderSpeakers();
   updateMic();

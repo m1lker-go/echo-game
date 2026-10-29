@@ -77,10 +77,19 @@
   }
   function refreshAudio() {
     if (!connected()) return;
+    const transmittingNearby = new Set();
     for (const participant of room.remoteParticipants.values()) {
       const id = participant.identity, d = distance(id), wanted = d < MAX && !isMuted(id);
-      for (const publication of participant.trackPublications.values()) {
-        if (publication.kind !== 'audio') continue;
+      // Push-to-talk has a published audio track while the microphone is held.
+      // VAD can miss brief speech, so use real LiveKit publications for the roster.
+      // Muting locally must not hide the control needed to unmute someone.
+      const microphonePublications = [...participant.trackPublications.values()]
+        .filter(publication => publication.kind === 'audio');
+      if (d < MAX && positions.has(id) &&
+          microphonePublications.some(publication => !publication.isMuted)) {
+        transmittingNearby.add(id);
+      }
+      for (const publication of microphonePublications) {
         const key = id + ':' + publication.trackSid;
         if (subscriptionStates.get(key) !== wanted) {
           subscriptionStates.set(key, wanted);
@@ -93,15 +102,11 @@
         if (a.gain) a.gain.gain.setTargetAtTime(gain, context.currentTime, 0.07);
         else a.element.volume = gain;
       }
-      if (!wanted && talking.has(id)) speaker(id,false);
     }
+    for (const id of [...talking]) if (!transmittingNearby.has(id)) speaker(id,false);
+    for (const id of transmittingNearby) if (!talking.has(id)) speaker(id,true);
   }
-  function onSpeaking(participants) {
-    const current = new Set(participants.filter(p => p.identity !== socket?.id &&
-      distance(p.identity) < MAX && !isMuted(p.identity)).map(p => p.identity));
-    for (const id of [...talking]) if (!current.has(id)) speaker(id,false);
-    for (const id of current) if (!talking.has(id)) speaker(id,true);
-  }
+  function onSpeaking() { refreshAudio(); }
   function scheduleRetry() {
     if (retryTimer !== null || !enabled || !socket?.connected || !inGame()) return;
     retryTimer = setTimeout(() => {
