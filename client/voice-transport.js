@@ -5,7 +5,7 @@
   let socket = null, enabled = false, room = null, lk = null, loading = null;
   let connectionSerial = 0, speakingSerial = 0, scope = null;
   let positions = new Map(), selfPosition = null, publishingTrack = null;
-  let context = null;
+  let context = null, refreshTimer = null;
   const attached = new Map(), talking = new Set();
 
   const inGame = () => !document.hidden && document.querySelector('#main-menu')?.classList.contains('is-hidden') === true;
@@ -148,8 +148,13 @@
   }
   function availability(data) {
     enabled = data?.enabled === true;
-    if (!enabled) disconnectVoice();
-    else void enterVoice();
+    if (!enabled) {
+      if (refreshTimer !== null) { clearInterval(refreshTimer); refreshTimer = null; }
+      disconnectVoice();
+    } else {
+      if (refreshTimer === null) refreshTimer = setInterval(refreshAudio, 450);
+      void enterVoice();
+    }
   }
   function onRoom(data) {
     if (!data?.round || data.roomId == null) return;
@@ -222,6 +227,5 @@
   document.addEventListener('visibilitychange',() => document.hidden ? disconnectVoice() : void enterVoice());
   window.addEventListener('blur',disconnectVoice);
   window.addEventListener('pointerdown',() => { void context?.resume?.().catch(() => {}); },{passive:true});
-  setInterval(refreshAudio,450);
   bindSocket(window.echoSocket);
 })();

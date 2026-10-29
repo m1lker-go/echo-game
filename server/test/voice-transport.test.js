@@ -10,7 +10,7 @@ const vendor=fs.readFileSync(path.join(root,'scripts/install-client-deps.sh'),'u
 
 test('voice transport is linked after UI, lazily loads pinned SDK',()=>{
   assert.ok(html.indexOf('voice-ui.js') < html.indexOf('voice-transport.js'));
-  assert.match(html,/voice-transport\\.js\\?v=echo-livekit-voice-1/);
+  assert.ok(html.includes('voice-transport.js?v=echo-livekit-voice-1'));
   assert.ok(src.includes("if (!enabled || !socket?.connected || !inGame()) return;"));
   assert.ok(src.includes("echo:voice:join"));
   assert.ok(src.includes("autoSubscribe:false"));
