@@ -1,8 +1,10 @@
 package ru.echo.game
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
@@ -14,6 +16,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.ConsoleMessage
+import android.webkit.PermissionRequest
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
@@ -26,11 +29,13 @@ import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -73,6 +78,44 @@ class EchoWebActivity : ComponentActivity() {
     private var paymentWeb: WebView? = null
     private var rewardedAds: EchoRewardedAds? = null
     private var battleInterstitial: EchoBattleInterstitial? = null
+    private var pendingVoicePermissionRequest: PermissionRequest? = null
+
+    // The game owns microphone capture, never the native menu or payment WebView.
+    // Register unconditionally with the Activity lifecycle before onCreate().
+    private val microphonePermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            val request = pendingVoicePermissionRequest
+            pendingVoicePermissionRequest = null
+            if (request != null) {
+                if (granted && canGrantVoiceMicrophone(request)) {
+                    request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
+                } else {
+                    request.deny()
+                }
+            }
+        }
+
+    private fun isTrustedVoiceOrigin(uri: Uri): Boolean =
+        uri.scheme.equals("https", ignoreCase = true) &&
+            uri.host.equals("cat-fight.ru", ignoreCase = true) &&
+            (uri.port == -1 || uri.port == 443)
+
+    private fun canGrantVoiceMicrophone(request: PermissionRequest): Boolean {
+        if (page != Page.ARENA || isFinishing || isDestroyed ||
+            !::web.isInitialized || !isTrustedVoiceOrigin(request.origin)) return false
+        val currentDocument = web.url?.let(Uri::parse) ?: return false
+        val currentPath = currentDocument.path.orEmpty()
+        if (!isTrustedVoiceOrigin(currentDocument) ||
+            (currentPath != "/echo" && !currentPath.startsWith("/echo/"))) return false
+        // Never grant a camera, DRM identifier or an unknown future resource.
+        return request.resources.contentEquals(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
+    }
+
+    private fun clearPendingVoiceMicrophone() {
+        pendingVoicePermissionRequest?.deny()
+        pendingVoicePermissionRequest = null
+    }
+
     private val requestedUrl get() = if (page == Page.ARENA) BASE + "?play=1" else BASE
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
@@ -414,6 +457,32 @@ class EchoWebActivity : ComponentActivity() {
             settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             settings.mediaPlaybackRequiresUserGesture = false
             webChromeClient = object : WebChromeClient() {
+                override fun onPermissionRequest(request: PermissionRequest) {
+                    if (!canGrantVoiceMicrophone(request)) {
+                        request.deny()
+                        return
+                    }
+                    if (pendingVoicePermissionRequest != null) {
+                        // Do not replace a pending Android permission dialog.
+                        request.deny()
+                        return
+                    }
+                    if (ContextCompat.checkSelfPermission(
+                            this@EchoWebActivity, Manifest.permission.RECORD_AUDIO
+                        ) == PackageManager.PERMISSION_GRANTED) {
+                        request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
+                    } else {
+                        pendingVoicePermissionRequest = request
+                        microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                }
+
+                override fun onPermissionRequestCanceled(request: PermissionRequest) {
+                    if (pendingVoicePermissionRequest === request) {
+                        pendingVoicePermissionRequest = null
+                    }
+                }
+
                 override fun onConsoleMessage(message: ConsoleMessage): Boolean {
                     // DOM-only signal from the injected same-origin observer below.
                     // No sensitive data crosses this channel.
@@ -470,6 +539,8 @@ class EchoWebActivity : ComponentActivity() {
 
                 override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                     super.onPageStarted(view, url, favicon)
+                    // Never apply a delayed microphone approval to a new document.
+                    clearPendingVoiceMicrophone()
                     packDialogOpen = false
                     nativeNav.setMode(if (page == Page.ARENA)
                         EchoNavButton.Mode.CLOSE else EchoNavButton.Mode.BACK)
@@ -843,6 +914,7 @@ class EchoWebActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        clearPendingVoiceMicrophone()
         connectivity?.stop()
         connectivity = null
         hideConnectionFailure()
