@@ -9,7 +9,11 @@ function mockSdk() {
   class AccessToken {
     constructor(key, value, options) { this.options=options; calls.push(['token', key, value, options]); }
     addGrant(grant) { this.grant=grant; calls.push(['grant', grant]); }
-    async toJwt() { return 'mock-jwt'; }
+    async toJwt() {
+      // Mimic LiveKit's protobuf serializer: the TrackSource enum must be numeric.
+      assert.deepEqual(this.grant.canPublishSources, [2]);
+      return 'mock-jwt';
+    }
   }
   class RoomServiceClient {
     constructor(url,key,secret) { calls.push(['service', url, key, secret]); }
@@ -52,7 +56,7 @@ test('join token is issued for server-owned identity, one round/room, microphone
   assert.equal(result.roundId,p.roundId);
   const grant=mock.calls.find(x=>x[0]==='grant')[1];
   assert.equal(grant.room,'echo-voice:'+p.roundId+':3');
-  assert.deepEqual(grant.canPublishSources,['microphone']);
+  assert.deepEqual(grant.canPublishSources,[2]);
   assert.equal(grant.canPublishData,false);
   assert.equal(grant.canSubscribe,true);
   assert.equal(mock.calls.find(x=>x[0]==='token')[3].ttl,60);

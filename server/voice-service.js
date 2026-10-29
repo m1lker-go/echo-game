@@ -4,6 +4,10 @@
 // LiveKit credentials never leave the VPS. Disabled unless fully configured.
 const { roundWindow } = require('./room-manager');
 
+// LiveKit's protobuf TrackSource.MICROPHONE enum is 2.
+// The browser SDK uses the string 'microphone', but the server JWT SDK requires the numeric enum.
+const MICROPHONE_TRACK_SOURCE = 2;
+
 function createVoiceService({ env = process.env, sdk = null, nodeMajor = Number(process.versions.node.split('.')[0]) } = {}) {
   const publicUrl = String(env.ECHO_LIVEKIT_URL || '').trim();
   const apiKey = String(env.ECHO_LIVEKIT_API_KEY || '').trim();
@@ -47,7 +51,7 @@ function createVoiceService({ env = process.env, sdk = null, nodeMajor = Number(
       roomJoin: true,
       room,
       canPublish: true,
-      canPublishSources: ['microphone'],
+      canPublishSources: [MICROPHONE_TRACK_SOURCE],
       canPublishData: false,
       canSubscribe: true
     });
