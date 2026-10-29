@@ -8,6 +8,7 @@
   let context = null, refreshTimer = null;
   let roomSnapshot = null, joining = false, retryTimer = null, retryDelay = 1800;
   let availabilityReceived = false, statusCode = 'WAIT_SERVER';
+  let socketIssue = 'SOCKET_NOT_STARTED';
   let lastDisconnectReason = null;
   const attached = new Map(), talking = new Set(), subscriptionStates = new Map();
 
@@ -235,10 +236,23 @@
     selfPosition = own;
     // The 450ms update batches subscription and gain changes, not each game frame.
   }
-  function socketDisconnected() {
+  function socketDisconnected(reason) {
     roomSnapshot = null;
+    socketIssue = reason === 'ping timeout' ? 'SOCKET_PING_TIMEOUT' :
+      reason === 'transport close' || reason === 'transport error' ? 'SOCKET_TRANSPORT_CLOSED' :
+      reason === 'io server disconnect' ? 'SOCKET_SERVER_CLOSED' : 'SOCKET_DISCONNECTED';
     statusCode = 'SOCKET';
     disconnectVoice();
+  }
+  function socketConnected() { socketIssue = null; }
+  function socketConnectError(error) {
+    if (error?.data?.code === 'ACCOUNT_ALREADY_PLAYING') {
+      socketIssue = 'SOCKET_ACCOUNT';
+      return;
+    }
+    const message = String(error?.message || '').toLowerCase();
+    socketIssue = /timeout/.test(message) ? 'SOCKET_TIMEOUT' :
+      /transport|xhr|websocket/.test(message) ? 'SOCKET_TRANSPORT' : 'SOCKET_ERROR';
   }
   function bindSocket(next) {
     if (!next || socket === next) return;
@@ -247,9 +261,12 @@
       socket.off('echo:room',onRoom);
       socket.off('echo:players',onPlayers);
       socket.off('disconnect',socketDisconnected);
+      socket.off('connect',socketConnected);
+      socket.off('connect_error',socketConnectError);
     }
     disconnectVoice();
     socket = next;
+    socketIssue = socket.connected ? null : 'SOCKET_CONNECTING';
     enabled = false;
     availabilityReceived = false;
     roomSnapshot = null;
@@ -259,13 +276,15 @@
     socket.on('echo:room',onRoom);
     socket.on('echo:players',onPlayers);
     socket.on('disconnect',socketDisconnected);
+    socket.on('connect',socketConnected);
+    socket.on('connect_error',socketConnectError);
     if (socket.connected) socket.emit('echo:hello',{version:1});
   }
 
   window.ECHOVoiceTransport = Object.freeze({
     get ready() { return connected() && inGame(); },
     get status() {
-      if (!socket?.connected) return 'SOCKET';
+      if (!socket?.connected) return socketIssue || 'SOCKET_NOT_STARTED';
       if (!inGame()) return 'MENU';
       if (!availabilityReceived) return 'WAIT_SERVER';
       if (!enabled) return 'DISABLED';

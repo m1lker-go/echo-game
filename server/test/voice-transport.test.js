@@ -11,7 +11,7 @@ const vendor=fs.readFileSync(path.join(root,'scripts/install-client-deps.sh'),'u
 
 test('voice transport is linked after UI, lazily loads pinned SDK',()=>{
   assert.ok(html.indexOf('voice-ui.js') < html.indexOf('voice-transport.js'));
-  assert.ok(html.includes('voice-transport.js?v=echo-livekit-voice-4'));
+  assert.ok(html.includes('voice-transport.js?v=echo-livekit-voice-5'));
   assert.ok(src.includes("if (!enabled || !socket?.connected || !inGame()) return;"));
   assert.ok(src.includes("echo:voice:join"));
   assert.ok(src.includes("scheduleRetry()"));
@@ -22,6 +22,9 @@ test('voice transport is linked after UI, lazily loads pinned SDK',()=>{
   assert.ok(src.includes("classifyConnectError(error)"));
   assert.ok(src.includes("DISCONNECTED_"));
   assert.ok(src.includes("roomSnapshot = incoming"));
+  assert.ok(src.includes("socket.on('connect_error',socketConnectError)"));
+  assert.ok(src.includes("SOCKET_TRANSPORT_CLOSED"));
+  assert.ok(src.includes("return socketIssue || 'SOCKET_NOT_STARTED'"));
   assert.ok(src.includes("get status()"));
   assert.ok(src.includes("autoSubscribe:false"));
   assert.ok(vendor.includes("livekit-client@2.23.0"));
@@ -40,6 +43,15 @@ test('voice subscription follows the 500-800 range and server player snapshots',
   assert.ok(src.includes("publication.setSubscribed(wanted)"));
   assert.ok(src.includes("currentRoom.localParticipant.publishTrack"));
   assert.ok(src.includes("track.enabled = false"));
+});
+
+test('iPhone game Socket.IO uses polling-first fallback, without changing other clients', () => {
+  const game=fs.readFileSync(path.join(root,'client/game.js'),'utf8');
+  assert.ok(game.includes("const isIOSSocketClient = /iPad|iPhone|iPod/.test(navigator.userAgent || '')"));
+  assert.ok(game.includes("transports:isIOSSocketClient?['polling','websocket']:['websocket','polling']"));
+  assert.ok(game.includes('tryAllTransports:isIOSSocketClient'));
+  assert.ok(game.includes('timeout:isIOSSocketClient?10000:5000'));
+  assert.ok(html.includes('game.js?v=echo-ios-socket-fallback-1'));
 });
 
 test('voice transport parses as standalone JavaScript', () => {
