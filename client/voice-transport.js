@@ -6,10 +6,12 @@
   let connectionSerial = 0, speakingSerial = 0, scope = null;
   let positions = new Map(), selfPosition = null, publishingTrack = null;
   let context = null, refreshTimer = null;
+  let roomSnapshot = null, joining = false, retryTimer = null, retryDelay = 1800;
+  let availabilityReceived = false, statusCode = 'WAIT_SERVER';
   const attached = new Map(), talking = new Set(), subscriptionStates = new Map();
 
   const inGame = () => !document.hidden && document.querySelector('#main-menu')?.classList.contains('is-hidden') === true;
-  const voiceScope = () => window.ECHOVoiceUI?.getScope?.();
+  const voiceScope = () => roomSnapshot;
   const sameScope = (a,b) => a && b && String(a.roundId) === String(b.roundId) && String(a.roomId) === String(b.roomId);
   const connected = () => !!(room && lk && room.state === lk.ConnectionState.Connected);
   const distance = id => {
@@ -100,7 +102,17 @@
     for (const id of [...talking]) if (!current.has(id)) speaker(id,false);
     for (const id of current) if (!talking.has(id)) speaker(id,true);
   }
+  function scheduleRetry() {
+    if (retryTimer !== null || !enabled || !socket?.connected || !inGame()) return;
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      void enterVoice();
+    }, retryDelay);
+    retryDelay = Math.min(12000, Math.round(retryDelay * 1.7));
+  }
   function disconnectVoice() {
+    if (retryTimer !== null) { clearTimeout(retryTimer); retryTimer = null; }
+    joining = false;
     ++connectionSerial;
     ++speakingSerial;
     if (publishingTrack) publishingTrack.enabled = false;
@@ -120,17 +132,26 @@
     if (!enabled || !socket?.connected || !inGame()) return;
     const newScope = voiceScope();
     if (newScope?.roundId == null || newScope?.roomId == null) return;
-    if (sameScope(scope,newScope) && room) return;
+    if (joining || (sameScope(scope,newScope) && connected())) return;
     disconnectVoice();
+    joining = true;
+    statusCode = 'JOINING';
     const ticket = connectionSerial;
     scope = {roomId:String(newScope.roomId),roundId:String(newScope.roundId)};
     try {
       const response = await new Promise((resolve, reject) =>
         socket.timeout(7000).emit('echo:voice:join', null, (error,data) => error ? reject(error) : resolve(data)));
       if (ticket !== connectionSerial || !inGame()) return;
-      if (!response?.ok || !sameScope(scope,response)) throw new Error(response?.error || 'Wrong voice room');
+      if (!response?.ok || !sameScope(scope,response)) {
+        statusCode = response?.error === 'rate_limited' ? 'RATE_LIMIT' :
+          response?.error === 'not_playing' ? 'NOT_PLAYING' :
+          response?.error === 'disabled' ? 'DISABLED' : 'JOIN_DENIED';
+        throw new Error(response?.error || 'Wrong voice room');
+      }
+      statusCode = 'SDK';
       lk = await library();
       if (ticket !== connectionSerial || !inGame()) return;
+      statusCode = 'SIGNAL';
       const joined = new lk.Room({adaptiveStream:false,dynacast:false});
       room = joined;
       joined.on(lk.RoomEvent.TrackSubscribed, receivedTrack);
@@ -141,18 +162,28 @@
       });
       joined.on(lk.RoomEvent.TrackPublished, refreshAudio);
       joined.on(lk.RoomEvent.ActiveSpeakersChanged, onSpeaking);
-      joined.on(lk.RoomEvent.Disconnected, () => { if (room === joined) disconnectVoice(); });
+      joined.on(lk.RoomEvent.Disconnected, () => {
+        if (room === joined) { statusCode = 'DISCONNECTED'; disconnectVoice(); scheduleRetry(); }
+      });
       await joined.connect(response.url,response.token,{autoSubscribe:false});
       if (ticket !== connectionSerial || !inGame()) { void joined.disconnect(); return; }
+      joining = false;
+      retryDelay = 1800;
+      statusCode = 'READY';
       refreshAudio();
     } catch (error) {
       if (ticket === connectionSerial) {
+        if (statusCode === 'JOINING') statusCode = 'JOIN_ERROR';
+        else if (statusCode === 'SDK') statusCode = 'SDK_ERROR';
+        else if (statusCode === 'SIGNAL') statusCode = 'LIVEKIT_ERROR';
         console.warn('[ECHO Voice] Not connected:',error.message);
         disconnectVoice();
+        scheduleRetry();
       }
     }
   }
   function availability(data) {
+    availabilityReceived = true;
     enabled = data?.enabled === true;
     if (!enabled) {
       if (refreshTimer !== null) { clearInterval(refreshTimer); refreshTimer = null; }
@@ -165,6 +196,7 @@
   function onRoom(data) {
     if (!data?.round || data.roomId == null) return;
     const incoming = {roundId:data.round.id,roomId:data.roomId};
+    roomSnapshot = incoming;
     if (scope && !sameScope(scope,incoming)) disconnectVoice();
     queueMicrotask(() => { void enterVoice(); });
   }
@@ -182,26 +214,44 @@
     selfPosition = own;
     // The 450ms update batches subscription and gain changes, not each game frame.
   }
+  function socketDisconnected() {
+    roomSnapshot = null;
+    statusCode = 'SOCKET';
+    disconnectVoice();
+  }
   function bindSocket(next) {
     if (!next || socket === next) return;
     if (socket) {
       socket.off('echo:voice:availability',availability);
       socket.off('echo:room',onRoom);
       socket.off('echo:players',onPlayers);
-      socket.off('disconnect',disconnectVoice);
+      socket.off('disconnect',socketDisconnected);
     }
     disconnectVoice();
     socket = next;
     enabled = false;
+    availabilityReceived = false;
+    roomSnapshot = null;
+    statusCode = 'WAIT_SERVER';
+    retryDelay = 1800;
     socket.on('echo:voice:availability',availability);
     socket.on('echo:room',onRoom);
     socket.on('echo:players',onPlayers);
-    socket.on('disconnect',disconnectVoice);
+    socket.on('disconnect',socketDisconnected);
     if (socket.connected) socket.emit('echo:hello',{version:1});
   }
 
   window.ECHOVoiceTransport = Object.freeze({
     get ready() { return connected() && inGame(); },
+    get status() {
+      if (!socket?.connected) return 'SOCKET';
+      if (!inGame()) return 'MENU';
+      if (!availabilityReceived) return 'WAIT_SERVER';
+      if (!enabled) return 'DISABLED';
+      if (!roomSnapshot) return 'ROOM';
+      if (joining) return 'CONNECTING';
+      return connected() ? 'READY' : statusCode;
+    },
     async start(stream) {
       if (!connected() || !inGame()) throw new Error('Voice connection unavailable');
       const track = stream.getAudioTracks?.()[0], currentRoom = room;
@@ -227,11 +277,12 @@
     }
   });
   document.addEventListener('echo:socket-ready',event => bindSocket(event.detail?.socket || window.echoSocket));
-  document.addEventListener('echo:returned-to-menu',disconnectVoice);
+  document.addEventListener('echo:returned-to-menu',() => { roomSnapshot = null; disconnectVoice(); });
   document.addEventListener('echo:game-started',() => queueMicrotask(() => { void enterVoice(); }));
   document.addEventListener('echo:voice-mute-changed',refreshAudio);
   document.addEventListener('visibilitychange',() => document.hidden ? disconnectVoice() : void enterVoice());
   window.addEventListener('blur',disconnectVoice);
+  window.addEventListener('focus',() => { void enterVoice(); });
   window.addEventListener('pointerdown',() => { void context?.resume?.().catch(() => {}); },{passive:true});
   bindSocket(window.echoSocket);
 })();

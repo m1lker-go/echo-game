@@ -138,6 +138,10 @@
   }
 
   function feedback(text) { window.ECHOToast?.show(text); }
+  function unavailableFeedback() {
+    const status = String(window.ECHOVoiceTransport?.status || 'LOADING').replace(/[^A-Z_]/g, '').slice(0, 28);
+    feedback(label('Голосовой чат пока не подключён', 'Voice chat is not connected yet') + ' [' + status + ']');
+  }
   function stopTracks(value) { for (const track of value?.getTracks?.() || []) track.stop(); }
   function updateMic() {
     mic.classList.toggle('is-pressed', pressed);
@@ -157,7 +161,7 @@
     if (pressed || !activeGame()) return;
     const transport = window.ECHOVoiceTransport;
     if (!transport?.ready) {
-      feedback(label('Голосовой чат пока не подключён', 'Voice chat is not connected yet'));
+      unavailableFeedback();
       return;
     }
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -203,7 +207,7 @@
     if (pointerId !== null) return;
     // No pointer capture if voice service is not connected.
     if (!window.ECHOVoiceTransport?.ready) {
-      feedback(label('Голосовой чат пока не подключён', 'Voice chat is not connected yet'));
+      unavailableFeedback();
       return;
     }
     pointerId = event.pointerId;
