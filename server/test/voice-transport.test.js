@@ -3,6 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const root=path.join(__dirname,'../..');
 const html=fs.readFileSync(path.join(root,'client/index.html'),'utf8');
 const src=fs.readFileSync(path.join(root,'client/voice-transport.js'),'utf8');
@@ -26,4 +27,8 @@ test('voice subscription follows the 500-800 range and server player snapshots',
   assert.ok(src.includes("publication.setSubscribed(wanted)"));
   assert.ok(src.includes("currentRoom.localParticipant.publishTrack"));
   assert.ok(src.includes("track.enabled = false"));
+});
+
+test('voice transport parses as standalone JavaScript', () => {
+  assert.doesNotThrow(() => new vm.Script(src, {filename:'voice-transport.js'}));
 });

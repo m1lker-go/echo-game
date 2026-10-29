@@ -62,3 +62,16 @@ test('join token is issued for server-owned identity, one round/room, microphone
   await voice.remove(p);
   assert.deepEqual(mock.calls.at(-1),['remove','echo-voice:'+p.roundId+':3',p.id]);
 });
+
+test('legacy Node 18 cannot activate LiveKit even with credentials set', async () => {
+  const mock=mockSdk();
+  const oldWarn=console.warn;
+  console.warn=()=>{};
+  try {
+    const voice=createVoiceService({nodeMajor:18,
+      env:{ECHO_LIVEKIT_URL:'wss://voice.cat-fight.ru',
+        ECHO_LIVEKIT_API_KEY:'publickey',ECHO_LIVEKIT_API_SECRET:secret},sdk:mock.sdk});
+    assert.equal(voice.enabled,false);
+    assert.equal(mock.calls.length,0);
+  } finally { console.warn=oldWarn; }
+});

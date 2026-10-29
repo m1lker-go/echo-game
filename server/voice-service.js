@@ -4,17 +4,29 @@
 // LiveKit credentials never leave the VPS. Disabled unless fully configured.
 const { roundWindow } = require('./room-manager');
 
-function createVoiceService({ env = process.env, sdk = null } = {}) {
+function createVoiceService({ env = process.env, sdk = null, nodeMajor = Number(process.versions.node.split('.')[0]) } = {}) {
   const publicUrl = String(env.ECHO_LIVEKIT_URL || '').trim();
   const apiKey = String(env.ECHO_LIVEKIT_API_KEY || '').trim();
   const apiSecret = String(env.ECHO_LIVEKIT_API_SECRET || '').trim();
   const enabled = /^wss:\/\/[^/\s]+\/?$/.test(publicUrl) && apiKey.length >= 6 && apiSecret.length >= 32;
   if (!enabled) return { enabled: false, createJoin: async () => null, remove: async () => {} };
 
-  // Lazy import: the SDK is not needed to run the normal game without voice.
-  const { AccessToken, RoomServiceClient } = sdk || require('livekit-server-sdk');
-  const apiUrl = String(env.ECHO_LIVEKIT_API_URL || publicUrl.replace(/^wss:/, 'https:')).trim();
-  const roomService = new RoomServiceClient(apiUrl, apiKey, apiSecret);
+  // The current LiveKit server SDK requires Node >=19. Do not jeopardize ECHO
+  // on legacy Node (production was Node 18 at integration time).
+  if (nodeMajor < 20) {
+    console.warn('[echo-voice] Disabled: Node.js 20+ is required for voice');
+    return { enabled: false, createJoin: async () => null, remove: async () => {} };
+  }
+  let AccessToken, RoomServiceClient, roomService;
+  try {
+    // Lazy import: the SDK is not needed to run the normal game without voice.
+    ({ AccessToken, RoomServiceClient } = sdk || require('livekit-server-sdk'));
+    const apiUrl = String(env.ECHO_LIVEKIT_API_URL || publicUrl.replace(/^wss:/, 'https:')).trim();
+    roomService = new RoomServiceClient(apiUrl, apiKey, apiSecret);
+  } catch (error) {
+    console.warn('[echo-voice] Disabled: LiveKit SDK not ready:', error.message);
+    return { enabled: false, createJoin: async () => null, remove: async () => {} };
+  }
 
   function voiceRoom(player) {
     if (!player || !Number.isSafeInteger(Number(player.roomId)) ||

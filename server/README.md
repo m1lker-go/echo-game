@@ -230,3 +230,11 @@ a strict privacy boundary. A modified client could subscribe outside 800
 units. Implement server-enforced track subscription permissions before claiming
 proximity as an anti-eavesdropping guarantee. iOS, VK Mini Apps and APK
 microphone permissions must be verified separately on devices.
+
+### VPS Node.js compatibility
+
+At initial setup, the VPS ran Node.js **18.20.8**. The selected
+`livekit-server-sdk@2.19.2` advertises Node >=19. To protect existing
+ECHO/Cat Fighting, the voice service refuses to enable on Node <20.
+Upgrade the **ECHO runtime only** before filling the LiveKit environment.
+Do not silently switch the system Node.js runtime for other PM2 services.
