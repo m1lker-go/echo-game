@@ -40,8 +40,8 @@ pack_and_extract 'socket.io@4.8.1' package/client-dist/socket.io.min.js
 cp package/client-dist/socket.io.min.js "$TMP_DIR/staged/socket.io-4.8.1.min.js"
 rm -rf package
 
-pack_and_extract 'livekit-client@2.23.0' package/dist/livekit-client.umd.min.js
-cp package/dist/livekit-client.umd.min.js "$TMP_DIR/staged/livekit-client-2.23.0.min.js"
+pack_and_extract 'livekit-client@2.23.0' package/dist/livekit-client.umd.js
+cp package/dist/livekit-client.umd.js "$TMP_DIR/staged/livekit-client-2.23.0.min.js"
 rm -rf package
 
 pack_and_extract '@fortawesome/fontawesome-free@6.7.2' package/css/all.min.css package/webfonts
