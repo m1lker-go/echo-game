@@ -51,7 +51,7 @@ test('iPhone game Socket.IO uses polling-first fallback, without changing other 
   assert.ok(game.includes("transports:isIOSSocketClient?['polling','websocket']:['websocket','polling']"));
   assert.ok(game.includes('tryAllTransports:isIOSSocketClient'));
   assert.ok(game.includes('timeout:isIOSSocketClient?10000:5000'));
-  assert.ok(html.includes('game.js?v=echo-ios-socket-fallback-1'));
+  assert.ok(html.includes('game.js?v=echo-camera-jitter-1-ios-socket-1'));
 });
 
 test('voice transport parses as standalone JavaScript', () => {
