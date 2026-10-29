@@ -19,6 +19,7 @@
   let generation = 0;
   let stream = null;
   let transmitting = false;
+  let lastReportedTransmitting = false;
 
   const english = () => document.documentElement.lang?.startsWith('en');
   const label = (ru, en) => english() ? en : ru;
@@ -167,6 +168,10 @@
     mic.classList.toggle('is-pressed', pressed);
     mic.classList.toggle('is-transmitting', transmitting);
     mic.setAttribute('aria-pressed', String(transmitting));
+    if (lastReportedTransmitting !== transmitting) {
+      lastReportedTransmitting = transmitting;
+      document.dispatchEvent(new CustomEvent('echo:voice-self-speaking', {detail:{active:transmitting}}));
+    }
   }
   function endHold() {
     pressed = false;
@@ -270,6 +275,7 @@
   setInterval(() => {
     // Keep the speaker/mute list attached when gameplay replaces its socket.
     if (window.echoSocket && window.echoSocket !== boundSocket) bindSocket(window.echoSocket);
+    if (transmitting && !window.ECHOVoiceTransport?.ready) endHold();
     if ([...speakers.values()].some(speaker => speaker.expiresAt)) renderSpeakers();
   }, 500);
   bindSocket(window.echoSocket);

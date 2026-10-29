@@ -82,7 +82,7 @@ function harness() {
 test('voice HUD uses current abilities, hidden speaking panel and no fake speakers', () => {
   assert.match(html, /id="echo-voice-mic"[^>]*class="ability echo-voice-mic"/);
   assert.match(html, /id="echo-voice-speakers"[^>]*aria-label="Говорят рядом" hidden/);
-  assert.match(html, /src="\.\/voice-ui\.js\?v=echo-voice-ui-5"/);
+  assert.match(html, /src="\.\/voice-ui\.js\?v=echo-voice-ui-6"/);
   assert.match(css, /--echo-jump-size/);
   const app = harness();
   assert.equal(app.nodes.get('#echo-voice-speakers').hidden, true);
@@ -121,6 +121,8 @@ test('press-and-hold starts and stops capture only with a connected transport', 
   const app = harness();
   app.enterRoom(1, 'round');
   const operations = [];
+  const localState = [];
+  app.document.addEventListener('echo:voice-self-speaking', e => localState.push(e.detail.active));
   app.window.ECHOVoiceTransport = {
     ready: true,
     start: async () => { operations.push('start'); },
@@ -131,10 +133,12 @@ test('press-and-hold starts and stops capture only with a connected transport', 
   assert.equal(app.requests.length, 1);
   assert.equal(operations.includes('start'), true);
   assert.equal(app.nodes.get('#echo-voice-mic').getAttribute('aria-pressed'), 'true');
+  assert.equal(JSON.stringify(localState), '[true]');
   app.pointer('pointerup');
   assert.equal(app.stopped, 1);
   assert.equal(app.nodes.get('#echo-voice-mic').getAttribute('aria-pressed'), 'false');
   assert.ok(operations.includes('stop'));
+  assert.equal(JSON.stringify(localState), '[true,false]');
 });
 
 

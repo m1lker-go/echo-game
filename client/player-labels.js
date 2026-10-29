@@ -23,6 +23,38 @@ export function createPlayerLabels(canvas) {
   let localEnergyLift = 60, localNameLift = 157;
   let enemyEnergyLift = 50, enemyNameLift = 132;
   let fontFamily = 'system-ui, sans-serif';
+  let speaking = false;
+  document.addEventListener('echo:voice-self-speaking', e => {
+    speaking = e.detail?.active === true;
+  });
+  // Speaker icon shares the player-number projection, so it follows the model.
+  function drawVoiceSpeaker(x, y, size) {
+    const pulse = 1 + Math.sin(performance.now() * 0.012) * 0.06;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(pulse, pulse);
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.fillStyle = '#8be8ff';
+    ctx.strokeStyle = '#8be8ff';
+    ctx.shadowColor = 'rgba(91,218,255,0.7)';
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.moveTo(-size*.45, -size*.18);
+    ctx.lineTo(-size*.23, -size*.18);
+    ctx.lineTo(size*.05, -size*.4);
+    ctx.lineTo(size*.05, size*.4);
+    ctx.lineTo(-size*.23, size*.18);
+    ctx.lineTo(-size*.45, size*.18);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(size*.02, 0, size*.24, -.86, .86);
+    ctx.arc(size*.02, 0, size*.42, -.86, .86);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   function resize(pixelWidth, pixelHeight, dpr, worldScale) {
     const scale = Math.max(0.01, worldScale);
@@ -80,8 +112,13 @@ export function createPlayerLabels(canvas) {
     const numberHeight = textMetrics(value, energyFont);
     ctx.fillStyle = '#eaf1f7';
     // Bottom of the energy text is exactly gap above the model's head.
-    ctx.fillText(value, px, py - top - gap - numberHeight.bottom
-      - (enemy ? enemyEnergyLift : localEnergyLift));
+    const baseline = py - top - gap - numberHeight.bottom
+      - (enemy ? enemyEnergyLift : localEnergyLift);
+    ctx.fillText(value, px, baseline);
+    if (!enemy && speaking) {
+      const size = Math.max(11, Math.min(16, energyFont*.9));
+      drawVoiceSpeaker(px, baseline - numberHeight.top - size*.6 - 5, size);
+    }
 
     const displayName = typeof name === 'string' && name.trim() ? name : 'Игрок';
     ctx.font = '400 ' + nameFont + 'px ' + fontFamily;
