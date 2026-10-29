@@ -15,6 +15,7 @@ const echoAuth = require('./auth');
 const echoOAuth = require('./oauth');
 const { createAccountSessionRegistry } = require('./account-session-registry');
 const { roomIdentityFor, uniqueParticipants } = require('./player-identity');
+const { createVoiceService } = require('./voice-service');
 
 const app = express();
 const server = http.createServer(app);
@@ -378,6 +379,7 @@ app.post('/api/daily-quests/claim', async (req, res) => {
 
 const players = new Map();
 const roomManager = createRoomManager();
+const voiceService = createVoiceService();
 const roomFood = new Map();
 const pvpFlowers = require('./pvp-flowers').createPvpFlowers();
 function roomKey(player) { return `echo:${player.roundId}:${player.roomId}`; }
@@ -979,6 +981,7 @@ function advanceRoomRound() {
     const socket = io.sockets.sockets.get(player.id);
     if (!socket) { players.delete(player.id); continue; }
     const oldKey = roomKey(player);
+    void voiceService.remove(player);
     socket.leave(oldKey);
     const identity = socket.data.roomIdentity || player.id;
     const assignment = roomManager.join(identity);
@@ -1080,6 +1083,7 @@ function finishFight(fight) {
     flowers:pvpFlowers.list(loserState.roundId,loserState.roomId)
   });
 
+  void voiceService.remove(loserState);
   players.delete(loserState.id);
   broadcastPlayers(winnerState);
 }
@@ -1252,6 +1256,7 @@ io.on('connection', (socket) => {
   advanceRoomRound();
   console.log(`[socket] connected: ${socket.id}`);
   socket.emit('echo:roundClock', currentRoundClock());
+  socket.emit('echo:voice:availability', { enabled: voiceService.enabled });
   if(rewardsReady && activityProfileId) queueRewardWork(async()=>{
     const results=await roundRewards.getRecentResults(pool,socket.data.verifiedAccountId ? 'account:' + socket.data.verifiedAccountId : activityProfileId);
     if(socket.connected && results.length)socket.emit('echo:roundResults',results.map(item=>({...item,authenticated: Boolean(socket.data.verifiedAccountId)})));
@@ -1314,6 +1319,7 @@ io.on('connection', (socket) => {
     if (current) current.name = socket.data.verifiedNickname || normalizePlayerName(null, activityProfileId || socket.id);
 
     socket.emit('echo:world', createWorldSnapshot());
+    socket.emit('echo:voice:availability', { enabled: voiceService.enabled });
     if (current) socket.emit('echo:deathFlowers',{
       roundId:current.roundId,
       flowers:pvpFlowers.list(current.roundId,current.roomId)
@@ -1326,6 +1332,29 @@ io.on('connection', (socket) => {
       socket.emit('echo:players', roomPlayers(current).map(player => ({ ...player })));
       broadcastFood(current);
       broadcastPlayers(current);
+    }
+  });
+
+  let lastVoiceJoin = 0;
+  socket.on('echo:voice:join', async (_payload, ack) => {
+    if (typeof ack !== 'function') return;
+    const now = Date.now();
+    if (now - lastVoiceJoin < 1200) return ack({ ok: false, error: 'rate_limited' });
+    lastVoiceJoin = now;
+    if (!voiceService.enabled) return ack({ ok: false, error: 'disabled' });
+    advanceRoomRound();
+    const current = players.get(socket.id);
+    if (!socket.connected || !current || current.defeated || current.roundId !== roundWindow().id) {
+      return ack({ ok: false, error: 'not_playing' });
+    }
+    try {
+      const join = await voiceService.createJoin(current, socket.id);
+      if (!socket.connected || players.get(socket.id) !== current ||
+          current.roundId !== roundWindow().id) return;
+      return ack(join ? { ok: true, ...join } : { ok: false, error: 'not_playing' });
+    } catch (error) {
+      console.error('[echo-voice] token issue failed:', error.message);
+      return ack({ ok: false, error: 'unavailable' });
     }
   });
 
@@ -1406,6 +1435,7 @@ io.on('connection', (socket) => {
     dailyActivityProfileIds.delete(socket.id);
     if (activityProfileId && activityProfileSockets.get(activityProfileId) === socket.id) activityProfileSockets.delete(activityProfileId);
     const current = players.get(socket.id);
+    if (current) void voiceService.remove(current);
     if (current?.fightingWith) {
       const opponent = players.get(current.fightingWith);
       if (opponent) {

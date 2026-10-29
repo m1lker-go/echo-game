@@ -191,3 +191,27 @@ and, through the public reverse proxy, verify the ECHO `/api/daily-activity` end
 ## Shutdown
 
 The server handles `SIGTERM` and `SIGINT`, closes Socket.IO/HTTP connections, then closes the PostgreSQL pool. A 10-second safety timeout terminates the process if shutdown does not complete.
+
+## Experimental ECHO voice (disabled by default)
+
+The game issues one-minute LiveKit join tokens over the **already authenticated
+Socket.IO session**. The server decides room membership and binds tokens to the
+current ECHO 15-minute round and room, using the real Socket.IO ID as the LiveKit
+identity. Guests are supported without trusting client-provided player names.
+
+To enable, set `ECHO_LIVEKIT_URL=wss://voice.cat-fight.ru`,
+`ECHO_LIVEKIT_API_URL=http://127.0.0.1:7880`, and the matching
+`ECHO_LIVEKIT_API_KEY` / `ECHO_LIVEKIT_API_SECRET` (at least 32 characters) in
+the **server's private environment**. Do not use testing keys or expose the
+API secret. Leave them unset until the voice service and HTTPS are healthy.
+
+Socket events: `echo:voice:availability` provides `{enabled}`; clients call
+`echo:voice:join` with an acknowledgment callback and get `{ok,url,token,
+identity,roomId,roundId}` or a harmless error. ECHO requests removal of the
+corresponding LiveKit participant at socket disconnect, defeat, or round change.
+Self-hosted LiveKit may still allow reuse of an unexpired token; the token TTL
+is 60 seconds. This is not intended as a hardened eavesdropping boundary until
+server-side proximity subscription enforcement is implemented.
+
+The voice feature has no effect on ECHO/Cat Fighting when unset, and does not
+alter the existing Socket.IO path, HTTP routes, or PostgreSQL database.
