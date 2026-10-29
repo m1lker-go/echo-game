@@ -267,7 +267,11 @@
     isMuted: id => muted.has(id),
     getScope: () => ({ roomId, roundId })
   });
-  setInterval(() => { if ([...speakers.values()].some(speaker => speaker.expiresAt)) renderSpeakers(); }, 500);
+  setInterval(() => {
+    // Keep the speaker/mute list attached when gameplay replaces its socket.
+    if (window.echoSocket && window.echoSocket !== boundSocket) bindSocket(window.echoSocket);
+    if ([...speakers.values()].some(speaker => speaker.expiresAt)) renderSpeakers();
+  }, 500);
   bindSocket(window.echoSocket);
   renderSpeakers();
   updateMic();

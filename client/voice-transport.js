@@ -281,9 +281,17 @@
     if (socket.connected) socket.emit('echo:hello',{version:1});
   }
 
+  // The game owns window.echoSocket. Its module can finish loading after
+  // the deferred voice scripts, or replace the socket on account changes.
+  function syncGameSocket() {
+    const current = window.echoSocket;
+    if (current && current !== socket) bindSocket(current);
+  }
+
   window.ECHOVoiceTransport = Object.freeze({
-    get ready() { return connected() && inGame(); },
+    get ready() { syncGameSocket(); return connected() && inGame(); },
     get status() {
+      syncGameSocket();
       if (!socket?.connected) return socketIssue || 'SOCKET_NOT_STARTED';
       if (!inGame()) return 'MENU';
       if (!availabilityReceived) return 'WAIT_SERVER';
@@ -318,16 +326,18 @@
   });
   document.addEventListener('echo:socket-ready',event => bindSocket(event.detail?.socket || window.echoSocket));
   document.addEventListener('echo:returned-to-menu',() => { roomSnapshot = null; disconnectVoice(); });
-  document.addEventListener('echo:game-started',() => queueMicrotask(() => { void enterVoice(); }));
+  document.addEventListener('echo:game-started',() => queueMicrotask(() => { syncGameSocket(); void enterVoice(); }));
   document.addEventListener('echo:voice-mute-changed',refreshAudio);
   document.addEventListener('visibilitychange',() => document.hidden ? disconnectVoice() : void enterVoice());
   // iOS Safari fires blur for transient browser UI focus changes without hiding the page.
   // A visible page must not lose its LiveKit room; visibilitychange handles real backgrounding.
-  window.addEventListener('focus',() => { void enterVoice(); });
+  window.addEventListener('focus',() => { syncGameSocket(); void enterVoice(); });
   // Safari audio playback can only be unlocked within a real user gesture.
   window.addEventListener('pointerdown',() => {
     void context?.resume?.().catch(() => {});
     if (connected()) void room.startAudio?.().catch(() => {});
   },{passive:true});
+  // Recover from a missed initialization event without touching game networking.
+  setInterval(() => { if (inGame()) syncGameSocket(); }, 1500);
   bindSocket(window.echoSocket);
 })();

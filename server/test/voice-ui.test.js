@@ -82,7 +82,7 @@ function harness() {
 test('voice HUD uses current abilities, hidden speaking panel and no fake speakers', () => {
   assert.match(html, /id="echo-voice-mic"[^>]*class="ability echo-voice-mic"/);
   assert.match(html, /id="echo-voice-speakers"[^>]*aria-label="Говорят рядом" hidden/);
-  assert.match(html, /src="\.\/voice-ui\.js\?v=echo-voice-ui-4"/);
+  assert.match(html, /src="\.\/voice-ui\.js\?v=echo-voice-ui-5"/);
   assert.match(css, /--echo-jump-size/);
   const app = harness();
   assert.equal(app.nodes.get('#echo-voice-speakers').hidden, true);
@@ -147,6 +147,6 @@ test('microphone is anchored above jump without shifting boost/jump horizontally
   assert.ok(rule.includes('bottom: calc(100% +'));
   assert.ok(rule.includes('right: calc(var(--echo-jump-size'));
   assert.ok(rule.includes('width: calc(var(--echo-jump-size'));
-  assert.ok(html.includes('voice-ui.css?v=echo-voice-ui-4'));
+  assert.ok(html.includes('voice-ui.css?v=echo-voice-ui-5'));
   assert.ok(html.indexOf('id="boost"') < html.indexOf('id="jump"'));
 });
