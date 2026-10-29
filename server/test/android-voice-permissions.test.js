@@ -9,6 +9,8 @@ const activity = fs.readFileSync(path.join(root, 'android/app/src/main/java/ru/e
 
 test('APK declares microphone permission without camera or background recording', () => {
   assert.match(manifest, /android\.permission\.RECORD_AUDIO/);
+  // Chromium WebRTC may fail audio input initialization without this normal permission.
+  assert.match(manifest, /android\.permission\.MODIFY_AUDIO_SETTINGS/);
   assert.doesNotMatch(manifest, /android\.permission\.CAMERA/);
   assert.doesNotMatch(manifest, /FOREGROUND_SERVICE_MICROPHONE/);
 });

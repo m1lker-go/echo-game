@@ -23,8 +23,8 @@ android {
         applicationId = "ru.echogame.arena"
         minSdk = 26
         targetSdk = 35
-        versionCode = 20
-        versionName = "1.0.1"
+        versionCode = 21
+        versionName = "1.0.2"
 
         val vkConfigured = !((System.getenv("ECHO_VK_CLIENT_SECRET")
             ?: providers.gradleProperty("ECHO_VK_CLIENT_SECRET").orNull).isNullOrBlank())

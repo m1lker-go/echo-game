@@ -79,14 +79,14 @@ jobs:
           BADGING="$("$TOOLS_DIR/aapt" dump badging "$APK")"
           printf '%s\n' "$BADGING" | grep -m 1 "^package:"
           [[ "$BADGING" == *"name='ru.echogame.arena'"* ]] || { echo "::error::Unexpected Android package"; exit 1; }
-          [[ "$BADGING" == *"versionCode='20'"* ]] || { echo "::error::Unexpected versionCode"; exit 1; }
-          [[ "$BADGING" == *"versionName='1.0.1'"* ]] || { echo "::error::Unexpected versionName"; exit 1; }
+          [[ "$BADGING" == *"versionCode='21'"* ]] || { echo "::error::Unexpected versionCode"; exit 1; }
+          [[ "$BADGING" == *"versionName='1.0.2'"* ]] || { echo "::error::Unexpected versionName"; exit 1; }
           if printf '%s\n' "$BADGING" | grep -q "^application-debuggable"; then
             echo "::error::Debuggable APK is forbidden for RuStore"
             exit 1
           fi
           mkdir -p release-out
-          cp "$APK" release-out/ECHO-1.0.1-rustore-release.apk
+          cp "$APK" release-out/ECHO-1.0.2-rustore-release.apk
 
       - name: Delete temporary signing key
         if: always()
@@ -96,7 +96,7 @@ jobs:
       - name: Upload verified signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: echo-rustore-signed-v1.0.1
-          path: release-out/ECHO-1.0.1-rustore-release.apk
+          name: echo-rustore-signed-v1.0.2
+          path: release-out/ECHO-1.0.2-rustore-release.apk
           if-no-files-found: error
           retention-days: 14

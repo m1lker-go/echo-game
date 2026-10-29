@@ -11,8 +11,8 @@ test('RuStore APK package and first public version stay consistent',()=>{
   assert.match(gradle,/applicationId = "ru\.echogame\.arena"/);
   assert.match(gradle,/minSdk = 26/);
   assert.match(gradle,/targetSdk = 35/);
-  assert.match(gradle,/versionCode = 20/);
-  assert.match(gradle,/versionName = "1\.0\.1"/);
+  assert.match(gradle,/versionCode = 21/);
+  assert.match(gradle,/versionName = "1\.0\.2"/);
   assert.match(gradle,/isDebuggable = false/);
 });
 test('release signing keys are referenced through environment variables only',()=>{
