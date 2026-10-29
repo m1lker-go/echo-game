@@ -8,6 +8,7 @@
   let context = null, refreshTimer = null;
   let roomSnapshot = null, joining = false, retryTimer = null, retryDelay = 1800;
   let availabilityReceived = false, statusCode = 'WAIT_SERVER';
+  let lastDisconnectReason = null;
   const attached = new Map(), talking = new Set(), subscriptionStates = new Map();
 
   const inGame = () => !document.hidden && document.querySelector('#main-menu')?.classList.contains('is-hidden') === true;
@@ -107,6 +108,14 @@
     for (const id of transmittingNearby) if (!talking.has(id)) speaker(id,true);
   }
   function onSpeaking() { refreshAudio(); }
+  function classifyConnectError(error) {
+    const message = String(error?.message || '').toLowerCase();
+    if (/pc connection|peer.?connection|ice|dtls|transport.*timeout|media connection/.test(message)) return 'ICE_FAILED';
+    if (/timed?\s?out|timeout/.test(message)) return 'CONNECT_TIMEOUT';
+    if (/websocket|signal/.test(message)) return 'SIGNAL_FAILED';
+    if (/forbidden|unauthorized|permission|401|403/.test(message)) return 'ACCESS_DENIED';
+    return 'LIVEKIT_ERROR';
+  }
   function scheduleRetry() {
     if (retryTimer !== null || !enabled || !socket?.connected || !inGame()) return;
     retryTimer = setTimeout(() => {
@@ -167,20 +176,27 @@
       });
       joined.on(lk.RoomEvent.TrackPublished, refreshAudio);
       joined.on(lk.RoomEvent.ActiveSpeakersChanged, onSpeaking);
-      joined.on(lk.RoomEvent.Disconnected, () => {
-        if (room === joined) { statusCode = 'DISCONNECTED'; disconnectVoice(); scheduleRetry(); }
+      joined.on(lk.RoomEvent.Disconnected, reason => {
+        if (room !== joined) return;
+        // The disconnect reason is safe to display. Never log the JWT or voice token.
+        lastDisconnectReason = typeof reason === 'number' && Number.isInteger(reason)
+          ? reason : null;
+        statusCode = lastDisconnectReason === null ? 'DISCONNECTED' : 'DISCONNECTED_' + lastDisconnectReason;
+        disconnectVoice();
+        scheduleRetry();
       });
       await joined.connect(response.url,response.token,{autoSubscribe:false});
       if (ticket !== connectionSerial || !inGame()) { void joined.disconnect(); return; }
       joining = false;
       retryDelay = 1800;
       statusCode = 'READY';
+      lastDisconnectReason = null;
       refreshAudio();
     } catch (error) {
       if (ticket === connectionSerial) {
         if (statusCode === 'JOINING') statusCode = 'JOIN_ERROR';
         else if (statusCode === 'SDK') statusCode = 'SDK_ERROR';
-        else if (statusCode === 'SIGNAL') statusCode = 'LIVEKIT_ERROR';
+        else if (statusCode === 'SIGNAL') statusCode = classifyConnectError(error);
         console.warn('[ECHO Voice] Not connected:',error.message);
         disconnectVoice();
         scheduleRetry();
@@ -286,8 +302,13 @@
   document.addEventListener('echo:game-started',() => queueMicrotask(() => { void enterVoice(); }));
   document.addEventListener('echo:voice-mute-changed',refreshAudio);
   document.addEventListener('visibilitychange',() => document.hidden ? disconnectVoice() : void enterVoice());
-  window.addEventListener('blur',disconnectVoice);
+  // iOS Safari fires blur for transient browser UI focus changes without hiding the page.
+  // A visible page must not lose its LiveKit room; visibilitychange handles real backgrounding.
   window.addEventListener('focus',() => { void enterVoice(); });
-  window.addEventListener('pointerdown',() => { void context?.resume?.().catch(() => {}); },{passive:true});
+  // Safari audio playback can only be unlocked within a real user gesture.
+  window.addEventListener('pointerdown',() => {
+    void context?.resume?.().catch(() => {});
+    if (connected()) void room.startAudio?.().catch(() => {});
+  },{passive:true});
   bindSocket(window.echoSocket);
 })();

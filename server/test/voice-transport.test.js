@@ -11,11 +11,16 @@ const vendor=fs.readFileSync(path.join(root,'scripts/install-client-deps.sh'),'u
 
 test('voice transport is linked after UI, lazily loads pinned SDK',()=>{
   assert.ok(html.indexOf('voice-ui.js') < html.indexOf('voice-transport.js'));
-  assert.ok(html.includes('voice-transport.js?v=echo-livekit-voice-3'));
+  assert.ok(html.includes('voice-transport.js?v=echo-livekit-voice-4'));
   assert.ok(src.includes("if (!enabled || !socket?.connected || !inGame()) return;"));
   assert.ok(src.includes("echo:voice:join"));
   assert.ok(src.includes("scheduleRetry()"));
   assert.ok(src.includes("window.addEventListener('focus'"));
+  assert.ok(!src.includes("window.addEventListener('blur',disconnectVoice)"), 'transient Safari blur must not tear down a voice room');
+  assert.ok(src.includes("if (connected()) void room.startAudio?.().catch(() => {});"), 'unlock Safari audio on a user gesture');
+  assert.ok(src.includes("document.addEventListener('visibilitychange'"), 'still disconnect when backgrounded');
+  assert.ok(src.includes("classifyConnectError(error)"));
+  assert.ok(src.includes("DISCONNECTED_"));
   assert.ok(src.includes("roomSnapshot = incoming"));
   assert.ok(src.includes("get status()"));
   assert.ok(src.includes("autoSubscribe:false"));
