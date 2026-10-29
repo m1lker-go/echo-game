@@ -6,7 +6,7 @@
   let connectionSerial = 0, speakingSerial = 0, scope = null;
   let positions = new Map(), selfPosition = null, publishingTrack = null;
   let context = null, refreshTimer = null;
-  const attached = new Map(), talking = new Set();
+  const attached = new Map(), talking = new Set(), subscriptionStates = new Map();
 
   const inGame = () => !document.hidden && document.querySelector('#main-menu')?.classList.contains('is-hidden') === true;
   const voiceScope = () => window.ECHOVoiceUI?.getScope?.();
@@ -78,7 +78,12 @@
     for (const participant of room.remoteParticipants.values()) {
       const id = participant.identity, d = distance(id), wanted = d < MAX && !isMuted(id);
       for (const publication of participant.trackPublications.values()) {
-        if (publication.kind === 'audio' && publication.isSubscribed !== wanted) publication.setSubscribed(wanted);
+        if (publication.kind !== 'audio') continue;
+        const key = id + ':' + publication.trackSid;
+        if (subscriptionStates.get(key) !== wanted) {
+          subscriptionStates.set(key, wanted);
+          publication.setSubscribed(wanted);
+        }
       }
       const a = attached.get(id);
       if (a) {
@@ -103,6 +108,7 @@
     for (const id of [...talking]) speaker(id,false);
     talking.clear();
     for (const id of [...attached.keys()]) removeTrack(id);
+    subscriptionStates.clear();
     const old = room;
     room = null;
     scope = null;
@@ -174,7 +180,7 @@
     }
     positions = next;
     selfPosition = own;
-    refreshAudio();
+    // The 450ms update batches subscription and gain changes, not each game frame.
   }
   function bindSocket(next) {
     if (!next || socket === next) return;

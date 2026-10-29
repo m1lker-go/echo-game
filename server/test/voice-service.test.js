@@ -39,6 +39,7 @@ test('join token is issued for server-owned identity, one round/room, microphone
   const {roundWindow}=require('../room-manager');
   const mock=mockSdk();
   const voice=createVoiceService({
+    nodeMajor:22,
     env:{ECHO_LIVEKIT_URL:'wss://voice.cat-fight.ru',ECHO_LIVEKIT_API_URL:'http://127.0.0.1:7880',
       ECHO_LIVEKIT_API_KEY:'publickey',ECHO_LIVEKIT_API_SECRET:secret},sdk:mock.sdk
   });
