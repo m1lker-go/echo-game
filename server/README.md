@@ -215,3 +215,18 @@ server-side proximity subscription enforcement is implemented.
 
 The voice feature has no effect on ECHO/Cat Fighting when unset, and does not
 alter the existing Socket.IO path, HTTP routes, or PostgreSQL database.
+
+### Browser voice transport (experimental)
+
+The browser loads `client/voice-transport.js` but does not load LiveKit or
+establish WebRTC connections until ECHO advertises voice as enabled. The
+pinned local UMD bundle is installed via `scripts/install-client-deps.sh`.
+The client subscribes only to players within 800 server-reported world units
+(100% gain to 500, then a fade to zero), honors per-round Mute, and starts
+publishing the microphone only while push-to-talk is held.
+
+**Security limitation:** client-controlled selective subscriptions are not
+a strict privacy boundary. A modified client could subscribe outside 800
+units. Implement server-enforced track subscription permissions before claiming
+proximity as an anti-eavesdropping guarantee. iOS, VK Mini Apps and APK
+microphone permissions must be verified separately on devices.

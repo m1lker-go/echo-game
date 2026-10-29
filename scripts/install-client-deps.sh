@@ -11,7 +11,8 @@ if [[ -s "$DEST/three/build/three.module.js" &&
       -s "$DEST/three/examples/jsm/utils/SkeletonUtils.js" &&
       -s "$DEST/socket.io-4.8.1.min.js" &&
       -s "$DEST/fontawesome/css/all.min.css" &&
-      -s "$DEST/fontawesome/webfonts/fa-solid-900.woff2" ]]; then
+      -s "$DEST/fontawesome/webfonts/fa-solid-900.woff2" &&
+      -s "$DEST/livekit-client-2.23.0.min.js" ]]; then
   echo "[echo vendor] Local Three.js, Socket.IO and Font Awesome assets are ready"
   exit 0
 fi
@@ -39,6 +40,10 @@ pack_and_extract 'socket.io@4.8.1' package/client-dist/socket.io.min.js
 cp package/client-dist/socket.io.min.js "$TMP_DIR/staged/socket.io-4.8.1.min.js"
 rm -rf package
 
+pack_and_extract 'livekit-client@2.23.0' package/dist/livekit-client.umd.min.js
+cp package/dist/livekit-client.umd.min.js "$TMP_DIR/staged/livekit-client-2.23.0.min.js"
+rm -rf package
+
 pack_and_extract '@fortawesome/fontawesome-free@6.7.2' package/css/all.min.css package/webfonts
 mkdir -p "$TMP_DIR/staged/fontawesome/css"
 cp package/css/all.min.css "$TMP_DIR/staged/fontawesome/css/all.min.css"
@@ -49,6 +54,7 @@ node --input-type=module --check < "$TMP_DIR/staged/three/build/three.core.js"
 node --input-type=module --check < "$TMP_DIR/staged/three/examples/jsm/loaders/GLTFLoader.js"
 node --input-type=module --check < "$TMP_DIR/staged/three/examples/jsm/utils/SkeletonUtils.js"
 node --check "$TMP_DIR/staged/socket.io-4.8.1.min.js"
+node --check "$TMP_DIR/staged/livekit-client-2.23.0.min.js"
 test -s "$TMP_DIR/staged/fontawesome/webfonts/fa-solid-900.woff2"
 
 mkdir -p "$DEST"
@@ -59,6 +65,7 @@ for resource in \
   "$DEST/three/examples/jsm/loaders/GLTFLoader.js" \
   "$DEST/three/examples/jsm/utils/SkeletonUtils.js" \
   "$DEST/socket.io-4.8.1.min.js" \
+  "$DEST/livekit-client-2.23.0.min.js" \
   "$DEST/fontawesome/css/all.min.css" \
   "$DEST/fontawesome/webfonts/fa-solid-900.woff2"; do
   test -s "$resource"
