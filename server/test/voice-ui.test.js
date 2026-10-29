@@ -82,7 +82,7 @@ function harness() {
 test('voice HUD uses current abilities, hidden speaking panel and no fake speakers', () => {
   assert.match(html, /id="echo-voice-mic"[^>]*class="ability echo-voice-mic"/);
   assert.match(html, /id="echo-voice-speakers"[^>]*hidden/);
-  assert.match(html, /src="\.\/voice-ui\.js\?v=echo-voice-ui-1"/);
+  assert.match(html, /src="\.\/voice-ui\.js\?v=echo-voice-ui-2"/);
   assert.match(css, /--echo-jump-size/);
   const app = harness();
   assert.equal(app.nodes.get('#echo-voice-speakers').hidden, true);
