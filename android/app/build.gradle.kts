@@ -23,12 +23,17 @@ android {
         applicationId = "ru.echogame.arena"
         minSdk = 26
         targetSdk = 35
-        versionCode = 22
-        versionName = "1.0.3"
+        versionCode = 23
+        versionName = "1.0.4"
 
         val vkConfigured = !((System.getenv("ECHO_VK_CLIENT_SECRET")
             ?: providers.gradleProperty("ECHO_VK_CLIENT_SECRET").orNull).isNullOrBlank())
         buildConfigField("boolean", "ECHO_VK_CONFIGURED", vkConfigured.toString())
+        // Opt-in diagnostic APK only. Local android/gradle.properties:
+        // ECHO_AD_DIAGNOSTICS=true (never enable for the public release).
+        val adsDebug = providers.gradleProperty("ECHO_AD_DIAGNOSTICS")
+            .orNull?.equals("true", ignoreCase = true) == true
+        buildConfigField("boolean", "ECHO_AD_DIAGNOSTICS", adsDebug.toString())
     }
 
     buildFeatures {
