@@ -5,6 +5,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createCharacterLoaderSelector } from './character-textures.js';
 import { updateCharacterFacing } from './character-facing.js';
 import { createPlayerLabels, measurePlayerLabelBounds } from './player-labels.js?v=echo-labels-up-1-voice-1-tutorial-names-1';
+import { playGameSound } from './audio-effects.js?v=echo-ui-click-1';
 import { bindPlayerControls, updatePlayerMovement } from './player-controls.js?v=echo-energy-mobility-1';
 import { energyJumpDistance, energySpeedMultiplier, energySizeMultiplier } from './energy-balance.js';
 import { getWorldViewport } from './viewport-scale.js?v=echo-world-zoom-2';
@@ -70,6 +71,7 @@ const t0=worldFromTrack(0,0);
 const state={
   ...t0, vx:0,vy:0,energy:0,stage:0,keys:new Set(),inputX:0,inputY:0,
   boostUntil:0,boostCooldownUntil:0,jumpUntil:0,jumpStart:0,jumpFrom:0,jumpTo:0,
+  waterAudioActive:false,
   boostUsed:false,jumpUsed:false,kills:0,lastWaterDamage:0,locked:false,
   modalSerial:0,waterHintShown:false,gateHintStage:-1,
   contextHintKey:'',contextHintUntil:0,
@@ -122,8 +124,9 @@ function refreshStaticText(){
     logo.firstChild.textContent=localized.endsWith('.')?localized.slice(0,-1):localized;
   }
   const back=document.querySelector('.tutorial-back');
-  back.textContent=tr('back','В МЕНЮ ✕');
-  back.setAttribute('aria-label',window.$t?.('game:back_to_menu','В меню')||'В меню');
+  const backLabel=tr('back','В МЕНЮ ✕');
+  back.setAttribute('aria-label',backLabel);
+  back.setAttribute('title',backLabel);
   document.querySelector('.stats-label').textContent=window.$t?.('game:energy','ЭНЕРГИЯ')||'ЭНЕРГИЯ';
   document.querySelector('.tutorial-controls-tip').textContent=tr('controls','WASD / стрелки — движение');
   boostButton.querySelector('small').textContent=window.$t?.('game:boost','РЫВОК')||'РЫВОК';
@@ -218,6 +221,7 @@ function triggerBoost(){
   const now=performance.now();
   if(now<state.boostCooldownUntil)return;
   state.boostUsed=true;
+  playGameSound('dash');
   state.boostUntil=now+700;
   state.boostCooldownUntil=now+3000;
 }
@@ -232,6 +236,7 @@ function triggerJump(){
   const reach=energyJumpDistance(state.energy,420);
   const to=Math.min(STAGE_GATES[3]-12,from.progress+reach);
   if(to<WATER_END+16){showObjectiveHint('jump_early');return;}
+  playGameSound('jump');
   state.jumpStart=performance.now();
   state.jumpUntil=state.jumpStart+240;
   state.jumpFrom=from.progress;
@@ -269,13 +274,16 @@ function openDialog(kind){
   const reward=document.createElement('div');
   reward.className='tutorial-reward-modal';
   const paragraphs=[
-    tr('win_intro','И теперь ты знаешь основные механики игры «ЭХО.»!'),
-    tr('win_freedom','Дальше всё зависит от тебя!'),
-    tr('win_adventure','Сражайся с другими игроками, приглашай друзей и собери всех героев арены!'),
-    tr('reward','Награда: 3× обычный пак')
+    ['win_intro','И теперь ты знаешь основные механики игры «ЭХО.»!'],
+    ['win_freedom','Дальше всё зависит от тебя!'],
+    ['win_adventure','Сражайся с другими игроками, приглашай друзей и собери всех героев арены!'],
+    ['reward','Награда: 3× обычный пак']
   ];
-  for(const value of paragraphs){
-    const line=document.createElement('p');line.textContent=value;reward.appendChild(line);
+  for(const [key,fallback] of paragraphs){
+    const line=document.createElement('p');
+    line.className=key==='reward'?'tutorial-reward-line':'tutorial-message-line';
+    line.textContent=tr(key,fallback);
+    reward.appendChild(line);
   }
   const icons=document.createElement('div');
   icons.className='tutorial-reward-icons';
@@ -291,6 +299,8 @@ function openDialog(kind){
   if(!accountToken)note.textContent=tr('guest_reward_note','Гости не получают паки. Войди в аккаунт, чтобы получить награду.');
   else if(serverAlreadyDone)note.textContent=tr('already_rewarded','Награда за обучение уже получена.');
   reward.appendChild(note);
+  // The shared dialog keeps its behavior; tutorial-only CSS fits this finale on
+  // short landscape screens without increasing the modal system's global size.
   window.ECHOModal.open({
     title:tr('win','Поздравляю, ты прошёл обучение!'),contentElement:reward,
     closeOnBackdrop:false,
@@ -373,6 +383,12 @@ function update(dt,now){
     boundPlayer();
   }
   const p=getTrack();
+  const inWater=state.stage===3 && !state.jumpUntil &&
+    p.progress>=WATER_START && p.progress<=WATER_END;
+  if(inWater!==state.waterAudioActive){
+    state.waterAudioActive=inWater;
+    window.dispatchEvent(new CustomEvent('echo:water-running',{detail:{running:inWater}}));
+  }
   if(state.stage===0 && p.progress>=MOVE_TARGET)enterStage(1);
   if(state.stage===1)collectEnergy();
   if(state.stage===2 && state.boostUsed && p.progress>=BOOST_TARGET)enterStage(3);
@@ -607,7 +623,13 @@ function frame(now){
   renderer.render(scene,camera);
   updateLabels();
 }
-document.addEventListener('visibilitychange',()=>{state.lastTime=0;});
+document.addEventListener('visibilitychange',()=>{
+  state.lastTime=0;
+  if(document.hidden){
+    state.waterAudioActive=false;
+    window.dispatchEvent(new CustomEvent('echo:water-running',{detail:{running:false}}));
+  }
+});
 await beginRegisteredAttempt();
 refreshStaticText();
 showStage({intro:true});
@@ -617,6 +639,7 @@ document.addEventListener('echo:language-changed',()=>{
 });
 anim=requestAnimationFrame(frame);
 window.addEventListener('pagehide',()=>{
+  window.dispatchEvent(new CustomEvent('echo:water-running',{detail:{running:false}}));
   cancelAnimationFrame(anim);
   for(const model of state.models.values())model.mixer?.stopAllAction();
   renderer.dispose();

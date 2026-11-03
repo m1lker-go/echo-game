@@ -56,7 +56,7 @@ test('enemy order changes and 10 energy wins only in 9 -> 12 -> 15 order',async(
 });
 test('standalone preview is explicitly opt-in, does not issue real rewards or enter live rooms',()=>{
   const html=read('tutorial.html'),js=read('tutorial.js'),css=read('tutorial.css');
-  assert.ok(html.includes('tutorial.js?v=echo-tutorial-6'));
+  assert.ok(html.includes('tutorial.js?v=echo-tutorial-7'));
   assert.ok(html.includes('i18n.js?v=echo-hero-progress-1'));
   assert.ok(js.includes("await window.ECHO_I18N_READY"));
   assert.ok(js.includes("player-labels.js?v=echo-labels-up-1-voice-1-tutorial-names-1"));
@@ -199,5 +199,47 @@ test('main browser entry routes first-time users and prompts guests once per tab
    assert.equal(typeof loc.menu[key],'string');
   for(const key of ['win','win_intro','win_freedom','win_adventure','reward','guest_reward_note','claim_error'])
    assert.equal(typeof loc.game.tutorial[key],'string');
+ }
+});
+
+test('training uses the same music, gameplay effects, scaled controls and fullscreen as the real arena',()=>{
+ const html=read('tutorial.html'),js=read('tutorial.js'),css=read('tutorial.css');
+ const arena=read('index.html');
+ for(const sharedFile of ['music-manager.js?v=echo-visibility-pause-1',
+   'ui-click-sound.js?v=echo-ui-click-1','fullscreen.js?v=echo-ios-install-1']){
+  assert.ok(html.includes(sharedFile),'tutorial must include '+sharedFile);
+  assert.ok(arena.includes(sharedFile),'main arena must include the same '+sharedFile);
+ }
+ assert.ok(html.includes('fullscreen.css?v=echo-ios-install-1'));
+ assert.ok(html.includes('id="echo-fullscreen-toggle"'));
+ assert.ok(html.includes('id="game-exit"'));
+ assert.ok(html.includes('vk-mini-bootstrap.js?v=echo-vk-mobile-fullscreen-1'));
+ assert.ok(js.includes("playGameSound('dash')"));
+ assert.ok(js.includes("playGameSound('jump')"));
+ assert.ok(js.includes("echo:water-running"));
+ assert.ok(js.includes("state.waterAudioActive"));
+ assert.ok(js.includes("if(document.hidden)"),'water sound stops when app hides');
+ assert.ok(css.includes('#game.tutorial-game > #echo-fullscreen-toggle'));
+ assert.ok(js.includes("root.style.setProperty('--echo-ui-scale'"),
+   'joystick and abilities use the identical shared scale');
+ assert.ok(html.includes('class="mobile-controls tutorial-mobile-controls"'));
+ assert.ok(html.includes('class="joystick"'));
+ assert.ok(html.includes('id="boost" class="ability"'));
+ assert.ok(html.includes('id="jump" class="ability jump-ability"'));
+});
+test('tutorial quest headings stay short and the final modal is compact on landscape phones',()=>{
+ const html=read('tutorial.html'),css=read('tutorial.css'),logic=read('tutorial-logic.js');
+ assert.ok(html.includes('tutorial.css?v=echo-tutorial-7'));
+ assert.ok(css.includes('echo-tutorial-page .echo-modal:has(.tutorial-reward-modal)'));
+ assert.ok(css.includes('max-height:calc(100dvh - 16px)'));
+ assert.ok(css.includes('font-size:clamp(15px,2.9vh,21px)'));
+ assert.ok(css.includes('max-height:420px'));
+ assert.ok(logic.includes("title:'ПОБЕДИ ВСЕХ'"));
+ for(const lang of ['ru','en']){
+  const d=JSON.parse(read('locales/'+lang+'.json')).game.tutorial.stages;
+  const heading=lang==='ru'?'ПОБЕДИ ВСЕХ':'DEFEAT ALL';
+  assert.equal(d.battle.title,heading);
+  for(const key of ['movement','energy','dash','water','battle'])
+    assert.ok(d[key].title.length<=20,'heading overflows the shared HUD: '+key+' '+lang);
  }
 });

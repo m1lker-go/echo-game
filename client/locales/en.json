@@ -345,7 +345,7 @@
       "claim": "CLAIM",
       "stages": {
         "movement": {
-          "title": "LEARN TO MOVE",
+          "title": "MOVEMENT",
           "tip": "Use WASD or arrow keys on your keyboard, or the joystick on mobile. Walk to the glowing marker.",
           "objective": "Reach the glowing line"
         },
@@ -355,19 +355,19 @@
           "objective": "Collect 10 white dots"
         },
         "dash": {
-          "title": "USE DASH",
+          "title": "DASH",
           "tip": "Press DASH and reach the next marker.",
           "objective": "Dash and reach the marker"
         },
         "water": {
-          "title": "JUMP OVER THE WATER",
+          "title": "JUMP",
           "tip": "Water drains energy. Approach the shore and press JUMP.",
-          "objective": "Water drains energy — jump!"
+          "objective": "Jump across the water"
         },
         "battle": {
-          "title": "DEFEAT THREE ENEMIES",
+          "title": "DEFEAT ALL",
           "tip": "The player with more energy wins. Choose wisely.",
-          "objective": "Defeat 3 enemies using energy"
+          "objective": "Defeat all three"
         }
       },
       "win_intro": "Now you know the basics of ECHO!",

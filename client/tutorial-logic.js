@@ -14,11 +14,11 @@ export const JUMP_LINE = WATER_START - 75;
 export const STAGE_MARKERS = Object.freeze([MOVE_TARGET, 785, BOOST_TARGET, JUMP_LINE]);
 export const BOT_ENERGIES = Object.freeze([9, 12, 15]);
 export const STAGE_DESCRIPTIONS = Object.freeze([
-  {title:'НАУЧИСЬ ДВИГАТЬСЯ', tip:'Для движения используй WASD, стрелки на клавиатуре или джойстик на мобильном. Пройди к светящейся отметке.', objective:'Пройденное расстояние', target:MOVE_TARGET},
+  {title:'ДВИЖЕНИЕ', tip:'Для движения используй WASD, стрелки на клавиатуре или джойстик на мобильном. Пройди к светящейся отметке.', objective:'Пройденное расстояние', target:MOVE_TARGET},
   {title:'СОБЕРИ ЭНЕРГИЮ', tip:'Подбирай белые светящиеся точки. Каждая добавляет 1 энергию.', objective:'Собрано энергии', target:10},
-  {title:'ИСПОЛЬЗУЙ РЫВОК', tip:'Нажми «РЫВОК» и доберись до следующей отметки.', objective:'Рывок и отметка', target:1},
-  {title:'ПЕРЕПРЫГНИ ВОДУ', tip:'Вода отнимает энергию. Подойди к берегу и нажми «ПРЫЖОК».', objective:'Перепрыгни водную преграду', target:1},
-  {title:'ПОБЕДИ ТРЁХ ПРОТИВНИКОВ', tip:'У кого больше энергии — тот побеждает. Выбирай соперников так, чтобы набрать достаточно энергии для победы над всеми тремя.', objective:'Побеждено противников', target:3}
+  {title:'РЫВОК', tip:'Нажми «РЫВОК» и доберись до следующей отметки.', objective:'Рывок и отметка', target:1},
+  {title:'ПРЫЖОК', tip:'Вода отнимает энергию. Подойди к берегу и нажми «ПРЫЖОК».', objective:'Перепрыгни воду', target:1},
+  {title:'ПОБЕДИ ВСЕХ', tip:'У кого больше энергии — тот побеждает. Выбирай соперников так, чтобы набрать достаточно энергии для победы над всеми тремя.', objective:'Побеждено противников', target:3}
 ]);
 export function worldFromTrack(progress, lateral=0) {
   // Positive progress moves right and UP in ECHO's isometric projection.

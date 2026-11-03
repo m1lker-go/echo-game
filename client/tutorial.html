@@ -9,31 +9,44 @@
   <link rel="icon" href="./assets/icons/favicon.png">
   <link rel="stylesheet" href="./style.css?v=echo-language-selector-3">
   <link rel="stylesheet" href="./ui-layout.css?v=echo-wasd-hint-scale-1">
+  <link rel="stylesheet" href="./fullscreen.css?v=echo-ios-install-1">
   <link rel="stylesheet" href="./daily-quests.css?v=echo-quest-status-sort-1">
   <link rel="stylesheet" href="./echo-font.css?v=echo-global-font-1">
-  <link rel="stylesheet" href="./tutorial.css?v=echo-tutorial-5">
+  <link rel="stylesheet" href="./tutorial.css?v=echo-tutorial-7">
+  <script src="./vk-mini-bootstrap.js?v=echo-vk-mobile-fullscreen-1"></script>
   <script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}</script>
 </head>
-<body>
+<body class="echo-tutorial-page">
   <main id="game" class="tutorial-game" data-tutorial-stage="0">
+    <!-- Same paired top-right controls as the real arena, with a native Android override. -->
+    <button id="echo-fullscreen-toggle" class="echo-fullscreen-toggle" type="button" aria-label="На весь экран" title="На весь экран">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path class="echo-expand-icon" d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/>
+        <path class="echo-collapse-icon" d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5"/>
+      </svg>
+    </button>
+    <a id="game-exit" class="game-exit tutorial-back" href="./" aria-label="Вернуться в меню" title="В меню">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+        <path d="M5 5l14 14M19 5L5 19"/>
+      </svg>
+    </a>
     <canvas id="tutorial-ground" aria-hidden="true"></canvas>
     <canvas id="tutorial-models" aria-hidden="true"></canvas>
     <canvas id="player-labels" aria-hidden="true"></canvas>
     <div class="vignette tutorial-vignette" aria-hidden="true"></div>
     <header class="hud tutorial-header">
       <div class="brand tutorial-brand">ЭХО<span class="brand-dot">.</span></div>
-      <a class="game-exit tutorial-back" href="./" aria-label="Вернуться в меню">В МЕНЮ ✕</a>
     </header>
     <!-- Same top-center quest HUD markup and styles as in the real ECHO arena. -->
     <div id="echo-quest-hud" class="echo-quest-hud tutorial-task" aria-live="polite" aria-atomic="true">
       <span id="echo-quest-hud-name" class="echo-quest-hud-name">
         <span class="echo-quest-hud-heading">
-          <span id="tutorial-task-title" class="echo-quest-hud-title">НАУЧИСЬ ДВИГАТЬСЯ</span>
+          <span id="tutorial-task-title" class="echo-quest-hud-title">ДВИЖЕНИЕ</span>
           <span id="tutorial-stage-dots" class="echo-quest-levels" aria-label="Этап 1 из 5"></span>
         </span>
         <span id="tutorial-task-hint" class="echo-quest-hud-description">Пройди к светящейся отметке</span>
       </span>
-      <button type="button" id="tutorial-progress" class="echo-quest-hud-action" disabled>Осталось: 126</button>
+      <button type="button" id="tutorial-progress" class="echo-quest-hud-action" disabled>Осталось: 240</button>
     </div>
     <div class="stats tutorial-energy"><span class="stats-label">ЭНЕРГИЯ</span><strong id="tutorial-energy">0</strong></div>
     <div class="controls-hint tutorial-controls-tip">WASD / ← ↑ → ↓ — движение · ПРОБЕЛ — рывок · J — прыжок</div>
@@ -48,6 +61,9 @@
   </main>
   <script type="module" src="./i18n.js?v=echo-hero-progress-1-tutorial-1"></script>
   <script src="./modal.js?v=echo-round-result-3"></script>
-  <script type="module" src="./tutorial.js?v=echo-tutorial-6"></script>
+  <script type="module" src="./music-manager.js?v=echo-visibility-pause-1"></script>
+  <script type="module" src="./ui-click-sound.js?v=echo-ui-click-1"></script>
+  <script type="module" src="./fullscreen.js?v=echo-ios-install-1"></script>
+  <script type="module" src="./tutorial.js?v=echo-tutorial-7"></script>
 </body>
 </html>

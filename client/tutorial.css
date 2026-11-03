@@ -12,10 +12,14 @@ html,body{touch-action:none}
 #game .tutorial-vignette{z-index:5;pointer-events:none}
 #game .tutorial-header{z-index:9;align-items:center;pointer-events:none}
 #game .tutorial-header .tutorial-brand{width:auto;min-width:0;padding:0;text-align:left}
-#game .tutorial-header .tutorial-back{
-  pointer-events:auto;display:flex;align-items:center;justify-content:center;
-  text-decoration:none;white-space:nowrap;border-radius:8px
+/* The tutorial shares the real arena's 44px (42px on small screens)
+ * fullscreen and exit controls from fullscreen.css. */
+#game.tutorial-game > #echo-fullscreen-toggle{
+  right:calc(var(--echo-nav-right) + var(--echo-nav-size) + var(--echo-nav-gap)) !important;
 }
+#game.tutorial-game > #game-exit{right:var(--echo-nav-right)}
+#game.tutorial-game > #game-exit{text-decoration:none}
+#game.tutorial-game > #game-exit svg{width:100%;height:100%}
 /* Placement, dimensions, colors and typography come from daily-quests.css:
  * #game .echo-quest-hud { top:max(5px,env(safe-area-inset-top)); ... }
  * Never override its position here: it must match the live arena exactly. */
@@ -34,11 +38,50 @@ html,body{touch-action:none}
 @keyframes tutorial-ability-pulse{
   50%{box-shadow:0 0 28px rgba(201,231,255,.55);background:rgba(172,209,237,.19)}
 }
-.tutorial-reward-modal{display:grid;gap:7px;justify-items:center}
-.tutorial-reward-modal p{margin:8px 0 3px}
-.tutorial-reward-icons{display:flex;justify-content:center;gap:12px}
-.tutorial-reward-icons img{width:clamp(56px,11vw,90px);height:84px;object-fit:contain}
-.tutorial-reward-note{font-size:12px!important;color:#929eab!important}
+/* Compact finale only; the global ECHO modal and its other uses are untouched. */
+body.echo-tutorial-page .echo-modal-overlay:has(.tutorial-reward-modal){
+  padding:8px 16px;
+  z-index:3000;
+}
+body.echo-tutorial-page .echo-modal:has(.tutorial-reward-modal){
+  width:min(540px,100%);
+  max-height:calc(100dvh - 16px);
+  padding:16px 22px 14px;
+  overflow-y:auto;
+}
+body.echo-tutorial-page .echo-modal:has(.tutorial-reward-modal) .echo-modal-title{
+  font-size:clamp(15px,2.9vh,21px);
+  line-height:1.18;
+  letter-spacing:.035em;
+}
+body.echo-tutorial-page .echo-modal:has(.tutorial-reward-modal) .echo-modal-text{
+  margin:9px 0 0;
+  font-size:clamp(11px,2.4vh,13px);
+  line-height:1.3;
+}
+body.echo-tutorial-page .echo-modal:has(.tutorial-reward-modal) .echo-modal-actions{
+  margin-top:12px;
+  gap:8px;
+}
+body.echo-tutorial-page .echo-modal:has(.tutorial-reward-modal) .echo-modal-button{
+  min-height:38px;
+  padding:8px 12px;
+}
+.tutorial-reward-modal{display:flex;flex-direction:column;gap:5px;align-items:center}
+.tutorial-reward-modal p{margin:0;line-height:1.28}
+.tutorial-reward-modal .tutorial-reward-line{font-weight:700;margin-top:4px}
+.tutorial-reward-icons{display:flex;justify-content:center;gap:10px;margin:1px 0}
+.tutorial-reward-icons img{width:clamp(46px,8vw,67px);height:clamp(50px,10vh,65px);object-fit:contain}
+.tutorial-reward-note{font-size:11px!important;color:#929eab!important}
+.tutorial-reward-note:empty{display:none}
+@media(max-height:420px){
+  body.echo-tutorial-page .echo-modal:has(.tutorial-reward-modal){padding:10px 18px 9px}
+  body.echo-tutorial-page .echo-modal:has(.tutorial-reward-modal) .echo-modal-title{font-size:15px;line-height:1.13}
+  body.echo-tutorial-page .echo-modal:has(.tutorial-reward-modal) .echo-modal-text{margin-top:6px}
+  body.echo-tutorial-page .echo-modal:has(.tutorial-reward-modal) .echo-modal-actions{margin-top:8px}
+  .tutorial-reward-modal{gap:3px}
+  .tutorial-reward-icons img{height:44px;width:47px}
+}
 #tutorial-rotate{display:none}
 @media(orientation:portrait) and (max-width:900px){
   #tutorial-rotate{
