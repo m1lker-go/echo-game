@@ -34,15 +34,6 @@ html,body{touch-action:none}
 @keyframes tutorial-ability-pulse{
   50%{box-shadow:0 0 28px rgba(201,231,255,.55);background:rgba(172,209,237,.19)}
 }
-.tutorial-toast{
-  position:absolute;z-index:12;top:54%;left:50%;transform:translate(-50%,-50%);
-  display:flex;flex-direction:column;align-items:center;gap:6px;
-  width:min(380px,70vw);padding:14px 22px;text-align:center;
-  border:1px solid rgba(205,216,231,.42);border-radius:13px;
-  background:rgba(0,0,0,.86);pointer-events:none;box-shadow:0 16px 35px #0009
-}
-.tutorial-toast strong{font:700 16px/1.2 Inter,system-ui,sans-serif;letter-spacing:.08em}
-.tutorial-toast span{font:12px/1.4 Inter,system-ui,sans-serif;color:#aeb8c5}
 .tutorial-reward-modal{display:grid;gap:7px;justify-items:center}
 .tutorial-reward-modal p{margin:8px 0 3px}
 .tutorial-reward-icons{display:flex;justify-content:center;gap:12px}

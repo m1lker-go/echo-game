@@ -43,7 +43,7 @@ test('enemy order changes and 10 energy wins only in 9 -> 12 -> 15 order',async(
 });
 test('standalone preview is explicitly opt-in, does not issue real rewards or enter live rooms',()=>{
   const html=read('tutorial.html'),js=read('tutorial.js'),css=read('tutorial.css');
-  assert.ok(html.includes('tutorial.js?v=echo-tutorial-3'));
+  assert.ok(html.includes('tutorial.js?v=echo-tutorial-4'));
   assert.ok(html.includes('daily-quests.css?v=echo-quest-status-sort-1'));
   assert.ok(html.includes('class="echo-quest-hud tutorial-task"'));
   assert.ok(html.includes('class="echo-quest-hud-name"'));
@@ -66,6 +66,11 @@ test('standalone preview is explicitly opt-in, does not issue real rewards or en
   assert.ok(css.includes('#game[data-tutorial-stage="2"] #boost'));
   assert.ok(css.includes('#game[data-tutorial-stage="3"] #jump'));
   assert.ok(js.includes('Тестовый уровень: реальные паки пока не начисляются.'));
+  assert.ok(!js.includes('showToast('), 'tutorial must not trigger any short toasts');
+  assert.ok(!html.includes('tutorial-toast'), 'tutorial toast overlay removed');
+  assert.ok(!css.includes('.tutorial-toast'), 'toast styles removed');
+  assert.ok(js.includes('taskProgress.textContent='), 'real HUD remains responsible for live progress');
+  assert.ok(js.includes('void hintModal(desc.title,desc.tip)'), 'only stage instruction modal is retained');
   assert.ok(!html.includes('class="tutorial-dialog"'),'all dialogs use ECHO modal system');
   assert.ok(js.includes("window.ECHOModal.alert"),'stage and result prompts use real modal');
   assert.ok(js.includes("buttonText:'ОК'"),'stage hints require OK');

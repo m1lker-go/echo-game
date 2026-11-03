@@ -25,9 +25,6 @@ const taskHint=document.querySelector('#tutorial-task-hint');
 const taskProgress=document.querySelector('#tutorial-progress');
 const stageDots=document.querySelector('#tutorial-stage-dots');
 const energyNode=document.querySelector('#tutorial-energy');
-const toast=document.querySelector('#tutorial-toast');
-const toastTitle=document.querySelector('#tutorial-toast-title');
-const toastText=document.querySelector('#tutorial-toast-text');
 const boostButton=document.querySelector('#boost');
 const jumpButton=document.querySelector('#jump');
 
@@ -37,7 +34,7 @@ const state={
   boostUntil:0,boostCooldownUntil:0,jumpUntil:0,jumpStart:0,jumpFrom:0,jumpTo:0,
   boostUsed:false,jumpUsed:false,kills:0,lastWaterDamage:0,locked:false,
   modalSerial:0,waterHintShown:false,gateHintStage:-1,
-  view:{width:600,height:350,scale:1},dpr:1,lastTime:0,toastTimer:0,gateToastTime:0,
+  view:{width:600,height:350,scale:1},dpr:1,lastTime:0,gateToastTime:0,
   food:FOOD_PLACEMENTS.map(([p,l],i)=>({id:i,progress:p,lateral:l,taken:false})),
   bots:[],models:new Map()
 };
@@ -50,14 +47,6 @@ function createBots(){
   }));
 }
 state.bots=createBots();
-
-function showToast(title,message,duration=3000){
-  toastTitle.textContent=title;
-  toastText.textContent=message;
-  toast.hidden=false;
-  clearTimeout(state.toastTimer);
-  state.toastTimer=setTimeout(()=>{toast.hidden=true;},duration);
-}
 
 function releaseInput(){
   state.vx=0;state.vy=0;
@@ -148,7 +137,6 @@ function collectEnergy(){
   for(const f of state.food){
     if(!f.taken && Math.hypot(f.progress-t.progress,f.lateral-t.lateral)<39){
       f.taken=true;state.energy+=1;
-      if(state.energy<10)showToast('ЭНЕРГИЯ +1','Собрано '+state.energy+' из 10',850);
     }
   }
   if(state.energy===10)enterStage(2);
@@ -161,7 +149,6 @@ function triggerBoost(){
   state.boostUsed=true;
   state.boostUntil=now+700;
   state.boostCooldownUntil=now+3000;
-  showToast('РЫВОК!','Ускорение включено.',900);
 }
 
 function triggerJump(){
@@ -180,7 +167,6 @@ function triggerJump(){
   state.jumpTo=to;
   state.jumpLateral=from.lateral;
   state.vx=0;state.vy=0;
-  showToast('ПРЫЖОК!','Перелетаем воду — энергия остаётся с тобой.',1900);
 }
 
 // bindPlayerControls owns boost pointer events, and this page owns the jump.
@@ -255,7 +241,6 @@ function tryCombat(){
     const battle=outcome(state.energy,bot.energy);
     const heroModel=state.models.get('local');
     heroModel?.attack?.();
-    showToast('СРАЖЕНИЕ',state.energy+' против '+bot.energy,750);
     setTimeout(()=>{
       if(!battle.win){
         state.energy=0;updateHud();openDialog('lose');return;
@@ -268,8 +253,6 @@ function tryCombat(){
       updateHud();
       if(state.kills===3){openDialog('win');return;}
       state.locked=false;
-      showToast('ПОБЕДА! +'+battle.gained+' ЭНЕРГИИ',
-        'У тебя '+state.energy+' энергии. Осталось врагов: '+(3-state.kills),2400);
     },860);
     break;
   }
@@ -533,7 +516,6 @@ showStage();
 anim=requestAnimationFrame(frame);
 window.addEventListener('pagehide',()=>{
   cancelAnimationFrame(anim);
-  clearTimeout(state.toastTimer);
   for(const model of state.models.values())model.mixer?.stopAllAction();
   renderer.dispose();
 });
