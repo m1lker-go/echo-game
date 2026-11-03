@@ -1,0 +1,17 @@
+name: Check shared app-ads.txt
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 7 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-publisher-file:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify public publisher file on developer domain
+        run: node scripts/check-app-ads.js
