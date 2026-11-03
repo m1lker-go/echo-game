@@ -1,0 +1,41 @@
+*{box-sizing:border-box}
+:root{color-scheme:dark;--cyan:#80e7ff;--deep:#07121f;--panel:rgba(8,19,34,.87);--glow:rgba(87,202,249,.35)}
+html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#040811;color:#e9f7ff;font-family:var(--echo-font-family,system-ui,sans-serif);touch-action:none;-webkit-user-select:none;user-select:none}
+button,a{font:inherit;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+.tutorial-game{position:relative;width:100%;height:100dvh;min-height:240px;isolation:isolate;overflow:hidden;background:radial-gradient(ellipse at 52% 40%,#1e3348,#050b16 72%)}
+#tutorial-ground,#tutorial-models,#player-labels{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#tutorial-ground{z-index:1}#tutorial-models{z-index:2}#player-labels{z-index:3}
+.tutorial-vignette{position:absolute;inset:0;pointer-events:none;z-index:4;background:radial-gradient(ellipse at 52% 53%,transparent 42%,rgba(1,5,15,.49) 100%)}
+.tutorial-header{position:absolute;top:max(9px,env(safe-area-inset-top));left:max(13px,env(safe-area-inset-left));right:max(13px,env(safe-area-inset-right));z-index:9;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.tutorial-back{display:flex;align-items:center;gap:8px;padding:9px 13px;border:1px solid rgba(180,225,248,.3);border-radius:11px;color:#ddf2ff;text-decoration:none;background:var(--panel);font-size:12px}
+.tutorial-brand{letter-spacing:2px;font-size:23px;text-shadow:0 0 18px #6de0ff}.tutorial-brand span{color:#8decff}
+.tutorial-test{border:1px solid #3b6b81;border-radius:30px;padding:7px 12px;font-size:10px;color:#a7bdc9;letter-spacing:1px;background:rgba(3,12,23,.85)}
+.tutorial-task{position:absolute;top:max(52px,calc(env(safe-area-inset-top) + 50px));left:50%;transform:translateX(-50%);z-index:10;width:min(390px,51vw);background:var(--panel);border:1px solid rgba(108,195,233,.42);box-shadow:0 0 32px rgba(48,152,198,.13);border-radius:16px;padding:12px 17px;text-align:center;pointer-events:none}
+.tutorial-task-head{display:flex;justify-content:space-between;margin-bottom:6px;font-size:10px;color:#81cce7;letter-spacing:.8px}
+.tutorial-task strong{font-size:clamp(13px,1.8vw,18px);letter-spacing:.8px}
+.tutorial-task p{font-family:system-ui,sans-serif;font-size:clamp(10px,1.2vw,13px);line-height:1.25;color:#bbd4e2;margin:6px 0}
+.tutorial-progress-track{height:4px;background:#203b51;border-radius:20px;margin-top:10px;overflow:hidden}
+.tutorial-progress-track>span{display:block;width:0;height:100%;background:linear-gradient(90deg,#439dbf,#99f0ff);transition:width .22s}
+.tutorial-toast{position:absolute;top:51%;left:50%;transform:translate(-50%,-50%);z-index:12;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;width:min(440px,75vw);background:rgba(4,15,30,.94);border:1px solid rgba(133,231,255,.6);border-radius:17px;padding:19px 26px;box-shadow:0 0 70px rgba(32,148,211,.23);pointer-events:none}
+.tutorial-toast strong{font-size:20px;color:var(--cyan);letter-spacing:1.2px}.tutorial-toast span{font-family:system-ui,sans-serif;font-size:13px;color:#c8e5ef}
+.tutorial-energy{position:absolute;left:max(16px,env(safe-area-inset-left));top:58px;z-index:8;color:#9acbdf;font-size:11px;display:flex;gap:8px;align-items:center}
+.tutorial-energy strong{color:white;font-size:25px}
+.tutorial-controls-tip{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:#98b2c6;z-index:7;font:11px system-ui,sans-serif;white-space:nowrap;pointer-events:none}
+.tutorial-joystick{position:absolute;z-index:8;bottom:max(22px,env(safe-area-inset-bottom));left:max(6%,env(safe-area-inset-left));width:clamp(90px,17vh,142px);height:clamp(90px,17vh,142px);border:2px solid rgba(137,215,241,.3);border-radius:50%;background:rgba(44,91,118,.25);touch-action:none;display:grid;place-items:center}
+.tutorial-stick{width:45%;height:45%;border-radius:50%;border:2px solid rgba(202,247,255,.6);background:radial-gradient(circle,#7ad5ee5b,#3582a477);box-shadow:0 0 20px var(--glow)}
+.tutorial-abilities{position:absolute;z-index:8;right:max(5%,env(safe-area-inset-right));bottom:max(23px,env(safe-area-inset-bottom));display:flex;gap:12px;align-items:center}
+.tutorial-ability{width:clamp(72px,15vh,113px);height:clamp(72px,15vh,113px);border:2px solid #5485a2;border-radius:50%;background:radial-gradient(circle at 48% 30%,#274d6b,#0b1d33 85%);color:#cceefa;display:flex;flex-direction:column;gap:0;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation;box-shadow:0 3px 14px #0007}
+.tutorial-ability b{font:700 clamp(27px,6vh,43px) system-ui,sans-serif;line-height:1}.tutorial-ability small{font-size:clamp(9px,1.8vh,12px);letter-spacing:.6px}
+#game[data-tutorial-stage="2"] #boost,#game[data-tutorial-stage="3"] #jump{border-color:#a8f4ff;box-shadow:0 0 12px 5px rgba(95,231,255,.4);animation:tutorial-pulse 1.1s ease-in-out infinite}
+.tutorial-ability:disabled{opacity:.42;cursor:not-allowed}
+@keyframes tutorial-pulse{50%{box-shadow:0 0 20px 8px rgba(95,231,255,.6)}}
+.tutorial-dialog{position:absolute;z-index:20;inset:0;display:grid;place-items:center;background:rgba(1,7,18,.78);padding:20px}
+.tutorial-dialog-panel{width:min(430px,92vw);text-align:center;border-radius:22px;border:1px solid #5998b5;background:linear-gradient(145deg,#172b41,#081221);box-shadow:0 0 70px #3ca2de33;padding:24px}
+.tutorial-dialog-icon{font-size:42px;color:#99eaff}.tutorial-dialog-panel h2{font-size:clamp(20px,3vw,29px);margin:8px 0}
+.tutorial-dialog-panel p{font:14px/1.5 system-ui,sans-serif;color:#bcd5e4}.tutorial-packs{display:flex;justify-content:center;margin:10px}.tutorial-packs img{width:min(90px,23vw);height:88px;object-fit:contain;filter:drop-shadow(0 0 10px #7cdbfb80)}
+.tutorial-dialog-caption{font-size:12px!important;color:#f8d3a0!important}
+#tutorial-dialog-button{background:linear-gradient(#c0f6ff,#70cde9);color:#062137;border:0;border-radius:10px;padding:12px 20px;min-width:215px;font-size:13px;font-weight:800;cursor:pointer}
+#tutorial-rotate{display:none}
+@media(orientation:portrait) and (max-width:900px){#tutorial-rotate{display:grid;place-items:center;text-align:center;position:absolute;inset:0;z-index:30;background:#040b16;color:white;padding:20px;font-size:18px}.tutorial-controls-tip{display:none}}
+@media(max-height:420px){.tutorial-task{padding:6px 12px;top:max(42px,env(safe-area-inset-top))}.tutorial-task p{margin:3px 0}.tutorial-progress-track{margin-top:4px}.tutorial-energy{top:48px}.tutorial-controls-tip{bottom:7px}.tutorial-joystick,.tutorial-abilities{bottom:12px}}
