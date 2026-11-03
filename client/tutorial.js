@@ -20,11 +20,10 @@ const ground=document.querySelector('#tutorial-ground');
 const groundCtx=ground.getContext('2d',{alpha:true});
 const models=document.querySelector('#tutorial-models');
 const labels=createPlayerLabels(document.querySelector('#player-labels'));
-const taskStep=document.querySelector('#tutorial-step');
 const taskTitle=document.querySelector('#tutorial-task-title');
 const taskHint=document.querySelector('#tutorial-task-hint');
 const taskProgress=document.querySelector('#tutorial-progress');
-const taskBar=document.querySelector('#tutorial-progress-bar');
+const stageDots=document.querySelector('#tutorial-stage-dots');
 const energyNode=document.querySelector('#tutorial-energy');
 const toast=document.querySelector('#tutorial-toast');
 const toastTitle=document.querySelector('#tutorial-toast-title');
@@ -90,9 +89,16 @@ async function hintModal(title,message){
 function showStage(){
   root.dataset.tutorialStage=String(state.stage);
   const desc=STAGE_DESCRIPTIONS[state.stage];
-  taskStep.textContent='ШАГ '+(state.stage+1)+' / 5';
   taskTitle.textContent=desc.title;
   taskHint.textContent=desc.objective;
+  // Use the real quest HUD's glowing white/grey level dots.
+  stageDots.setAttribute('aria-label','Этап '+(state.stage+1)+' из '+STAGE_DESCRIPTIONS.length);
+  const dots=STAGE_DESCRIPTIONS.map((_,index)=>{
+    const dot=document.createElement('span');
+    dot.className='echo-quest-dot'+(index<state.stage?' is-done':'');
+    return dot;
+  });
+  stageDots.replaceChildren(...dots);
   boostButton.disabled=state.stage!==2;
   jumpButton.disabled=state.stage!==3;
   updateHud();
@@ -110,8 +116,8 @@ function updateHud(){
     stage===2?state.boostUsed && progress>=560?1:0:
     stage===3?state.jumpUsed?1:0:state.kills;
   const max=STAGE_DESCRIPTIONS[stage].target;
-  taskProgress.textContent=current+' / '+max;
-  taskBar.style.width=(Math.min(1,current/max)*100)+'%';
+  // Match the main quest HUD: right side displays the remaining objective.
+  taskProgress.textContent='Осталось: '+Math.max(0,max-current);
   energyNode.textContent=String(state.energy);
 }
 

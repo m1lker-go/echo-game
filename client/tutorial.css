@@ -16,23 +16,10 @@ html,body{touch-action:none}
   pointer-events:auto;display:flex;align-items:center;justify-content:center;
   text-decoration:none;white-space:nowrap;border-radius:8px
 }
-.tutorial-test{
-  color:#9da8b7;font:600 10px/1.2 Inter,system-ui,sans-serif;
-  letter-spacing:.16em;text-align:center
-}
-#game .tutorial-task{
-  position:absolute;z-index:10;top:max(69px,calc(env(safe-area-inset-top) + 59px));
-  left:50%;transform:translateX(-50%);width:min(410px,49vw);
-  padding:11px 16px;text-align:center;border:1px solid rgba(205,216,231,.32);
-  border-radius:13px;background:rgba(0,0,0,.84);box-shadow:0 12px 35px rgba(0,0,0,.3);
-  pointer-events:none
-}
-.tutorial-task-head{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px;
-  font:600 10px/1.2 Inter,system-ui,sans-serif;color:#9eabb7;letter-spacing:.08em}
-#tutorial-task-title{font-size:clamp(12px,1.7vw,18px);line-height:1.2;letter-spacing:.08em}
-#tutorial-task-hint{margin:6px 0;color:#909eae;font:11px/1.3 Inter,system-ui,sans-serif}
-.tutorial-progress-track{height:3px;margin-top:9px;background:rgba(210,228,247,.17);overflow:hidden;border-radius:8px}
-#tutorial-progress-bar{height:100%;display:block;width:0;background:#d2eaff;transition:width .2s}
+/* Placement, dimensions, colors and typography come from daily-quests.css:
+ * #game .echo-quest-hud { top:max(5px,env(safe-area-inset-top)); ... }
+ * Never override its position here: it must match the live arena exactly. */
+#game .tutorial-task.echo-quest-hud{pointer-events:none}
 #game .tutorial-energy{z-index:7}
 #game .tutorial-controls-tip{z-index:7}
 #game .tutorial-mobile-controls{z-index:8}
@@ -62,13 +49,6 @@ html,body{touch-action:none}
 .tutorial-reward-icons img{width:clamp(56px,11vw,90px);height:84px;object-fit:contain}
 .tutorial-reward-note{font-size:12px!important;color:#929eab!important}
 #tutorial-rotate{display:none}
-@media(max-height:460px){
-  #game .tutorial-task{top:max(51px,calc(env(safe-area-inset-top) + 40px));padding:6px 12px}
-  .tutorial-task-head{margin-bottom:3px}
-  #tutorial-task-hint{margin:3px 0}
-  .tutorial-progress-track{margin-top:4px}
-  #game .tutorial-test{font-size:9px}
-}
 @media(orientation:portrait) and (max-width:900px){
   #tutorial-rotate{
     position:absolute;inset:0;z-index:30;display:grid;place-items:center;

@@ -14,12 +14,12 @@ export const STAGE_DESCRIPTIONS = Object.freeze([
   {title:'ПОБЕДИ ТРЁХ ПРОТИВНИКОВ', tip:'У кого больше энергии — тот побеждает. Выбирай соперников так, чтобы набрать достаточно энергии для победы над всеми тремя.', objective:'Побеждено противников', target:3}
 ]);
 export function worldFromTrack(progress, lateral=0) {
-  // The real ECHO camera projects world X to a diagonal on screen.
-  // Unlike the old X=Y preview, the track now runs along that diagonal.
-  return { x:progress, y:lateral };
+  // Positive progress moves right and UP in ECHO's isometric projection.
+  // The perpendicular lane axis preserves the corridor's full 3 x 84 width.
+  return { x:lateral, y:-progress };
 }
 export function trackFromWorld(x,y) {
-  return { progress:x, lateral:y };
+  return { progress:-y, lateral:x };
 }
 export function boundToCorridor(x,y,gate=STAGE_GATES[4]) {
   const t=trackFromWorld(x,y);

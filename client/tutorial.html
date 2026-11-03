@@ -9,8 +9,9 @@
   <link rel="icon" href="./assets/icons/favicon.png">
   <link rel="stylesheet" href="./style.css?v=echo-language-selector-3">
   <link rel="stylesheet" href="./ui-layout.css?v=echo-wasd-hint-scale-1">
+  <link rel="stylesheet" href="./daily-quests.css?v=echo-quest-status-sort-1">
   <link rel="stylesheet" href="./echo-font.css?v=echo-global-font-1">
-  <link rel="stylesheet" href="./tutorial.css?v=echo-tutorial-2">
+  <link rel="stylesheet" href="./tutorial.css?v=echo-tutorial-3">
   <script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}</script>
 </head>
 <body>
@@ -21,15 +22,19 @@
     <div class="vignette tutorial-vignette" aria-hidden="true"></div>
     <header class="hud tutorial-header">
       <div class="brand tutorial-brand">ЭХО<span class="brand-dot">.</span></div>
-      <span class="tutorial-test">ТЕСТ ОБУЧЕНИЯ</span>
       <a class="game-exit tutorial-back" href="./" aria-label="Вернуться в меню">В МЕНЮ ✕</a>
     </header>
-    <section class="tutorial-task" aria-live="polite" aria-atomic="true">
-      <div class="tutorial-task-head"><span id="tutorial-step">ШАГ 1 / 5</span><span id="tutorial-progress">0 / 126</span></div>
-      <strong id="tutorial-task-title">НАУЧИСЬ ДВИГАТЬСЯ</strong>
-      <p id="tutorial-task-hint">Пройди вперёд к светящейся отметке.</p>
-      <div class="tutorial-progress-track"><span id="tutorial-progress-bar"></span></div>
-    </section>
+    <!-- Same top-center quest HUD markup and styles as in the real ECHO arena. -->
+    <div id="echo-quest-hud" class="echo-quest-hud tutorial-task" aria-live="polite" aria-atomic="true">
+      <span id="echo-quest-hud-name" class="echo-quest-hud-name">
+        <span class="echo-quest-hud-heading">
+          <span id="tutorial-task-title" class="echo-quest-hud-title">НАУЧИСЬ ДВИГАТЬСЯ</span>
+          <span id="tutorial-stage-dots" class="echo-quest-levels" aria-label="Этап 1 из 5"></span>
+        </span>
+        <span id="tutorial-task-hint" class="echo-quest-hud-description">Пройди к светящейся отметке</span>
+      </span>
+      <button type="button" id="tutorial-progress" class="echo-quest-hud-action" disabled>Осталось: 126</button>
+    </div>
     <section id="tutorial-toast" class="tutorial-toast" role="status" aria-live="polite" hidden>
       <strong id="tutorial-toast-title"></strong><span id="tutorial-toast-text"></span>
     </section>
@@ -45,6 +50,6 @@
     <div id="tutorial-rotate">ПОВЕРНИ УСТРОЙСТВО ГОРИЗОНТАЛЬНО</div>
   </main>
   <script src="./modal.js?v=echo-round-result-3"></script>
-  <script type="module" src="./tutorial.js?v=echo-tutorial-2"></script>
+  <script type="module" src="./tutorial.js?v=echo-tutorial-3"></script>
 </body>
 </html>

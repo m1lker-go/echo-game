@@ -43,7 +43,14 @@ test('enemy order changes and 10 energy wins only in 9 -> 12 -> 15 order',async(
 });
 test('standalone preview is explicitly opt-in, does not issue real rewards or enter live rooms',()=>{
   const html=read('tutorial.html'),js=read('tutorial.js'),css=read('tutorial.css');
-  assert.ok(html.includes('tutorial.js?v=echo-tutorial-2'));
+  assert.ok(html.includes('tutorial.js?v=echo-tutorial-3'));
+  assert.ok(html.includes('daily-quests.css?v=echo-quest-status-sort-1'));
+  assert.ok(html.includes('class="echo-quest-hud tutorial-task"'));
+  assert.ok(html.includes('class="echo-quest-hud-name"'));
+  assert.ok(html.includes('class="echo-quest-hud-action" disabled'));
+  assert.ok(js.includes("dot.className='echo-quest-dot'"));
+  assert.ok(!css.includes('#game .tutorial-task{'),'no custom top offset overrides shared quest HUD');
+  assert.match(read('daily-quests.css'),/#game \.echo-quest-hud\{position:absolute;z-index:12;top:max\(5px,env\(safe-area-inset-top\)\)/);
   assert.ok(html.includes('modal.js?v=echo-round-result-3'));
   assert.ok(html.includes('style.css?v=echo-language-selector-3'));
   assert.ok(html.includes('ui-layout.css?v=echo-wasd-hint-scale-1'));
@@ -69,13 +76,13 @@ test('standalone preview is explicitly opt-in, does not issue real rewards or en
   assert.ok(css.includes('.tutorial-reward-icons'));
 });
 
-test('isometric corridor advances down/right in screen space instead of vertically',async()=>{
+test('isometric corridor advances from bottom-left to top-right',async()=>{
   const t=await logic();
   const a=t.worldFromTrack(0,0),b=t.worldFromTrack(84,0);
   const iso={x:0.8660254,y:0.5};
   const sx=(b.x-a.x-(b.y-a.y))*iso.x;
   const sy=(b.x-a.x+b.y-a.y)*iso.y;
-  assert.ok(sx>0 && sy>0,'forward movement is diagonal in iso projection');
+  assert.ok(sx>0 && sy<0,'forward movement goes right and UP on the screen');
   assert.ok(Math.abs(sx/sy)>1.1 && Math.abs(sx/sy)<2.2,'correct ECHO isometric angle');
   const half=t.WIDTH/2;
   const left=t.worldFromTrack(100,-half),right=t.worldFromTrack(100,half);
