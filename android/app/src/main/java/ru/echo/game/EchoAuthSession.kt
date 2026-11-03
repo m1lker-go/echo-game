@@ -124,6 +124,30 @@ internal class EchoAuthSession(context: Context) {
         }
     }
 
+    // Read the same account-bound progress used by the browser.
+    // This method is called only from a background thread, never Compose UI.
+    fun tutorialCompleted(session: String): Boolean {
+        require(TOKEN_PATTERN.matches(session))
+        val connection = (URL("https://cat-fight.ru/echo/api/tutorial/status")
+            .openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 12000
+            readTimeout = 12000
+            useCaches = false
+            setRequestProperty("Accept", "application/json")
+            setRequestProperty("Authorization", "Bearer $session")
+        }
+        return try {
+            val code = connection.responseCode
+            if (code == 401) throw EchoSessionExpired()
+            if (code !in 200..299) throw IllegalStateException("Tutorial API HTTP $code")
+            val json = connection.inputStream.bufferedReader().use { it.readText() }
+            JSONObject(json).getBoolean("completed")
+        } finally {
+            connection.disconnect()
+        }
+    }
+
     // Called on a worker thread, never the Compose / Android main thread.
     fun exchangeVkToken(vkAccessToken: String): EchoLoginResult {
         require(vkAccessToken.length in 20..4096) { "Некорректный токен VK ID" }

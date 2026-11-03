@@ -28,7 +28,7 @@ import com.vk.id.VKIDAuthFail
 
 internal enum class Page {
     HOME, HEROES, SHOP, QUESTS, SETTINGS,
-    ARENA, HERO_VIEW, PACK_VIEW, ACCOUNT, CODE_VIEW
+    ARENA, TUTORIAL, HERO_VIEW, PACK_VIEW, ACCOUNT, CODE_VIEW
 }
 
 class MainActivity : ComponentActivity() {

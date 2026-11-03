@@ -116,7 +116,11 @@ class EchoWebActivity : ComponentActivity() {
         pendingVoicePermissionRequest = null
     }
 
-    private val requestedUrl get() = if (page == Page.ARENA) BASE + "?play=1" else BASE
+    private val requestedUrl get() = when(page) {
+        Page.ARENA -> BASE + "?play=1"
+        Page.TUTORIAL -> BASE + "tutorial.html"
+        else -> BASE
+    }
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -146,7 +150,7 @@ class EchoWebActivity : ComponentActivity() {
         // main/client/fullscreen.css: one square top-right control per page.
         // Arena = close X, menu subpages = back chevron. No fullscreen control.
         nativeNav = EchoNavButton(
-            this, if (page == Page.ARENA) EchoNavButton.Mode.CLOSE
+            this, if (page == Page.ARENA || page == Page.TUTORIAL) EchoNavButton.Mode.CLOSE
                   else EchoNavButton.Mode.BACK
         ).apply {
             setOnClickListener { navigateBack() }
@@ -270,6 +274,7 @@ class EchoWebActivity : ComponentActivity() {
             dismissArenaExitDialog()
             return
         }
+        if (page == Page.TUTORIAL) { finish(); return }
         if (page == Page.ARENA) {
             showArenaExitDialog()
             return
@@ -490,7 +495,7 @@ class EchoWebActivity : ComponentActivity() {
                         message.message() == "ECHO_ANDROID_PACK:closed") {
                         packDialogOpen = message.message().endsWith("open")
                         nativeNav.setMode(
-                            if (packDialogOpen || page == Page.ARENA)
+                            if (packDialogOpen || page == Page.ARENA || page == Page.TUTORIAL)
                                 EchoNavButton.Mode.CLOSE else EchoNavButton.Mode.BACK
                         )
                         return true
@@ -511,6 +516,11 @@ class EchoWebActivity : ComponentActivity() {
                 override fun shouldOverrideUrlLoading(
                     view: WebView, request: WebResourceRequest
                 ): Boolean {
+                    if (request.isForMainFrame && page == Page.TUTORIAL && trusted(request.url) &&
+                        (request.url.path == "/echo" || request.url.path == "/echo/")) {
+                        finish() // Back and Claim return to native HOME.
+                        return true
+                    }
                     if (request.isForMainFrame && page == Page.ARENA &&
                         trusted(request.url) &&
                         request.url.getQueryParameter("echo_interstitial") == "replay") {
@@ -542,7 +552,7 @@ class EchoWebActivity : ComponentActivity() {
                     // Never apply a delayed microphone approval to a new document.
                     clearPendingVoiceMicrophone()
                     packDialogOpen = false
-                    nativeNav.setMode(if (page == Page.ARENA)
+                    nativeNav.setMode(if (page == Page.ARENA || page == Page.TUTORIAL)
                         EchoNavButton.Mode.CLOSE else EchoNavButton.Mode.BACK)
                     loadSequence++
                     webPageReady = false
@@ -778,6 +788,7 @@ class EchoWebActivity : ComponentActivity() {
             loading.visibility != View.VISIBLE) return
         val target = when (page) {
             Page.ARENA -> "arena"
+            Page.TUTORIAL -> "tutorial"
             Page.HEROES, Page.HERO_VIEW -> "character"
             Page.SHOP, Page.PACK_VIEW -> "shop"
             Page.QUESTS -> "quests"
@@ -787,9 +798,13 @@ class EchoWebActivity : ComponentActivity() {
         }
         val script = """
             (function() {
+              if (document.readyState !== 'complete') return false;
+              if (${JSONObject.quote(target)} === 'tutorial') {
+                return document.getElementById('tutorial-ground')?.width > 1 &&
+                       document.getElementById('tutorial-models')?.width > 1;
+              }
               const menu = document.getElementById('main-menu');
-              if (!menu || document.readyState !== 'complete' ||
-                  typeof window.ECHO_SELECTED_MODEL !== 'string') return false;
+              if (!menu || typeof window.ECHO_SELECTED_MODEL !== 'string') return false;
               const shown = id => {
                 const node = document.getElementById(id);
                 if (!node || node.hidden) return false;

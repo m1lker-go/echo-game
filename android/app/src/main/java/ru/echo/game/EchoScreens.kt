@@ -109,6 +109,32 @@ internal fun EchoAndroidShell(
 ) {
     var page by remember { mutableStateOf(Page.HOME) }
     val context = LocalContext.current
+    var guestOffered by remember { mutableStateOf(false) }
+    var showGuestOffer by remember { mutableStateOf(false) }
+    var tutorialChecking by remember { mutableStateOf(false) }
+    var tutorialError by remember { mutableStateOf(false) }
+    val startGame: () -> Unit = {
+        val token = auth.token()
+        if (token == null) {
+            if (!guestOffered) {
+                guestOffered = true
+                showGuestOffer = true
+            } else page = Page.ARENA
+        } else if (!tutorialChecking) {
+            tutorialChecking = true
+            Thread {
+                val result = runCatching { auth.tutorialCompleted(token) }
+                (context as? android.app.Activity)?.runOnUiThread {
+                    tutorialChecking = false
+                    if (auth.token() == token) {
+                        result.onSuccess { completed ->
+                            page = if (completed) Page.ARENA else Page.TUTORIAL
+                        }.onFailure { tutorialError = true }
+                    }
+                }
+            }.start()
+        }
+    }
     LaunchedEffect(page) {
         audio.setWebActive(page != Page.HOME && page != Page.SETTINGS)
     }
@@ -123,7 +149,9 @@ internal fun EchoAndroidShell(
         when (page) {
             Page.HOME, Page.SETTINGS ->
                 EchoNativePage(page, audio, auth, onVkLogin, onLogout, onDeleteAccount, onChangeNickname, onOAuthLogin,
-                    onNavigate = { page = it }, onBack = back)
+                    onNavigate = { destination ->
+                        if (destination == Page.ARENA) startGame() else page = destination
+                    }, onBack = back)
             else -> {
                 // Avoid embedding WebGL inside Compose AndroidView on MIUI:
                 // dedicate the Activity's native Android view hierarchy to it.
@@ -139,6 +167,30 @@ internal fun EchoAndroidShell(
                     }
                 }
             }
+        }
+        if (showGuestOffer) {
+            EchoConfirmDialog(
+                title = tr(audio, "ПРОЙТИ ОБУЧЕНИЕ?", "PLAY THE TUTORIAL?"),
+                message = tr(audio,
+                    "Хочешь познакомиться с механиками ЭХО.? Гости не получают награду за обучение.",
+                    "Want to learn how ECHO works? Guest players do not receive tutorial rewards."),
+                cancelLabel = tr(audio, "НЕТ", "NO"),
+                confirmLabel = tr(audio, "ДА", "YES"),
+                onDismiss = { showGuestOffer = false; page = Page.ARENA },
+                onConfirm = { showGuestOffer = false; page = Page.TUTORIAL }
+            )
+        }
+        if (tutorialError) {
+            EchoConfirmDialog(
+                title = tr(audio, "ОБУЧЕНИЕ", "TUTORIAL"),
+                message = tr(audio,
+                    "Не удалось проверить обучение. Проверь соединение и попробуй снова.",
+                    "Could not check tutorial progress. Check your connection and try again."),
+                cancelLabel = null,
+                confirmLabel = tr(audio, "ПОНЯТНО", "OK"),
+                onDismiss = { tutorialError = false },
+                onConfirm = { tutorialError = false }
+            )
         }
     }
 }
