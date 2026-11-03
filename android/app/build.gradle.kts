@@ -29,11 +29,8 @@ android {
         val vkConfigured = !((System.getenv("ECHO_VK_CLIENT_SECRET")
             ?: providers.gradleProperty("ECHO_VK_CLIENT_SECRET").orNull).isNullOrBlank())
         buildConfigField("boolean", "ECHO_VK_CONFIGURED", vkConfigured.toString())
-        // Opt-in diagnostic APK only. Local android/gradle.properties:
-        // ECHO_AD_DIAGNOSTICS=true (never enable for the public release).
-        val adsDebug = providers.gradleProperty("ECHO_AD_DIAGNOSTICS")
-            .orNull?.equals("true", ignoreCase = true) == true
-        buildConfigField("boolean", "ECHO_AD_DIAGNOSTICS", adsDebug.toString())
+        // Safe by default: public, debug and release builds keep ad diagnostics OFF.
+        buildConfigField("boolean", "ECHO_AD_DIAGNOSTICS", "false")
     }
 
     buildFeatures {
@@ -71,6 +68,14 @@ android {
             if (releaseSigningReady) {
                 signingConfig = signingConfigs.getByName("echoRuStoreRelease")
             }
+        }
+        // Dedicated signed diagnostic APK. Does not change the public release.
+        // Uses the same application ID and release signing configuration.
+        create("diagnostic") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+            versionNameSuffix = "-diag"
+            buildConfigField("boolean", "ECHO_AD_DIAGNOSTICS", "true")
         }
     }
 }
