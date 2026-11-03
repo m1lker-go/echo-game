@@ -31,19 +31,13 @@ const toastTitle=document.querySelector('#tutorial-toast-title');
 const toastText=document.querySelector('#tutorial-toast-text');
 const boostButton=document.querySelector('#boost');
 const jumpButton=document.querySelector('#jump');
-const dialog=document.querySelector('#tutorial-dialog');
-const dialogButton=document.querySelector('#tutorial-dialog-button');
-const dialogIcon=document.querySelector('#tutorial-dialog-icon');
-const dialogTitle=document.querySelector('#tutorial-dialog-title');
-const dialogText=document.querySelector('#tutorial-dialog-text');
-const dialogPacks=document.querySelector('#tutorial-dialog-packs');
-const dialogCaption=document.querySelector('#tutorial-dialog-caption');
 
 const t0=worldFromTrack(0,0);
 const state={
   ...t0, vx:0,vy:0,energy:0,stage:0,keys:new Set(),inputX:0,inputY:0,
   boostUntil:0,boostCooldownUntil:0,jumpUntil:0,jumpStart:0,jumpFrom:0,jumpTo:0,
   boostUsed:false,jumpUsed:false,kills:0,lastWaterDamage:0,locked:false,
+  modalSerial:0,waterHintShown:false,gateHintStage:-1,
   view:{width:600,height:350,scale:1},dpr:1,lastTime:0,toastTimer:0,gateToastTime:0,
   food:FOOD_PLACEMENTS.map(([p,l],i)=>({id:i,progress:p,lateral:l,taken:false})),
   bots:[],models:new Map()
@@ -66,17 +60,43 @@ function showToast(title,message,duration=3000){
   state.toastTimer=setTimeout(()=>{toast.hidden=true;},duration);
 }
 
+function releaseInput(){
+  state.vx=0;state.vy=0;
+  state.keys.clear();
+  state.inputX=0;state.inputY=0;
+  document.querySelector('#stick').style.transform='translate(0,0)';
+}
+// Escape must not skip a lesson: close the real ECHO modal with its OK button.
+window.addEventListener('keydown', event => {
+  if(state.locked && event.key==='Escape'){
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }
+},true);
+
+async function hintModal(title,message){
+  const serial=++state.modalSerial;
+  state.locked=true;
+  releaseInput();
+  await window.ECHOModal.alert({
+    title,text:message,buttonText:'ОК',closeOnBackdrop:false
+  });
+  if(serial===state.modalSerial){
+    releaseInput();
+    state.locked=false;
+  }
+}
+
 function showStage(){
   root.dataset.tutorialStage=String(state.stage);
   const desc=STAGE_DESCRIPTIONS[state.stage];
   taskStep.textContent='ШАГ '+(state.stage+1)+' / 5';
   taskTitle.textContent=desc.title;
-  taskHint.textContent=desc.tip;
-  boostButton.disabled=state.stage<2 || state.stage>3;
+  taskHint.textContent=desc.objective;
+  boostButton.disabled=state.stage!==2;
   jumpButton.disabled=state.stage!==3;
-  state.locked=false;
   updateHud();
-  showToast(desc.title,desc.tip,3600);
+  void hintModal(desc.title,desc.tip);
 }
 
 function getTrack(){
@@ -108,7 +128,10 @@ function boundPlayer(){
   if(before.progress>after.progress+3 || Math.abs(before.lateral-after.lateral)>3){
     if(before.progress>after.progress+3 && performance.now()-state.gateToastTime>2500){
       state.gateToastTime=performance.now();
-      showToast('ПРОЙДИ ЗАДАНИЕ','Следующая часть дороги откроется после выполнения текущего задания.',2000);
+      if(state.gateHintStage!==state.stage){
+        state.gateHintStage=state.stage;
+        void hintModal('ЗАДАНИЕ НЕ ЗАВЕРШЕНО','Сначала выполни текущее задание. После этого откроется следующий участок дороги.');
+      }
     }
   }
 }
@@ -132,14 +155,14 @@ function triggerBoost(){
   state.boostUsed=true;
   state.boostUntil=now+700;
   state.boostCooldownUntil=now+3000;
-  showToast('РЫВОК!','Отлично! Теперь доберись до светящейся черты.',1700);
+  showToast('РЫВОК!','Ускорение включено.',900);
 }
 
 function triggerJump(){
   if(state.stage!==3 || state.locked || performance.now()<state.jumpUntil)return;
   const from=getTrack();
   if(from.progress<625 || from.progress>=WATER_START-12){
-    showToast('ПОДОЙДИ К БЕРЕГУ','Для прыжка остановись перед водой, на светящейся отметке.',2200);
+    void hintModal('ПОДОЙДИ К БЕРЕГУ','Для прыжка остановись перед водой, на светящейся отметке.');
     return;
   }
   const reach=energyJumpDistance(state.energy,420);
@@ -168,22 +191,42 @@ bindPlayerControls({
 
 function openDialog(kind){
   state.locked=true;
-  dialog.hidden=false;
+  releaseInput();
   const win=kind==='win';
-  dialogIcon.textContent=win?'✦':'×';
-  dialogTitle.textContent=win?'ПОЗДРАВЛЯЕМ!':'ВЫ ПРОИГРАЛИ';
-  dialogText.textContent=win?
-    'Ты освоил движение, энергию, рывок, прыжок и бой. В полноценном обучении награда — 3 обычных пака!':
-    'Противник оказался сильнее. Нужно победить всех в порядке 9 → 12 → 15.';
-  dialogPacks.hidden=!win;
-  dialogCaption.hidden=!win;
-  dialogButton.textContent=win?'ВЕРНУТЬСЯ В МЕНЮ':'ПОПРОБОВАТЬ ЕЩЁ РАЗ';
-  dialogButton.onclick=win?()=>{window.location.href='./';}:resetFinalChallenge;
+  // Show exactly the same black/white modal used by the main ECHO game.
+  const reward=win?document.createElement('div'):null;
+  if(reward){
+    reward.className='tutorial-reward-modal';
+    const message=document.createElement('p');
+    message.textContent='Ты завершил обучение! Награда: 3 обычных пака.';
+    reward.appendChild(message);
+    const icons=document.createElement('div');
+    icons.className='tutorial-reward-icons';
+    for(let i=0;i<3;i++){
+      const image=document.createElement('img');
+      image.src='./assets/packs/icon_echocard_basic.webp';
+      image.alt='Обычный пак';
+      icons.appendChild(image);
+    }
+    reward.appendChild(icons);
+    const note=document.createElement('p');
+    note.className='tutorial-reward-note';
+    note.textContent='Тестовый уровень: реальные паки пока не начисляются.';
+    reward.appendChild(note);
+  }
+  void window.ECHOModal.alert({
+    title:win?'ПОЗДРАВЛЯЕМ!':'ВЫ ПРОИГРАЛИ',
+    text:win?'':'Противник оказался сильнее. Попробуй начать с самого слабого.',
+    ...(reward?{contentElement:reward}:{}),
+    buttonText:win?'ЗАБРАТЬ':'ПОПРОБОВАТЬ ЕЩЁ РАЗ',
+    closeOnBackdrop:false
+  }).then(()=>{
+    if(win)window.location.href='./';
+    else resetFinalChallenge();
+  });
 }
 
 function resetFinalChallenge(){
-  dialog.hidden=true;
-  state.locked=false;
   state.energy=10;
   state.kills=0;
   state.bots=createBots();
@@ -253,12 +296,15 @@ function update(dt,now){
   if(state.stage===3 && !state.jumpUntil && p.progress>=WATER_START && p.progress<=WATER_END && now-state.lastWaterDamage>550){
     state.energy=Math.max(0,state.energy-1);
     state.lastWaterDamage=now;
-    showToast('ОПАСНО! ВОДА','Вода забирает энергию! Вернись на берег и используй прыжок.',1200);
+    if(!state.waterHintShown){
+      state.waterHintShown=true;
+      void hintModal('ОПАСНО! ВОДА','Вода отнимает собранную энергию. Вернись на берег и используй прыжок, чтобы не потерять её.');
+    }
   }
   if(state.stage===3 && (p.progress>WATER_END+4 || state.energy===0)){
     const shore=worldFromTrack(660,0);
     state.x=shore.x;state.y=shore.y;state.vx=0;state.vy=0;state.energy=10;
-    showToast('ПОПРОБУЙ ЕЩЁ РАЗ','Воду нужно именно перепрыгнуть. Нажми «ПРЫЖОК» перед берегом.',2900);
+    void hintModal('ПОПРОБУЙ ЕЩЁ РАЗ','Воду нужно именно перепрыгнуть. Нажми «ПРЫЖОК» перед берегом.');
   }
   tryCombat();
   updateHud();
@@ -322,6 +368,8 @@ for(const bot of state.bots)loadHero(bot.id,bot.skin);
 function resize(){
   const w=Math.max(1,ground.clientWidth),h=Math.max(1,ground.clientHeight);
   state.view=getWorldViewport(w,h);
+  // Match main ECHO: HUD and touch controls scale with the screen height.
+  root.style.setProperty('--echo-ui-scale',String(state.view.uiScale));
   state.dpr=Math.min(isMobile?1.5:2,window.devicePixelRatio||1);
   ground.width=Math.round(w*state.dpr);
   ground.height=Math.round(h*state.dpr);
@@ -361,20 +409,21 @@ function line(p1,l1,p2,l2,color,width=1){
 function drawGround(now){
   const ctx=groundCtx,{width,height}=state.view;
   ctx.clearRect(0,0,width,height);
+  // The same low-contrast graphite grid as ECHO, projected in true isometric world X/Y.
   const grad=ctx.createLinearGradient(0,0,0,height);
-  grad.addColorStop(0,'#102b3c');grad.addColorStop(1,'#091622');
-  poly([[0,-WIDTH/2],[LENGTH,-WIDTH/2],[LENGTH,WIDTH/2],[0,WIDTH/2]],grad,'#5aadd0',2.4);
+  grad.addColorStop(0,'#121a25');grad.addColorStop(1,'#070d16');
+  poly([[0,-WIDTH/2],[LENGTH,-WIDTH/2],[LENGTH,WIDTH/2],[0,WIDTH/2]],grad,'rgba(179,212,235,.38)',1.5);
   const visible=getTrack().progress;
   for(let p=Math.max(0,Math.floor((visible-400)/TILE)*TILE);p<=Math.min(LENGTH,visible+600);p+=TILE){
-    line(p,-WIDTH/2,p,WIDTH/2,'rgba(157,217,247,.095)',1);
+    line(p,-WIDTH/2,p,WIDTH/2,'rgba(169,198,228,.14)',1);
   }
   for(const l of [-WIDTH/2+TILE,-WIDTH/2+TILE*2])
-    line(0,l,LENGTH,l,'rgba(157,217,247,.11)',1);
+    line(0,l,LENGTH,l,'rgba(169,198,228,.15)',1);
   for(const edge of [-WIDTH/2,WIDTH/2]){
-    line(0,edge,LENGTH,edge,'rgba(80,191,239,.65)',2);
+    line(0,edge,LENGTH,edge,'rgba(179,212,235,.38)',2);
     for(let p=0;p<LENGTH;p+=TILE){
       const s=screenPosition(p,edge);
-      ctx.fillStyle='rgba(118,222,252,.65)';
+      ctx.fillStyle='rgba(195,222,247,.22)';
       ctx.fillRect(s.x-2,s.y-2,4,4);
     }
   }
@@ -392,8 +441,8 @@ function drawGround(now){
   }
   // One continuous water obstacle across all three 84-unit tiles.
   const water=ctx.createLinearGradient(0,0,0,height);
-  water.addColorStop(0,'rgba(22,125,199,.78)');water.addColorStop(1,'rgba(6,65,128,.86)');
-  poly([[WATER_START,-WIDTH/2],[WATER_END,-WIDTH/2],[WATER_END,WIDTH/2],[WATER_START,WIDTH/2]],water,'rgba(127,212,247,.75)',2);
+  water.addColorStop(0,'rgba(6,36,95,.64)');water.addColorStop(1,'rgba(6,36,95,.8)');
+  poly([[WATER_START,-WIDTH/2],[WATER_END,-WIDTH/2],[WATER_END,WIDTH/2],[WATER_START,WIDTH/2]],water,'rgba(169,198,228,.45)',1.5);
   for(let j=0;j<6;j++){
     const p=WATER_START+18+j*17;
     const shimmer=(now*.018+j*11)%58;

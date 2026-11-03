@@ -7,17 +7,19 @@ export const WATER_END = 850;
 export const STAGE_GATES = Object.freeze([172, 428, 636, 980, 1220]);
 export const BOT_ENERGIES = Object.freeze([9, 12, 15]);
 export const STAGE_DESCRIPTIONS = Object.freeze([
-  {title:'НАУЧИСЬ ДВИГАТЬСЯ', tip:'Пройди вперёд к светящейся отметке.', objective:'Пройденное расстояние', target:126},
+  {title:'НАУЧИСЬ ДВИГАТЬСЯ', tip:'Для движения используй WASD, стрелки на клавиатуре или джойстик на мобильном. Пройди к светящейся отметке.', objective:'Пройденное расстояние', target:126},
   {title:'СОБЕРИ ЭНЕРГИЮ', tip:'Подбирай белые светящиеся точки. Каждая добавляет 1 энергию.', objective:'Собрано энергии', target:10},
   {title:'ИСПОЛЬЗУЙ РЫВОК', tip:'Нажми «РЫВОК» и доберись до следующей отметки.', objective:'Рывок и отметка', target:1},
   {title:'ПЕРЕПРЫГНИ ВОДУ', tip:'Вода отнимает энергию. Подойди к берегу и нажми «ПРЫЖОК».', objective:'Перепрыгни водную преграду', target:1},
-  {title:'ПОБЕДИ ТРЁХ ПРОТИВНИКОВ', tip:'У кого больше энергии — тот побеждает. Выбери верный порядок: 9, 12, 15.', objective:'Побеждено противников', target:3}
+  {title:'ПОБЕДИ ТРЁХ ПРОТИВНИКОВ', tip:'У кого больше энергии — тот побеждает. Выбирай соперников так, чтобы набрать достаточно энергии для победы над всеми тремя.', objective:'Побеждено противников', target:3}
 ]);
 export function worldFromTrack(progress, lateral=0) {
-  return { x:(lateral-progress)/Math.SQRT2, y:(-lateral-progress)/Math.SQRT2 };
+  // The real ECHO camera projects world X to a diagonal on screen.
+  // Unlike the old X=Y preview, the track now runs along that diagonal.
+  return { x:progress, y:lateral };
 }
 export function trackFromWorld(x,y) {
-  return { progress:-(x+y)/Math.SQRT2, lateral:(x-y)/Math.SQRT2 };
+  return { progress:x, lateral:y };
 }
 export function boundToCorridor(x,y,gate=STAGE_GATES[4]) {
   const t=trackFromWorld(x,y);

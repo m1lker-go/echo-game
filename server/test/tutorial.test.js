@@ -43,7 +43,10 @@ test('enemy order changes and 10 energy wins only in 9 -> 12 -> 15 order',async(
 });
 test('standalone preview is explicitly opt-in, does not issue real rewards or enter live rooms',()=>{
   const html=read('tutorial.html'),js=read('tutorial.js'),css=read('tutorial.css');
-  assert.ok(html.includes('tutorial.js?v=echo-tutorial-1'));
+  assert.ok(html.includes('tutorial.js?v=echo-tutorial-2'));
+  assert.ok(html.includes('modal.js?v=echo-round-result-3'));
+  assert.ok(html.includes('style.css?v=echo-language-selector-3'));
+  assert.ok(html.includes('ui-layout.css?v=echo-wasd-hint-scale-1'));
   assert.ok(html.includes('ТЕСТ ОБУЧЕНИЯ'));
   assert.ok(js.includes("from './tutorial-logic.js'"));
   assert.ok(js.includes('role')===false || html.includes('aria-live="polite"'));
@@ -55,5 +58,29 @@ test('standalone preview is explicitly opt-in, does not issue real rewards or en
   assert.ok(js.includes('state.jumpFrom<WATER_START && state.jumpTo>WATER_END'));
   assert.ok(css.includes('#game[data-tutorial-stage="2"] #boost'));
   assert.ok(css.includes('#game[data-tutorial-stage="3"] #jump'));
-  assert.ok(html.includes('Тестовый уровень: реальные паки пока не начисляются.'));
+  assert.ok(js.includes('Тестовый уровень: реальные паки пока не начисляются.'));
+  assert.ok(!html.includes('class="tutorial-dialog"'),'all dialogs use ECHO modal system');
+  assert.ok(js.includes("window.ECHOModal.alert"),'stage and result prompts use real modal');
+  assert.ok(js.includes("buttonText:'ОК'"),'stage hints require OK');
+  assert.ok(js.includes("closeOnBackdrop:false"),'cannot skip modal by tapping outside');
+  assert.ok(js.includes("event.key==='Escape'"),'Escape must not skip a stage');
+  assert.ok(js.includes("root.style.setProperty('--echo-ui-scale'"),'touch controls use game UI scaling');
+  assert.ok(js.includes('if(state.locked)return;'),'stage cannot move behind modal');
+  assert.ok(css.includes('.tutorial-reward-icons'));
+});
+
+test('isometric corridor advances down/right in screen space instead of vertically',async()=>{
+  const t=await logic();
+  const a=t.worldFromTrack(0,0),b=t.worldFromTrack(84,0);
+  const iso={x:0.8660254,y:0.5};
+  const sx=(b.x-a.x-(b.y-a.y))*iso.x;
+  const sy=(b.x-a.x+b.y-a.y)*iso.y;
+  assert.ok(sx>0 && sy>0,'forward movement is diagonal in iso projection');
+  assert.ok(Math.abs(sx/sy)>1.1 && Math.abs(sx/sy)<2.2,'correct ECHO isometric angle');
+  const half=t.WIDTH/2;
+  const left=t.worldFromTrack(100,-half),right=t.worldFromTrack(100,half);
+  assert.equal(Math.hypot(left.x-right.x,left.y-right.y),252,'corridor spans 3 tiles');
+  assert.match(t.STAGE_DESCRIPTIONS[0].tip,/WASD.*стрелки.*джойстик/);
+  assert.ok(!/9, 12, 15/.test(t.STAGE_DESCRIPTIONS[4].tip),
+    'do not reveal the final puzzle solution in the stage modal');
 });

@@ -7,8 +7,10 @@
   <meta name="robots" content="noindex,nofollow">
   <title>ECHO — тестовое обучение</title>
   <link rel="icon" href="./assets/icons/favicon.png">
+  <link rel="stylesheet" href="./style.css?v=echo-language-selector-3">
+  <link rel="stylesheet" href="./ui-layout.css?v=echo-wasd-hint-scale-1">
   <link rel="stylesheet" href="./echo-font.css?v=echo-global-font-1">
-  <link rel="stylesheet" href="./tutorial.css?v=echo-tutorial-1">
+  <link rel="stylesheet" href="./tutorial.css?v=echo-tutorial-2">
   <script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}</script>
 </head>
 <body>
@@ -16,11 +18,11 @@
     <canvas id="tutorial-ground" aria-hidden="true"></canvas>
     <canvas id="tutorial-models" aria-hidden="true"></canvas>
     <canvas id="player-labels" aria-hidden="true"></canvas>
-    <div class="tutorial-vignette" aria-hidden="true"></div>
-    <header class="tutorial-header">
-      <a class="tutorial-back" href="./" aria-label="В главное меню">✕ <span>В МЕНЮ</span></a>
-      <strong class="tutorial-brand">ЭХО<span>.</span></strong>
+    <div class="vignette tutorial-vignette" aria-hidden="true"></div>
+    <header class="hud tutorial-header">
+      <div class="brand tutorial-brand">ЭХО<span class="brand-dot">.</span></div>
       <span class="tutorial-test">ТЕСТ ОБУЧЕНИЯ</span>
+      <a class="game-exit tutorial-back" href="./" aria-label="Вернуться в меню">В МЕНЮ ✕</a>
     </header>
     <section class="tutorial-task" aria-live="polite" aria-atomic="true">
       <div class="tutorial-task-head"><span id="tutorial-step">ШАГ 1 / 5</span><span id="tutorial-progress">0 / 126</span></div>
@@ -31,25 +33,18 @@
     <section id="tutorial-toast" class="tutorial-toast" role="status" aria-live="polite" hidden>
       <strong id="tutorial-toast-title"></strong><span id="tutorial-toast-text"></span>
     </section>
-    <div class="tutorial-energy">ЭНЕРГИЯ <strong id="tutorial-energy">0</strong></div>
-    <div class="tutorial-controls-tip">WASD / ↑↓←→ — движение · ПРОБЕЛ — рывок · J — прыжок</div>
-    <div id="joystick" class="tutorial-joystick" role="application" aria-label="Джойстик"><div id="stick" class="tutorial-stick"></div></div>
-    <div class="tutorial-abilities">
-      <button id="boost" class="tutorial-ability" type="button" aria-label="Рывок"><b>»</b><small>РЫВОК</small></button>
-      <button id="jump" class="tutorial-ability" type="button" aria-label="Прыжок"><b>↑</b><small>ПРЫЖОК</small></button>
-    </div>
-    <section class="tutorial-dialog" id="tutorial-dialog" role="dialog" aria-modal="true" aria-labelledby="tutorial-dialog-title" hidden>
-      <div class="tutorial-dialog-panel">
-        <div id="tutorial-dialog-icon" class="tutorial-dialog-icon">★</div>
-        <h2 id="tutorial-dialog-title"></h2>
-        <p id="tutorial-dialog-text"></p>
-        <div id="tutorial-dialog-packs" class="tutorial-packs" hidden><img src="./assets/packs/icon_echocard_basic.webp" alt=""><img src="./assets/packs/icon_echocard_basic.webp" alt=""><img src="./assets/packs/icon_echocard_basic.webp" alt=""></div>
-        <p id="tutorial-dialog-caption" class="tutorial-dialog-caption" hidden>Тестовый уровень: реальные паки пока не начисляются.</p>
-        <button id="tutorial-dialog-button" type="button">ПОПРОБОВАТЬ ЕЩЁ РАЗ</button>
+    <div class="stats tutorial-energy"><span class="stats-label">ЭНЕРГИЯ</span><strong id="tutorial-energy">0</strong></div>
+    <div class="controls-hint tutorial-controls-tip">WASD / ← ↑ → ↓ — движение · ПРОБЕЛ — рывок · J — прыжок</div>
+    <div class="mobile-controls tutorial-mobile-controls">
+      <div id="joystick" class="joystick" role="application" aria-label="Джойстик"><div id="stick" class="stick"></div></div>
+      <div class="ability-stack">
+        <button id="boost" class="ability" type="button" aria-label="Рывок"><span>»</span><small>РЫВОК</small></button>
+        <button id="jump" class="ability jump-ability" type="button" aria-label="Прыжок"><span>↑</span><small>ПРЫЖОК</small></button>
       </div>
-    </section>
+    </div>
     <div id="tutorial-rotate">ПОВЕРНИ УСТРОЙСТВО ГОРИЗОНТАЛЬНО</div>
   </main>
-  <script type="module" src="./tutorial.js?v=echo-tutorial-1"></script>
+  <script src="./modal.js?v=echo-round-result-3"></script>
+  <script type="module" src="./tutorial.js?v=echo-tutorial-2"></script>
 </body>
 </html>
