@@ -39,19 +39,23 @@ internal class EchoRewardedAds(
             }
             requestId = attemptId
             delivered = false
+            Log.i(TAG, "Requesting rewarded slot=$PLACEMENT_ID")
             val rewarded = RewardedAd(PLACEMENT_ID, activity)
             ad = rewarded
             rewarded.listener = object : RewardedAd.RewardedAdListener {
                 override fun onLoad(rewardedAd: RewardedAd) {
                     if (requestId == attemptId && !activity.isFinishing) {
+                        Log.i(TAG, "Rewarded loaded slot=$PLACEMENT_ID")
                         rewardedAd.show()
                     }
                 }
                 override fun onNoAd(error: IAdLoadingError, rewardedAd: RewardedAd) {
-                    Log.w(TAG, "Rewarded video unavailable: " + error.message)
+                    Log.w(TAG, "Rewarded video unavailable slot=$PLACEMENT_ID: " + error.message)
                     closeAttempt()
                 }
-                override fun onDisplay(rewardedAd: RewardedAd) = Unit
+                override fun onDisplay(rewardedAd: RewardedAd) {
+                    Log.i(TAG, "Rewarded displayed slot=$PLACEMENT_ID")
+                }
                 override fun onClick(rewardedAd: RewardedAd) = Unit
                 override fun onFailedToShow(rewardedAd: RewardedAd) {
                     Log.w(TAG, "Rewarded video failed to display")
@@ -60,6 +64,7 @@ internal class EchoRewardedAds(
                 override fun onReward(reward: Reward, rewardedAd: RewardedAd) {
                     if (requestId == attemptId && !delivered) {
                         delivered = true
+                        Log.i(TAG, "Rewarded earned slot=$PLACEMENT_ID")
                         dispatch(attemptId, true)
                     }
                 }
