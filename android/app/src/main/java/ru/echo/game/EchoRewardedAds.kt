@@ -39,40 +39,60 @@ internal class EchoRewardedAds(
             }
             requestId = attemptId
             delivered = false
+            val trace = EchoAdDiagnostics.Trace("rewarded", PLACEMENT_ID)
             Log.i(TAG, "Requesting rewarded slot=$PLACEMENT_ID")
             val rewarded = RewardedAd(PLACEMENT_ID, activity)
             ad = rewarded
             rewarded.listener = object : RewardedAd.RewardedAdListener {
                 override fun onLoad(rewardedAd: RewardedAd) {
                     if (requestId == attemptId && !activity.isFinishing) {
+                        trace.event("onLoad")
                         Log.i(TAG, "Rewarded loaded slot=$PLACEMENT_ID")
-                        rewardedAd.show()
+                        try { rewardedAd.show() }
+                        catch (error: Exception) {
+                            trace.failure("show", error)
+                            closeAttempt()
+                        }
                     }
                 }
                 override fun onNoAd(error: IAdLoadingError, rewardedAd: RewardedAd) {
+                    trace.noAd(error)
                     Log.w(TAG, "Rewarded video unavailable slot=$PLACEMENT_ID: " + error.message)
                     closeAttempt()
                 }
                 override fun onDisplay(rewardedAd: RewardedAd) {
+                    trace.event("onDisplay")
                     Log.i(TAG, "Rewarded displayed slot=$PLACEMENT_ID")
                 }
-                override fun onClick(rewardedAd: RewardedAd) = Unit
+                override fun onClick(rewardedAd: RewardedAd) {
+                    trace.event("onClick")
+                }
                 override fun onFailedToShow(rewardedAd: RewardedAd) {
+                    trace.event("onFailedToShow")
                     Log.w(TAG, "Rewarded video failed to display")
                     closeAttempt()
                 }
                 override fun onReward(reward: Reward, rewardedAd: RewardedAd) {
                     if (requestId == attemptId && !delivered) {
                         delivered = true
+                        trace.event("onReward")
                         Log.i(TAG, "Rewarded earned slot=$PLACEMENT_ID")
                         dispatch(attemptId, true)
                     }
                 }
                 override fun onDismiss(rewardedAd: RewardedAd) {
+                    trace.event("onDismiss")
                     closeAttempt()
                 }
             }
-            rewarded.load()
+            try {
+                trace.event("load_start")
+                rewarded.load()
+                trace.event("load_returned")
+            } catch (error: Exception) {
+                trace.failure("load", error)
+                closeAttempt()
+            }
         }
     }
 
