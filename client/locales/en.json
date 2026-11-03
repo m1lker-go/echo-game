@@ -313,7 +313,13 @@
     "excess_rarity_uncommon": "uncommon",
     "excess_rarity_rare": "rare",
     "excess_rarity_epic": "epic",
-    "excess_rarity_legendary": "legendary"
+    "excess_rarity_legendary": "legendary",
+    "tutorial_guest_title": "PLAY THE TUTORIAL?",
+    "tutorial_guest_prompt": "Want to learn how ECHO works? Guest players do not receive tutorial rewards.",
+    "tutorial_guest_yes": "YES",
+    "tutorial_guest_no": "NO",
+    "tutorial_error_title": "TUTORIAL",
+    "tutorial_error": "Could not check your tutorial progress. Check your connection and try again."
   },
   "game": {
     "tutorial": {
@@ -329,11 +335,11 @@
       "water_retry": "You cannot walk across the water. Jump over it!",
       "gate": "Finish the current objective to continue.",
       "hero": "Hero",
-      "win": "CONGRATULATIONS!",
+      "win": "Congratulations, you've completed the tutorial!",
       "lose": "YOU LOST",
       "lose_text": "This opponent was stronger. Try fighting the weakest one first.",
       "retry": "TRY AGAIN",
-      "reward": "You finished the tutorial! Reward: 3 basic packs.",
+      "reward": "Reward: 3× basic packs",
       "reward_note": "Test level: actual packs are not granted yet.",
       "pack_alt": "Basic pack",
       "claim": "CLAIM",
@@ -363,7 +369,13 @@
           "tip": "The player with more energy wins. Choose wisely.",
           "objective": "Defeat 3 enemies using energy"
         }
-      }
+      },
+      "win_intro": "Now you know the basics of ECHO!",
+      "win_freedom": "The rest is up to you!",
+      "win_adventure": "Battle other players, invite your friends, and collect every arena hero!",
+      "guest_reward_note": "Guests cannot receive packs. Sign in to claim tutorial rewards.",
+      "already_rewarded": "You've already received your tutorial reward.",
+      "claim_error": "Could not claim your reward. Check your connection and try again."
     },
     "map_short": "MAP",
     "map_title": "WORLD MAP",

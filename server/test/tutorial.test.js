@@ -56,7 +56,7 @@ test('enemy order changes and 10 energy wins only in 9 -> 12 -> 15 order',async(
 });
 test('standalone preview is explicitly opt-in, does not issue real rewards or enter live rooms',()=>{
   const html=read('tutorial.html'),js=read('tutorial.js'),css=read('tutorial.css');
-  assert.ok(html.includes('tutorial.js?v=echo-tutorial-5'));
+  assert.ok(html.includes('tutorial.js?v=echo-tutorial-6'));
   assert.ok(html.includes('i18n.js?v=echo-hero-progress-1'));
   assert.ok(js.includes("await window.ECHO_I18N_READY"));
   assert.ok(js.includes("player-labels.js?v=echo-labels-up-1-voice-1-tutorial-names-1"));
@@ -81,7 +81,9 @@ test('standalone preview is explicitly opt-in, does not issue real rewards or en
   assert.ok(js.includes('state.jumpFrom<WATER_START && state.jumpTo>WATER_END'));
   assert.ok(css.includes('#game[data-tutorial-stage="2"] #boost'));
   assert.ok(css.includes('#game[data-tutorial-stage="3"] #jump'));
-  assert.ok(js.includes("tr('reward_note'"),'test reward disclaimer must be localized');
+  assert.ok(js.includes("tr('guest_reward_note'"),'guest reward disclaimer must be localized');
+  assert.ok(js.includes('await beginRegisteredAttempt()'),'registered attempt starts before game');
+  assert.ok(js.includes('await claimRegisteredReward()'),'only Claim performs completion');
   assert.ok(!js.includes('showToast('), 'tutorial must not trigger any short toasts');
   assert.ok(!html.includes('tutorial-toast'), 'tutorial toast overlay removed');
   assert.ok(!css.includes('.tutorial-toast'), 'toast styles removed');
@@ -180,4 +182,22 @@ test('training enemy labels render energy only; original PvP still renders names
   }finally{
     globalThis.document=oldDoc;globalThis.getComputedStyle=oldStyle;
   }
+});
+
+test('main browser entry routes first-time users and prompts guests once per tab',()=>{
+ const main=read('menu.js'),html=read('index.html');
+ assert.ok(main.includes("const GUEST_PROMPT_KEY='echo.tutorial.guestOfferShown'"));
+ assert.ok(main.includes('sessionStorage.setItem(GUEST_PROMPT_KEY'));
+ assert.ok(main.includes("'/echo/api/tutorial/status'"));
+ assert.ok(main.includes("result.completed===true?'arena':'tutorial'"));
+ assert.ok(main.includes("new URL('./tutorial.html',window.location.href)"));
+ assert.ok(main.includes("showAdBeforeBattle()"),'arena ads remain in real battle entry');
+ assert.ok(html.includes('menu.js?v=echo-render-budget-1-tutorial-1'));
+ for(const name of ['ru','en']){
+  const loc=JSON.parse(read('locales/'+name+'.json'));
+  for(const key of ['tutorial_guest_title','tutorial_guest_prompt','tutorial_guest_yes','tutorial_guest_no','tutorial_error_title','tutorial_error'])
+   assert.equal(typeof loc.menu[key],'string');
+  for(const key of ['win','win_intro','win_freedom','win_adventure','reward','guest_reward_note','claim_error'])
+   assert.equal(typeof loc.game.tutorial[key],'string');
+ }
 });

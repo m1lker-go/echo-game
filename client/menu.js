@@ -164,25 +164,61 @@ function openMenu() {
   syncSharedNav();
 }
 
+// Only one guest offer per opened tab; a new tab/app session offers again.
+const GUEST_PROMPT_KEY='echo.tutorial.guestOfferShown';
 let battleStartPending=false;
-async function startGame() {
+async function tutorialDecision(){
+  const token=localStorage.getItem('echo.authToken');
+  const t=(key,ru,en)=>window.$t?.('menu:'+key,document.documentElement.lang==='en'?en:ru)??ru;
+  if(token){
+    const response=await fetch('/echo/api/tutorial/status',{
+      headers:{Authorization:'Bearer '+token},cache:'no-store'
+    });
+    if(!response.ok)throw Error('Tutorial status HTTP '+response.status);
+    const result=await response.json();
+    return result.completed===true?'arena':'tutorial';
+  }
+  if(sessionStorage.getItem(GUEST_PROMPT_KEY))return 'arena';
+  sessionStorage.setItem(GUEST_PROMPT_KEY,'1');
+  const yes=await window.ECHOModal.confirm({
+    title:t('tutorial_guest_title','ПРОЙТИ ОБУЧЕНИЕ?','PLAY THE TUTORIAL?'),
+    text:t('tutorial_guest_prompt','Хочешь пройти обучение? Гостям награда не выдаётся.','Want to play the tutorial? Guests do not receive rewards.'),
+    confirmText:t('tutorial_guest_yes','ДА','YES'),
+    cancelText:t('tutorial_guest_no','НЕТ','NO'),
+    closeOnBackdrop:false
+  });
+  return yes?'tutorial':'arena';
+}
+async function startGame(){
   if(battleStartPending)return;
   battleStartPending=true;
   startButton.disabled=true;
-  // Temporary VK test: every battle entry from #3 requests interstitial.
-  // All ad errors and no-fill results fall through to battle.
   try{
-    const ads=await import('./battle-entry-ads.js?v=echo-interstitial-2097075-test-from-3-1');
-    await ads.showAdBeforeBattle();
-  }catch(error){
-    console.warn('[ECHO interstitial] continuing without ad',error);
-  }finally{
+    const next=await tutorialDecision();
+    if(next==='tutorial'){
+      window.location.href=new URL('./tutorial.html',window.location.href).toString();
+      return;
+    }
+    // Preserve normal PvP entry advertisements and user selection.
+    try{
+      const ads=await import('./battle-entry-ads.js?v=echo-interstitial-2097075-test-from-3-1');
+      await ads.showAdBeforeBattle();
+    }catch(error){
+      console.warn('[ECHO interstitial] continuing without ad',error);
+    }
     if(accessRegistered&&!heroCollectionReady)await loadHeroCollection();
-    window.ECHO_SELECTED_MODEL = selectedModel;
+    window.ECHO_SELECTED_MODEL=selectedModel;
     const url=new URL(window.location.href);
     url.searchParams.set('play','1');
     window.location.href=url.toString();
-    // If location navigation is blocked, restore the menu button.
+  }catch(error){
+    console.warn('[ECHO tutorial] could not verify account progress',error);
+    await window.ECHOModal.alert({
+      title:window.$t?.('menu:tutorial_error_title','ОБУЧЕНИЕ')||'ОБУЧЕНИЕ',
+      text:window.$t?.('menu:tutorial_error','Не удалось проверить обучение. Проверь соединение и попробуй снова.')||'Ошибка проверки обучения',
+      buttonText:window.$t?.('menu:code_ok','ОК')||'ОК'
+    });
+  }finally{
     battleStartPending=false;
     startButton.disabled=false;
   }

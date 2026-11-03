@@ -19,6 +19,37 @@ import {
 await window.ECHO_I18N_READY;
 const tr=(key,fallback,variables)=>window.$t?.('game:tutorial.'+key,fallback,variables)??fallback;
 const stageIds=['movement','energy','dash','water','battle'];
+const accountToken=localStorage.getItem('echo.authToken');
+let serverAttempt=null,serverAlreadyDone=false;
+async function beginRegisteredAttempt(){
+  if(!accountToken)return;
+  try{
+    const response=await fetch('/echo/api/tutorial/start',{
+      method:'POST',headers:{Authorization:'Bearer '+accountToken},cache:'no-store'
+    });
+    if(!response.ok)throw Error('Tutorial start HTTP '+response.status);
+    const result=await response.json();
+    serverAttempt=typeof result.attempt==='string'?result.attempt:null;
+    serverAlreadyDone=result.completed===true;
+  }catch(error){
+    console.warn('[echo tutorial] unable to initialize account attempt:',error.message);
+  }
+}
+async function claimRegisteredReward(){
+  if(!accountToken)return {guest:true};
+  if(serverAlreadyDone)return {completed:true,alreadyClaimed:true};
+  if(!serverAttempt)throw Error('The tutorial attempt could not be started');
+  const response=await fetch('/echo/api/tutorial/claim',{
+    method:'POST',
+    headers:{Authorization:'Bearer '+accountToken,'Content-Type':'application/json'},
+    body:JSON.stringify({attempt:serverAttempt}),cache:'no-store'
+  });
+  if(!response.ok)throw Error('Tutorial claim HTTP '+response.status);
+  const result=await response.json();
+  if(result.completed!==true)throw Error('Tutorial claim not confirmed');
+  serverAlreadyDone=true;serverAttempt=null;
+  return result;
+}
 const lesson=(field,index)=>tr('stages.'+stageIds[index]+'.'+field,STAGE_DESCRIPTIONS[index][field]);
 
 const ISO = {x:0.8660254,y:0.5};
@@ -225,36 +256,59 @@ function openDialog(kind){
   state.locked=true;
   releaseInput();
   const win=kind==='win';
-  // Show exactly the same black/white modal used by the main ECHO game.
-  const reward=win?document.createElement('div'):null;
-  if(reward){
-    reward.className='tutorial-reward-modal';
-    const message=document.createElement('p');
-    message.textContent=tr('reward','Ты завершил обучение! Награда: 3 обычных пака.');
-    reward.appendChild(message);
-    const icons=document.createElement('div');
-    icons.className='tutorial-reward-icons';
-    for(let i=0;i<3;i++){
-      const image=document.createElement('img');
-      image.src='./assets/packs/icon_echocard_basic.webp';
-      image.alt=tr('pack_alt','Обычный пак');
-      icons.appendChild(image);
-    }
-    reward.appendChild(icons);
-    const note=document.createElement('p');
-    note.className='tutorial-reward-note';
-    note.textContent=tr('reward_note','Тестовый уровень: реальные паки пока не начисляются.');
-    reward.appendChild(note);
+  if(!win){
+    void window.ECHOModal.alert({
+      title:tr('lose','ВЫ ПРОИГРАЛИ'),
+      text:tr('lose_text','Противник оказался сильнее. Попробуй начать с самого слабого.'),
+      buttonText:tr('retry','ПОПРОБОВАТЬ ЕЩЁ РАЗ'),
+      closeOnBackdrop:false
+    }).then(resetFinalChallenge);
+    return;
   }
-  void window.ECHOModal.alert({
-    title:win?tr('win','ПОЗДРАВЛЯЕМ!'):tr('lose','ВЫ ПРОИГРАЛИ'),
-    text:win?'':tr('lose_text','Противник оказался сильнее. Попробуй начать с самого слабого.'),
-    ...(reward?{contentElement:reward}:{}),
-    buttonText:win?tr('claim','ЗАБРАТЬ'):tr('retry','ПОПРОБОВАТЬ ЕЩЁ РАЗ'),
-    closeOnBackdrop:false
-  }).then(()=>{
-    if(win)window.location.href='./';
-    else resetFinalChallenge();
+  // Completion is NOT persisted until the player actually clicks Claim.
+  const reward=document.createElement('div');
+  reward.className='tutorial-reward-modal';
+  const paragraphs=[
+    tr('win_intro','И теперь ты знаешь основные механики игры «ЭХО.»!'),
+    tr('win_freedom','Дальше всё зависит от тебя!'),
+    tr('win_adventure','Сражайся с другими игроками, приглашай друзей и собери всех героев арены!'),
+    tr('reward','Награда: 3× обычный пак')
+  ];
+  for(const value of paragraphs){
+    const line=document.createElement('p');line.textContent=value;reward.appendChild(line);
+  }
+  const icons=document.createElement('div');
+  icons.className='tutorial-reward-icons';
+  for(let i=0;i<3;i++){
+    const image=document.createElement('img');
+    image.src='./assets/packs/icon_echocard_basic.webp';
+    image.alt=tr('pack_alt','Обычный пак');
+    icons.appendChild(image);
+  }
+  reward.appendChild(icons);
+  const note=document.createElement('p');
+  note.className='tutorial-reward-note';
+  if(!accountToken)note.textContent=tr('guest_reward_note','Гости не получают паки. Войди в аккаунт, чтобы получить награду.');
+  else if(serverAlreadyDone)note.textContent=tr('already_rewarded','Награда за обучение уже получена.');
+  reward.appendChild(note);
+  window.ECHOModal.open({
+    title:tr('win','Поздравляю, ты прошёл обучение!'),contentElement:reward,
+    closeOnBackdrop:false,
+    buttons:[{
+      label:tr('claim','ЗАБРАТЬ'),value:true,variant:'primary',
+      async onClick(){
+        try{
+          if(accountToken)await claimRegisteredReward();
+          // The authenticated server commits completion + packs atomically;
+          // guests have no DB entry and receive no free packs.
+          window.location.href='./';
+          return true;
+        }catch(error){
+          note.textContent=tr('claim_error','Не удалось забрать награду. Проверь соединение и попробуй снова.');
+          return false;
+        }
+      }
+    }]
   });
 }
 
@@ -554,6 +608,7 @@ function frame(now){
   updateLabels();
 }
 document.addEventListener('visibilitychange',()=>{state.lastTime=0;});
+await beginRegisteredAttempt();
 refreshStaticText();
 showStage({intro:true});
 document.addEventListener('echo:language-changed',()=>{

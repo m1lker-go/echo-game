@@ -186,6 +186,10 @@ const freePacks = require('./free-packs').createFreePacks({
 });
 const purchaseHistory=createPurchaseHistory({pool,sessionUser:echoAuth.sessionUser});
 app.use('/api/packs/free', freePacks.router);
+const tutorialProgress=require('./tutorial-progress').createTutorialProgress({
+  pool,sessionUser:echoAuth.sessionUser,grantPack:freePacks.grant
+});
+app.use('/api/tutorial',tutorialProgress.router);
 const referrals = require('./referrals').createReferrals({
   pool, sessionUser: echoAuth.sessionUser, grantPack: freePacks.grant
 });
@@ -1462,6 +1466,7 @@ server.listen(port, '0.0.0.0', async () => {
     await echoAuth.initialize();
     await echoOAuth.initialize();
     await freePacks.initialize();
+    await tutorialProgress.initialize();
     await referrals.initialize();
     await promoCodes.initialize();
     await specialQuests.initialize();
