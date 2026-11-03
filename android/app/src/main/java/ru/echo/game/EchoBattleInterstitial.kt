@@ -63,6 +63,7 @@ internal class EchoBattleInterstitial(private val activity: Activity) {
         if (active != null) return
 
         val serial = ++epoch
+        val trace = EchoAdDiagnostics.Trace("interstitial", SLOT_ID)
         var finished = false
         fun finish() {
             if (finished || serial != epoch) return
@@ -70,6 +71,7 @@ internal class EchoBattleInterstitial(private val activity: Activity) {
             timeout?.let { handler.removeCallbacks(it) }
             timeout = null
             active = null
+            trace.event("proceed_to_battle")
             if (!destroyed && !activity.isFinishing && !activity.isDestroyed) proceed()
         }
 
@@ -80,38 +82,46 @@ internal class EchoBattleInterstitial(private val activity: Activity) {
             ad.listener2 = object : InterstitialAd.InterstitialAdListener2() {
                 override fun onLoad(interstitialAd: InterstitialAd) {
                     if (finished || serial != epoch || destroyed) return
+                    trace.event("onLoad")
                     Log.i(TAG, "Interstitial loaded slot=$SLOT_ID")
                     // Once visible, wait for real close; never start the game
                     // underneath an active interstitial.
                     timeout?.let { handler.removeCallbacks(it) }
                     timeout = null
                     try {
+                        trace.event("show_start")
                         interstitialAd.show()
                     } catch (error: Exception) {
+                        trace.failure("show", error)
                         Log.w(TAG, "Cannot display interstitial", error)
                         finish()
                     }
                 }
                 override fun onDisplay(interstitialAd: InterstitialAd) {
+                    trace.event("onDisplay")
                     Log.i(TAG, "Interstitial displayed slot=$SLOT_ID")
                 }
                 override fun onNoAd(error: IAdLoadingError, ad: InterstitialAd) {
+                    trace.noAd(error)
                     Log.i(TAG, "Interstitial unavailable slot=$SLOT_ID: " + error.message)
                     // No-fill is expected at times: do not show repeated error toasts to players.
                     finish()
                 }
                 override fun onFailedToShow(interstitialAd: InterstitialAd) {
+                    trace.event("onFailedToShow")
                     Log.w(TAG, "Interstitial failed to show")
                     Toast.makeText(activity, "Не удалось показать рекламу", Toast.LENGTH_SHORT).show()
                     finish()
                 }
                 override fun onClose(ad: InterstitialAd) {
+                    trace.event("onClose")
                     Log.i(TAG, "Interstitial closed slot=$SLOT_ID")
                     finish()
                 }
             }
             val timer = Runnable {
                 if (active === ad && !finished) {
+                    trace.event("timeout", "limitMs=$LOAD_TIMEOUT_MS")
                     Log.i(TAG, "Interstitial loading timeout; entering battle")
                     Toast.makeText(activity, "Реклама не загрузилась", Toast.LENGTH_SHORT).show()
                     finish()
@@ -120,8 +130,11 @@ internal class EchoBattleInterstitial(private val activity: Activity) {
             }
             timeout = timer
             handler.postDelayed(timer, LOAD_TIMEOUT_MS)
+            trace.event("load_start")
             ad.load()
+            trace.event("load_returned")
         } catch (error: Exception) {
+            trace.failure("load_or_init", error)
             Log.w(TAG, "Cannot initialize interstitial", error)
             finish()
         }
