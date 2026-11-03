@@ -91,7 +91,7 @@ export function createPlayerLabels(canvas) {
     };
   }
 
-  function drawLabel(x, y, energy, name, enemy, cameraX, cameraY, bounds) {
+  function drawLabel(x, y, energy, name, enemy, cameraX, cameraY, bounds, hideName = false) {
     if (!Number.isFinite(x) || !Number.isFinite(y)) return;
     const dx = x - cameraX, dy = y - cameraY;
     const px = width / 2 + (dx - dy) * ISO_X;
@@ -120,13 +120,15 @@ export function createPlayerLabels(canvas) {
       drawVoiceSpeaker(px, baseline - numberHeight.top - size*.6 - 5, size);
     }
 
-    const displayName = typeof name === 'string' && name.trim() ? name : 'Игрок';
-    ctx.font = '400 ' + nameFont + 'px ' + fontFamily;
-    const nameHeight = textMetrics(displayName, nameFont);
-    ctx.fillStyle = enemy ? '#d95b65' : '#c3cfda';
-    // Top of the name text is exactly gap below the model's feet.
-    ctx.fillText(displayName, px, py - bottom + gap + nameHeight.top
-      - (enemy ? enemyNameLift : localNameLift), 130);
+    if (!hideName) {
+      const displayName = typeof name === 'string' && name.trim() ? name : 'Игрок';
+      ctx.font = '400 ' + nameFont + 'px ' + fontFamily;
+      const nameHeight = textMetrics(displayName, nameFont);
+      ctx.fillStyle = enemy ? '#d95b65' : '#c3cfda';
+      // Top of the name text is exactly gap below the model's feet.
+      ctx.fillText(displayName, px, py - bottom + gap + nameHeight.top
+        - (enemy ? enemyNameLift : localNameLift), 130);
+    }
     ctx.restore();
   }
 
@@ -138,7 +140,7 @@ export function createPlayerLabels(canvas) {
         if (loadedModels instanceof Map && !model) continue;
         const x = Number.isFinite(player.displayX) ? player.displayX : player.targetX;
         const y = Number.isFinite(player.displayY) ? player.displayY : player.targetY;
-        drawLabel(x, y, player.energy, player.name, true, cameraX, cameraY, model?.root?.userData?.labelBounds);
+        drawLabel(x, y, player.energy, player.name, true, cameraX, cameraY, model?.root?.userData?.labelBounds, player.hideName === true);
       }
     }
     if (local?.visible) {

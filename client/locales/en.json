@@ -316,6 +316,55 @@
     "excess_rarity_legendary": "legendary"
   },
   "game": {
+    "tutorial": {
+      "title": "ECHO — Tutorial",
+      "back": "BACK TO MENU ✕",
+      "controls": "WASD / ← ↑ → ↓ — move · SPACE — dash · J — jump",
+      "rotate": "ROTATE YOUR DEVICE TO LANDSCAPE",
+      "step": "Stage {step} of {total}",
+      "remaining": "Left: {count}",
+      "ok": "OK",
+      "jump_early": "Get to the glowing line before the water, then press JUMP.",
+      "water_warning": "Water drains your energy! Return to the shore and jump across.",
+      "water_retry": "You cannot walk across the water. Jump over it!",
+      "gate": "Finish the current objective to continue.",
+      "hero": "Hero",
+      "win": "CONGRATULATIONS!",
+      "lose": "YOU LOST",
+      "lose_text": "This opponent was stronger. Try fighting the weakest one first.",
+      "retry": "TRY AGAIN",
+      "reward": "You finished the tutorial! Reward: 3 basic packs.",
+      "reward_note": "Test level: actual packs are not granted yet.",
+      "pack_alt": "Basic pack",
+      "claim": "CLAIM",
+      "stages": {
+        "movement": {
+          "title": "LEARN TO MOVE",
+          "tip": "Use WASD or arrow keys on your keyboard, or the joystick on mobile. Walk to the glowing marker.",
+          "objective": "Reach the glowing line"
+        },
+        "energy": {
+          "title": "COLLECT ENERGY",
+          "tip": "Pick up glowing white dots. Each dot gives you 1 energy.",
+          "objective": "Collect 10 white dots"
+        },
+        "dash": {
+          "title": "USE DASH",
+          "tip": "Press DASH and reach the next marker.",
+          "objective": "Dash and reach the marker"
+        },
+        "water": {
+          "title": "JUMP OVER THE WATER",
+          "tip": "Water drains energy. Approach the shore and press JUMP.",
+          "objective": "Water drains energy — jump!"
+        },
+        "battle": {
+          "title": "DEFEAT THREE ENEMIES",
+          "tip": "The player with more energy wins. Choose wisely.",
+          "objective": "Defeat 3 enemies using energy"
+        }
+      }
+    },
     "map_short": "MAP",
     "map_title": "WORLD MAP",
     "map_open": "Open world map",

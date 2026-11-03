@@ -4,15 +4,22 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createCharacterLoaderSelector } from './character-textures.js';
 import { updateCharacterFacing } from './character-facing.js';
-import { createPlayerLabels, measurePlayerLabelBounds } from './player-labels.js?v=echo-labels-up-1-voice-1';
+import { createPlayerLabels, measurePlayerLabelBounds } from './player-labels.js?v=echo-labels-up-1-voice-1-tutorial-names-1';
 import { bindPlayerControls, updatePlayerMovement } from './player-controls.js?v=echo-energy-mobility-1';
 import { energyJumpDistance, energySpeedMultiplier, energySizeMultiplier } from './energy-balance.js';
 import { getWorldViewport } from './viewport-scale.js?v=echo-world-zoom-2';
 import {
   TILE, WIDTH, LENGTH, WATER_START, WATER_END, STAGE_GATES, STAGE_DESCRIPTIONS,
+  MOVE_TARGET, BOOST_TARGET, BOT_PROGRESS, RETRY_PROGRESS, JUMP_LINE, STAGE_MARKERS,
   FOOD_PLACEMENTS, worldFromTrack, trackFromWorld, boundToCorridor,
   shuffledEnemies, outcome
 } from './tutorial-logic.js';
+
+// Use the same ECHO i18n loader and saved language setting as the main game.
+await window.ECHO_I18N_READY;
+const tr=(key,fallback,variables)=>window.$t?.('game:tutorial.'+key,fallback,variables)??fallback;
+const stageIds=['movement','energy','dash','water','battle'];
+const lesson=(field,index)=>tr('stages.'+stageIds[index]+'.'+field,STAGE_DESCRIPTIONS[index][field]);
 
 const ISO = {x:0.8660254,y:0.5};
 const root=document.querySelector('#game');
@@ -34,6 +41,7 @@ const state={
   boostUntil:0,boostCooldownUntil:0,jumpUntil:0,jumpStart:0,jumpFrom:0,jumpTo:0,
   boostUsed:false,jumpUsed:false,kills:0,lastWaterDamage:0,locked:false,
   modalSerial:0,waterHintShown:false,gateHintStage:-1,
+  contextHintKey:'',contextHintUntil:0,
   view:{width:600,height:350,scale:1},dpr:1,lastTime:0,gateToastTime:0,
   food:FOOD_PLACEMENTS.map(([p,l],i)=>({id:i,progress:p,lateral:l,taken:false})),
   bots:[],models:new Map()
@@ -41,9 +49,9 @@ const state={
 
 function createBots(){
   return shuffledEnemies().map((energy,i)=>({
-    id:'training-bot-'+i,energy,progress:1122,lateral:[-90,0,90][i],
+    id:'training-bot-'+i,energy,progress:BOT_PROGRESS,lateral:[-90,0,90][i],
     skin:['character-male-a.glb','character-female-b.glb','character-male-c.glb'][i],
-    name:'Тренировочный бот',alive:true
+    alive:true
   }));
 }
 state.bots=createBots();
@@ -67,7 +75,7 @@ async function hintModal(title,message){
   state.locked=true;
   releaseInput();
   await window.ECHOModal.alert({
-    title,text:message,buttonText:'ОК',closeOnBackdrop:false
+    title,text:message,buttonText:tr('ok','ОК'),closeOnBackdrop:false
   });
   if(serial===state.modalSerial){
     releaseInput();
@@ -75,13 +83,39 @@ async function hintModal(title,message){
   }
 }
 
-function showStage(){
+function refreshStaticText(){
+  document.title=tr('title','ECHO — обучение');
+  const logo=document.querySelector('.tutorial-brand');
+  if(logo?.firstChild?.nodeType===Node.TEXT_NODE){
+    const localized=window.$t?.('menu:logo','ЭХО.')||'ЭХО.';
+    logo.firstChild.textContent=localized.endsWith('.')?localized.slice(0,-1):localized;
+  }
+  const back=document.querySelector('.tutorial-back');
+  back.textContent=tr('back','В МЕНЮ ✕');
+  back.setAttribute('aria-label',window.$t?.('game:back_to_menu','В меню')||'В меню');
+  document.querySelector('.stats-label').textContent=window.$t?.('game:energy','ЭНЕРГИЯ')||'ЭНЕРГИЯ';
+  document.querySelector('.tutorial-controls-tip').textContent=tr('controls','WASD / стрелки — движение');
+  boostButton.querySelector('small').textContent=window.$t?.('game:boost','РЫВОК')||'РЫВОК';
+  boostButton.setAttribute('aria-label',window.$t?.('game:boost_aria_label','Рывок')||'Рывок');
+  jumpButton.querySelector('small').textContent=window.$t?.('game:jump','ПРЫЖОК')||'ПРЫЖОК';
+  jumpButton.setAttribute('aria-label',window.$t?.('game:jump_aria_label','Прыжок')||'Прыжок');
+  document.querySelector('#tutorial-rotate').textContent=tr('rotate','ПОВЕРНИ УСТРОЙСТВО ГОРИЗОНТАЛЬНО');
+  document.documentElement.lang=window.ECHOI18n?.language||'ru';
+}
+function showObjectiveHint(key,duration=3100){
+  state.contextHintKey=key;
+  state.contextHintUntil=performance.now()+duration;
+  updateHud();
+}
+function showStage({intro=false}={}){
   root.dataset.tutorialStage=String(state.stage);
-  const desc=STAGE_DESCRIPTIONS[state.stage];
-  taskTitle.textContent=desc.title;
-  taskHint.textContent=desc.objective;
-  // Use the real quest HUD's glowing white/grey level dots.
-  stageDots.setAttribute('aria-label','Этап '+(state.stage+1)+' из '+STAGE_DESCRIPTIONS.length);
+  state.contextHintKey='';
+  state.contextHintUntil=0;
+  taskTitle.textContent=lesson('title',state.stage);
+  // Five familiar quest dots show completed tutorial steps.
+  stageDots.setAttribute('aria-label',tr('step','Этап {step} из {total}',{
+    step:state.stage+1,total:STAGE_DESCRIPTIONS.length
+  }));
   const dots=STAGE_DESCRIPTIONS.map((_,index)=>{
     const dot=document.createElement('span');
     dot.className='echo-quest-dot'+(index<state.stage?' is-done':'');
@@ -91,7 +125,9 @@ function showStage(){
   boostButton.disabled=state.stage!==2;
   jumpButton.disabled=state.stage!==3;
   updateHud();
-  void hintModal(desc.title,desc.tip);
+  // Only the initial lesson explains controls in a modal; stages now advance
+  // immediately, without interrupting walking, collecting or fighting.
+  if(intro)void hintModal(lesson('title',0),lesson('tip',0));
 }
 
 function getTrack(){
@@ -100,13 +136,17 @@ function getTrack(){
 function updateHud(){
   const {progress}=getTrack();
   const stage=state.stage;
-  let current=stage===0?Math.floor(Math.min(126,progress)):
+  let current=stage===0?Math.floor(Math.min(MOVE_TARGET,progress)):
     stage===1?Math.min(10,state.energy):
-    stage===2?state.boostUsed && progress>=560?1:0:
+    stage===2?state.boostUsed && progress>=BOOST_TARGET?1:0:
     stage===3?state.jumpUsed?1:0:state.kills;
   const max=STAGE_DESCRIPTIONS[stage].target;
   // Match the main quest HUD: right side displays the remaining objective.
-  taskProgress.textContent='Осталось: '+Math.max(0,max-current);
+  const remaining=Math.max(0,max-current);
+  taskProgress.textContent=tr('remaining','Осталось: {count}',{count:remaining});
+  taskHint.textContent=(state.contextHintKey && performance.now()<state.contextHintUntil)
+    ?tr(state.contextHintKey,lesson('objective',stage))
+    :lesson('objective',stage);
   energyNode.textContent=String(state.energy);
 }
 
@@ -125,7 +165,7 @@ function boundPlayer(){
       state.gateToastTime=performance.now();
       if(state.gateHintStage!==state.stage){
         state.gateHintStage=state.stage;
-        void hintModal('ЗАДАНИЕ НЕ ЗАВЕРШЕНО','Сначала выполни текущее задание. После этого откроется следующий участок дороги.');
+        showObjectiveHint('gate');
       }
     }
   }
@@ -154,13 +194,13 @@ function triggerBoost(){
 function triggerJump(){
   if(state.stage!==3 || state.locked || performance.now()<state.jumpUntil)return;
   const from=getTrack();
-  if(from.progress<625 || from.progress>=WATER_START-12){
-    void hintModal('ПОДОЙДИ К БЕРЕГУ','Для прыжка остановись перед водой, на светящейся отметке.');
+  if(from.progress<WATER_START-100 || from.progress>=WATER_START-12){
+    showObjectiveHint('jump_early');
     return;
   }
   const reach=energyJumpDistance(state.energy,420);
   const to=Math.min(STAGE_GATES[3]-12,from.progress+reach);
-  if(to<WATER_END+16)return;
+  if(to<WATER_END+16){showObjectiveHint('jump_early');return;}
   state.jumpStart=performance.now();
   state.jumpUntil=state.jumpStart+240;
   state.jumpFrom=from.progress;
@@ -190,27 +230,27 @@ function openDialog(kind){
   if(reward){
     reward.className='tutorial-reward-modal';
     const message=document.createElement('p');
-    message.textContent='Ты завершил обучение! Награда: 3 обычных пака.';
+    message.textContent=tr('reward','Ты завершил обучение! Награда: 3 обычных пака.');
     reward.appendChild(message);
     const icons=document.createElement('div');
     icons.className='tutorial-reward-icons';
     for(let i=0;i<3;i++){
       const image=document.createElement('img');
       image.src='./assets/packs/icon_echocard_basic.webp';
-      image.alt='Обычный пак';
+      image.alt=tr('pack_alt','Обычный пак');
       icons.appendChild(image);
     }
     reward.appendChild(icons);
     const note=document.createElement('p');
     note.className='tutorial-reward-note';
-    note.textContent='Тестовый уровень: реальные паки пока не начисляются.';
+    note.textContent=tr('reward_note','Тестовый уровень: реальные паки пока не начисляются.');
     reward.appendChild(note);
   }
   void window.ECHOModal.alert({
-    title:win?'ПОЗДРАВЛЯЕМ!':'ВЫ ПРОИГРАЛИ',
-    text:win?'':'Противник оказался сильнее. Попробуй начать с самого слабого.',
+    title:win?tr('win','ПОЗДРАВЛЯЕМ!'):tr('lose','ВЫ ПРОИГРАЛИ'),
+    text:win?'':tr('lose_text','Противник оказался сильнее. Попробуй начать с самого слабого.'),
     ...(reward?{contentElement:reward}:{}),
-    buttonText:win?'ЗАБРАТЬ':'ПОПРОБОВАТЬ ЕЩЁ РАЗ',
+    buttonText:win?tr('claim','ЗАБРАТЬ'):tr('retry','ПОПРОБОВАТЬ ЕЩЁ РАЗ'),
     closeOnBackdrop:false
   }).then(()=>{
     if(win)window.location.href='./';
@@ -224,7 +264,7 @@ function resetFinalChallenge(){
   state.bots=createBots();
   // Keep already loaded animated GLB actors: only the training enemy energy
   // order changes on retry, so repeated losses do not reload models/GPU assets.
-  const p=worldFromTrack(1000,0);
+  const p=worldFromTrack(RETRY_PROGRESS,0);
   state.x=p.x;state.y=p.y;state.vx=0;state.vy=0;
   state.inputX=0;state.inputY=0;state.keys.clear();
   document.querySelector('#stick').style.transform='translate(0,0)';
@@ -279,21 +319,21 @@ function update(dt,now){
     boundPlayer();
   }
   const p=getTrack();
-  if(state.stage===0 && p.progress>=126)enterStage(1);
+  if(state.stage===0 && p.progress>=MOVE_TARGET)enterStage(1);
   if(state.stage===1)collectEnergy();
-  if(state.stage===2 && state.boostUsed && p.progress>=560)enterStage(3);
+  if(state.stage===2 && state.boostUsed && p.progress>=BOOST_TARGET)enterStage(3);
   if(state.stage===3 && !state.jumpUntil && p.progress>=WATER_START && p.progress<=WATER_END && now-state.lastWaterDamage>550){
     state.energy=Math.max(0,state.energy-1);
     state.lastWaterDamage=now;
     if(!state.waterHintShown){
       state.waterHintShown=true;
-      void hintModal('ОПАСНО! ВОДА','Вода отнимает собранную энергию. Вернись на берег и используй прыжок, чтобы не потерять её.');
+      showObjectiveHint('water_warning',4500);
     }
   }
   if(state.stage===3 && (p.progress>WATER_END+4 || state.energy===0)){
-    const shore=worldFromTrack(660,0);
+    const shore=worldFromTrack(JUMP_LINE,0);
     state.x=shore.x;state.y=shore.y;state.vx=0;state.vy=0;state.energy=10;
-    void hintModal('ПОПРОБУЙ ЕЩЁ РАЗ','Воду нужно именно перепрыгнуть. Нажми «ПРЫЖОК» перед берегом.');
+    showObjectiveHint('water_retry',4100);
   }
   tryCombat();
   updateHud();
@@ -314,7 +354,7 @@ const characterLoader=createCharacterLoaderSelector(THREE,GLTFLoader,gltfLoader)
 const validSkin=/^character-(?:male-[a-f]|female-[a-f]|ghost|keeper|skeleton|zombie|human|orc)\.glb$/;
 const selected=localStorage.getItem('echo.selectedModel');
 const localSkin=validSkin.test(selected||'')?selected:'character-female-a.glb';
-const nickname=localStorage.getItem('echo.playerName')||'Герой';
+const nickname=localStorage.getItem('echo.playerName')||tr('hero','Герой');
 
 function findAnimation(clips,pattern){return clips.find(c=>pattern.test(c.name));}
 function loadHero(id,skin){
@@ -417,8 +457,7 @@ function drawGround(now){
     }
   }
   // Unlocked objective markers and locked gates are part of the arena itself.
-  const marks=[126,410,560,645];
-  const goal=marks[state.stage];
+  const goal=STAGE_MARKERS[state.stage];
   if(Number.isFinite(goal)){
     const a=0.46+Math.sin(now*.004)*.22;
     line(goal,-105,goal,105,'rgba(122,242,255,'+a+')',7);
@@ -438,7 +477,7 @@ function drawGround(now){
     line(p,-105+shimmer/3,p,70+shimmer/3,'rgba(132,225,255,'+(0.1+j*.05)+')',1.5);
   }
   // Visible jump launch line just before the water.
-  line(666,-105,666,105,'rgba(157,243,255,.8)',2);
+  line(JUMP_LINE,-105,JUMP_LINE,105,'rgba(157,243,255,.8)',2);
   // Small white, pulsing food points match the primary arena mechanic.
   if(state.stage<=1){
     state.food.forEach(f=>{
@@ -472,7 +511,10 @@ function updateModels(dt,now){
       if(jumping)model.root.position.y+=Math.sin(Math.PI*Math.min(1,(now-state.jumpStart)/240))*50;
       updateCharacterFacing(model.root,state.vx,state.vy,ISO);
     }else{
-      model.root.rotation.y=Math.PI;
+      // Bots remain stationary but turn toward the approaching player using
+      // the exact eight-direction isometric facing rules of real combat.
+      const botWorld=worldFromTrack(actor.progress,actor.lateral);
+      updateCharacterFacing(model.root,state.x-botWorld.x,state.y-botWorld.y,ISO);
     }
     const wantRun=actor.id==='local'&&Math.hypot(state.vx,state.vy)>18 && now>=state.jumpUntil;
     const want=wantRun?model.run:model.idle;
@@ -490,7 +532,7 @@ function updateLabels(){
   for(const bot of state.bots){
     if(!bot.alive || state.stage!==4)continue;
     const w=worldFromTrack(bot.progress,bot.lateral);
-    others.set(bot.id,{displayX:w.x,displayY:w.y,energy:bot.energy,name:bot.name});
+    others.set(bot.id,{displayX:w.x,displayY:w.y,energy:bot.energy,hideName:true});
   }
   labels.render({x:state.x,y:state.y,energy:state.energy,name:nickname,
     bounds:state.models.get('local')?.root.userData.labelBounds,visible:true},
@@ -512,7 +554,12 @@ function frame(now){
   updateLabels();
 }
 document.addEventListener('visibilitychange',()=>{state.lastTime=0;});
-showStage();
+refreshStaticText();
+showStage({intro:true});
+document.addEventListener('echo:language-changed',()=>{
+  refreshStaticText();
+  showStage(); // Rerender active task, never restart the tutorial or reopen its modal.
+});
 anim=requestAnimationFrame(frame);
 window.addEventListener('pagehide',()=>{
   cancelAnimationFrame(anim);
