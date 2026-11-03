@@ -50,6 +50,7 @@ test('standalone preview is explicitly opt-in, does not issue real rewards or en
   assert.ok(!js.includes('socket.io') && !js.includes('echo:hello') && !js.includes('/api/packs/free'));
   assert.ok(js.includes("if(!battle.win)"));
   assert.ok(js.includes('resetFinalChallenge'));
+  assert.ok(!js.includes('state.models.delete(id)'), 'a retry must reuse loaded character models');
   assert.ok(js.includes('WATER_START') && js.includes('WATER_END'));
   assert.ok(js.includes('state.jumpFrom<WATER_START && state.jumpTo>WATER_END'));
   assert.ok(css.includes('#game[data-tutorial-stage="2"] #boost'));

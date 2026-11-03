@@ -187,11 +187,8 @@ function resetFinalChallenge(){
   state.energy=10;
   state.kills=0;
   state.bots=createBots();
-  // All enemies receive newly shuffled positions; reset only this last stage.
-  for(const [id,item] of state.models)if(id!=='local'){
-    item.root.visible=false;item.scene.remove(item.root);state.models.delete(id);
-  }
-  for(const bot of state.bots)loadHero(bot.id,bot.skin);
+  // Keep already loaded animated GLB actors: only the training enemy energy
+  // order changes on retry, so repeated losses do not reload models/GPU assets.
   const p=worldFromTrack(1000,0);
   state.x=p.x;state.y=p.y;state.vx=0;state.vy=0;
   state.inputX=0;state.inputY=0;state.keys.clear();
