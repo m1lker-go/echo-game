@@ -74,11 +74,13 @@ internal class EchoBattleInterstitial(private val activity: Activity) {
         }
 
         try {
+            Log.i(TAG, "Requesting interstitial slot=$SLOT_ID")
             val ad = InterstitialAd(SLOT_ID, activity)
             active = ad
             ad.listener2 = object : InterstitialAd.InterstitialAdListener2() {
                 override fun onLoad(interstitialAd: InterstitialAd) {
                     if (finished || serial != epoch || destroyed) return
+                    Log.i(TAG, "Interstitial loaded slot=$SLOT_ID")
                     // Once visible, wait for real close; never start the game
                     // underneath an active interstitial.
                     timeout?.let { handler.removeCallbacks(it) }
@@ -90,10 +92,12 @@ internal class EchoBattleInterstitial(private val activity: Activity) {
                         finish()
                     }
                 }
-                override fun onDisplay(interstitialAd: InterstitialAd) = Unit
+                override fun onDisplay(interstitialAd: InterstitialAd) {
+                    Log.i(TAG, "Interstitial displayed slot=$SLOT_ID")
+                }
                 override fun onNoAd(error: IAdLoadingError, ad: InterstitialAd) {
-                    Log.i(TAG, "Interstitial unavailable: " + error.message)
-                    Toast.makeText(activity, "Реклама перед боем недоступна", Toast.LENGTH_SHORT).show()
+                    Log.i(TAG, "Interstitial unavailable slot=$SLOT_ID: " + error.message)
+                    // No-fill is expected at times: do not show repeated error toasts to players.
                     finish()
                 }
                 override fun onFailedToShow(interstitialAd: InterstitialAd) {
@@ -102,6 +106,7 @@ internal class EchoBattleInterstitial(private val activity: Activity) {
                     finish()
                 }
                 override fun onClose(ad: InterstitialAd) {
+                    Log.i(TAG, "Interstitial closed slot=$SLOT_ID")
                     finish()
                 }
             }
