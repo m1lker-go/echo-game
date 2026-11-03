@@ -54,7 +54,7 @@ test('standalone preview is explicitly opt-in, does not issue real rewards or en
   assert.ok(html.includes('modal.js?v=echo-round-result-3'));
   assert.ok(html.includes('style.css?v=echo-language-selector-3'));
   assert.ok(html.includes('ui-layout.css?v=echo-wasd-hint-scale-1'));
-  assert.ok(html.includes('ТЕСТ ОБУЧЕНИЯ'));
+  assert.ok(html.includes('<title>ECHO — тестовое обучение</title>'));
   assert.ok(js.includes("from './tutorial-logic.js'"));
   assert.ok(js.includes('role')===false || html.includes('aria-live="polite"'));
   assert.ok(!js.includes('socket.io') && !js.includes('echo:hello') && !js.includes('/api/packs/free'));
