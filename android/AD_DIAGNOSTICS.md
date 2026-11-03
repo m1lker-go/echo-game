@@ -1,57 +1,63 @@
-# ECHO Android: opt-in VK Ads diagnostic logging
+# ECHO Android — VK Ads diagnostic APK
 
-This is intended for a **locally installed, signed diagnostic APK only**.
-Normal public/release builds keep SDK debug output OFF by default.
+A separate Android **diagnostic** build variant enables extended ad logs,
+while ordinary **release** and **debug** variants keep them disabled.
+No local `gradle.properties` edits are required.
 
-## Build
+## Build and install
 
-1. On a local checkout of branch `apk`, merge current `origin/apk`.
-   Do not reset away local commits or local Gradle/signing settings.
-2. Add this line to **local** `android/gradle.properties` (do not commit it):
-
-   ```properties
-   ECHO_AD_DIAGNOSTICS=true
-   ```
-
-3. Sync Gradle, then generate a **signed release APK with the same keystore
-   used for the RuStore build**. Version code is now 23 (1.0.4).
-4. Install over the currently signed app:
+1. Update the local `apk` branch without discarding local commits:
 
    ```powershell
-   & "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r ".\app\release\app-release.apk"
+   git fetch origin
+   git merge --no-ff origin/apk -m "Merge VK Ads diagnostic build type"
    ```
 
-5. Verify installation:
+2. In Android Studio use **File → Sync Project with Gradle Files**.
+3. Use **Build → Generate Signed App Bundle or APK → APK**. Select the
+   same RuStore signing key and choose build type **diagnostic** rather than
+   **release**. No key/passwords should be committed.
+4. Install the new signed APK over the old one, using the exact file path
+   reported by Android Studio. The APK may be placed in
+   `android/app/diagnostic/` or the selected output directory;
+   do **not** reinstall the older `app/release/app-release.apk` by mistake.
+5. Verify that the installed app is **versionCode 23** and versionName
+   **1.0.4-diag**:
 
    ```powershell
    & "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" shell dumpsys package ru.echogame.arena | Select-String "versionCode=|versionName="
    ```
 
+Build type `diagnostic` inherits all relevant `release` settings,
+including the configured release signing when available, and uses the same
+Android application ID (`ru.echogame.arena`). This avoids uninstalling
+the RuStore-signed game.
+
 ## Capture logs
 
-Close and reopen ECHO so `EchoApplication.onCreate` runs with diagnostic
-flag enabled; look for `EchoAdDiag: myTarget SDK verbose logging ENABLED`.
-If you see `Could not enable myTarget SDK verbose logging`, report that
-line as well; the request-level traces still work.
+Clear older logs, fully close and reopen ECHO, request one rewarded ad,
+and optionally start an ad-eligible battle:
 
 ```powershell
 & "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" logcat -c
-# Now load a rewarded ad once; optionally enter one battle eligible for interstitial.
 & "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" logcat -d -v time |
   Select-String -Pattern "EchoAdDiag|EchoRewardedAds|EchoBattleAd|myTarget|MyTarget|my.target"
 ```
 
-`EchoAdDiag` traces each request with a local request number, format,
-slot ID, stage, elapsed time, SDK version and any exposed error code.
-The SDK debug mode may print additional internal messages with different
-log tags. If necessary, inspect the surrounding Logcat output privately.
+Check that the logs contain `Diagnostic APK version=1.0.4-diag`.
+If SDK debug mode was not enabled, look for
+`Could not enable myTarget SDK verbose logging`; structured request
+traces should still work.
 
-## Safety and cleanup
+`EchoAdDiag` records a local request number, ad format, slot ID,
+callback stage, elapsed time, SDK version, and any exposed SDK error code.
+The diagnostic build does not switch the account to test advertising and
+does not change the live advertising slot IDs.
 
-- Do **not** upload the diagnostic APK to RuStore.
-- Do **not** share raw, unrestricted device logs: SDK internals can include
-  advertising IDs, URLs, or device metadata. Review/redact before sharing.
-- This flag does not activate test advertising or override the live slot IDs.
-- **Remove** `ECHO_AD_DIAGNOSTICS=true` from local
-  `android/gradle.properties` (or set it to false) before building the
-  next public release.
+## Important
+
+- **Never publish the diagnostic APK to RuStore.** Publish only the
+  normal `release` variant, which automatically disables detailed logs.
+- Never share full, unfiltered Logcat dumps: SDK diagnostic output may
+  contain device metadata or unique identifiers. Redact before sharing.
+- No changes to local `android/gradle.properties` are required.
