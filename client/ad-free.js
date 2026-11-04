@@ -79,16 +79,19 @@ export async function buyAdFree(){
  busy=true;
  try{
   if(await hasAdFree(true)){toast(tr('Реклама уже отключена для этого аккаунта.','Ads are already disabled for this account.'));return;}
-  const platformPrice=vkPlatform()?tr('100 голосов VK','100 VK votes'):tr('490 ₽','490 RUB');
+  const isVK=vkPlatform();
   const yes=await window.ECHOModal?.confirm({
    title:tr('БЕЗ РЕКЛАМЫ','NO ADS'),
-   text:tr('Отключить рекламу навсегда за '+platformPrice+'? Награды за рекламные задания будут выдаваться сразу, до 5 раз в день.',
-      'Disable ads permanently for '+platformPrice+'? Rewarded quests will grant rewards immediately, up to five times daily.'),
-   cancelText:tr('НЕТ','NO'),confirmText:tr('КУПИТЬ','BUY')
+   text:tr('Больше никакой рекламы!\nРекламные задания выполняются автоматически!',
+      'No more ads!\nRewarded tasks complete automatically!'),
+   cancelText:tr('НЕТ','NO'),
+   confirmText:isVK?tr('КУПИТЬ 100 ГОЛОСОВ VK','BUY 100 VK VOTES'):
+    tr('КУПИТЬ 490 ₽','BUY 490 RUB'),
+   modalClass:'echo-ad-free-confirm'
   });
   if(!yes)return;
   const auth=token();
-  if(vkPlatform())await purchaseVK(auth);
+  if(isVK)await purchaseVK(auth);
   else await purchaseRobokassa(auth);
  }catch(error){
   console.warn('[ECHO ad-free] payment:',error.message);
