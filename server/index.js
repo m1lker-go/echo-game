@@ -172,13 +172,16 @@ function rollSecurePack(type){
  return cards;
 }
 
+const adFree = require('./ad-free').createAdFree({pool,sessionUser:echoAuth.sessionUser});
+app.use('/api/ad-free',adFree.router);
+
 // VK payment notifications are routed ONLY to ECHO. The Cat Fighting callback
 // at /vk-payment-callback remains completely separate.
 const vkPayments = require('./vk-payments').createVKPayments({
-  pool, sessionUser: echoAuth.sessionUser, rollSecurePack
+  pool, sessionUser: echoAuth.sessionUser, rollSecurePack, adFree
 });
 const robokassaPayments = require('./robokassa-payments').createRobokassaPayments({
-  pool, sessionUser: echoAuth.sessionUser, rollSecurePack
+  pool, sessionUser: echoAuth.sessionUser, rollSecurePack, adFree
 });
 const freePacks = require('./free-packs').createFreePacks({
   pool, sessionUser: echoAuth.sessionUser, rollSecurePack
@@ -285,7 +288,7 @@ const DAILY_QUESTS = Object.freeze([
   { id: 'pack_premium', column: 'pack_premium_opened', targets: [1], reward: 50 },
 ]);
 const QUEST_LEVEL_REWARDS = [2,4,6,8,10];
-const videoBonus=require('./video-bonus').createVideoBonus({pool,sessionUser:echoAuth.sessionUser,dailyDateKey});
+const videoBonus=require('./video-bonus').createVideoBonus({pool,sessionUser:echoAuth.sessionUser,dailyDateKey,hasAdFree:adFree.has});
 app.use('/api/daily-video',videoBonus.router);
 const questKey = (id, level) => id + ':' + level;
 async function questAccount(req, res) {
@@ -1404,6 +1407,7 @@ server.listen(port, '0.0.0.0', async () => {
     await freePacks.initialize();
     await referrals.initialize();
     await specialQuests.initialize();
+    await adFree.initialize();
     await vkPayments.initialize();
     await robokassaPayments.initialize();
     await purchaseHistory.initialize();
