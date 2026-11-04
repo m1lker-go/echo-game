@@ -14,7 +14,12 @@ function harness(){
  };
  const window={isVKMiniApp:false};
  const ctx={window,localStorage,Date,Intl,Math,JSON,Promise,Error,console,setTimeout,clearTimeout};
- vm.runInNewContext(source.replaceAll('export async function','async function').replaceAll('export const','const')+
+ // In the browser the entitlement module loads normally. This isolated Node
+ // VM cannot import ESM: stub only its dependency, not the VK ad logic.
+ const isolated=source.replace(/await import\(['"]\.\/ad-free\.js[^'"]*['"]\)/g,
+  '({hasAdFree:async()=>false})');
+ assert.notEqual(isolated,source,'expected to intercept ad-free import');
+ vm.runInNewContext(isolated.replaceAll('export async function','async function').replaceAll('export const','const')+
   '\nglobalThis.adTest = {battleAdSchedule,showAdBeforeBattle};',ctx);
  return {localStorage,window,show:ctx.adTest.showAdBeforeBattle,schedule:ctx.adTest.battleAdSchedule.scheduleBattleEntry,day:ctx.adTest.battleAdSchedule.moscowDay};
 }
