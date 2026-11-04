@@ -6,13 +6,13 @@ const nodePath=require('node:path');
 const root=nodePath.join(__dirname,'../..');
 const read=file=>fs.readFileSync(nodePath.join(root,file),'utf8');
 
-test('RuStore APK package and first public version stay consistent',()=>{
+test('RuStore APK package and current public version stay consistent',()=>{
   const gradle=read('android/app/build.gradle.kts');
   assert.match(gradle,/applicationId = "ru\.echogame\.arena"/);
   assert.match(gradle,/minSdk = 26/);
   assert.match(gradle,/targetSdk = 35/);
-  assert.match(gradle,/versionCode = 21/);
-  assert.match(gradle,/versionName = "1\.0\.2"/);
+  assert.match(gradle,/versionCode = 23/);
+  assert.match(gradle,/versionName = "1\.0\.4"/);
   assert.match(gradle,/isDebuggable = false/);
 });
 test('release signing keys are referenced through environment variables only',()=>{
