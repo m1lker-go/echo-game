@@ -123,7 +123,7 @@ findSocket();
 
 // Project food using the same camera-space deltas as game.js's grid.
 // The caller supplies the already scaled world canvas, so no second layer or
- // independent pixel-ratio / CSS-viewport transform can drift during movement.
+// independent pixel-ratio / CSS-viewport transform can drift during movement.
 function worldToScreen(x, y, cx, cy, width, height) {
   const dx = x - cx, dy = y - cy;
   return { x: width / 2 + (dx - dy) * ISO_X, y: height / 2 + (dx + dy) * ISO_Y };
@@ -136,64 +136,64 @@ export function renderSharedFood(ctx, time, cameraX, cameraY, playerX, playerY, 
   if (document.hidden || !isConnected || !ctx) { lastRenderAt = 0; return; }
   const dt = lastRenderAt ? Math.min(Math.max((time - lastRenderAt) / 1000, 0), 0.05) : 0;
   lastRenderAt = time;
-      // Expose lightweight counters while debugging visibility of the authoritative snapshot.
-      let visibleCount = 0;
-      for (const id of activeIds) {
-        const point = food.get(id);
-        if (!point) continue;
-        // Test distance from the permanent server point, never its animated display.
-        // Otherwise a magnetic dot could keep following the player outside pickup range.
-        const anchorDx = playerX - point.x;
-        const anchorDy = playerY - point.y;
-        if (anchorDx * anchorDx + anchorDy * anchorDy <= FOOD_MAGNET_RADIUS * FOOD_MAGNET_RADIUS) {
-          const dx = cameraX - point.displayX;
-          const dy = cameraY - point.displayY;
-          const distance = Math.hypot(dx, dy);
-          if (distance > 0.001) {
-            const travel = Math.min(distance, FOOD_MAGNET_SPEED * dt);
-            point.displayX += dx / distance * travel;
-            point.displayY += dy / distance * travel;
-          }
-          point.magnetActive = true;
-        } else if (point.magnetActive) {
-          // Only a visual reset: the authoritative server position is untouched.
-          point.displayX = point.x;
-          point.displayY = point.y;
-          point.magnetActive = false;
-        }
-        const p = worldToScreen(point.displayX, point.displayY, cameraX, cameraY, width, height);
-        // Offscreen points are normal; keep them in the snapshot and only skip drawing here.
-        if (p.x < -30 || p.y < -30 || p.x > width + 30 || p.y > height + 30) continue;
-        const pulse = 0.65 + 0.35 * Math.sin(time * 0.002 + point.pulse);
-        const radius = point.size * pulse;
-        if (FOOD_VISUAL_MODE === 'icon' && foodAnimation) {
-          // Decode the actual animation frames once, then select a cached frame
-          // every draw. Canvas.drawImage(Image) otherwise freezes animated WebP.
-          // Stagger phases between food points so 1,000 icons don't move in sync.
-          const iconSize = radius * 6;
-          const currentFrame = foodAnimation.frameAt(time + point.id * 37);
-          ctx.globalAlpha = 0.8 + 0.2 * pulse;
-          ctx.drawImage(currentFrame, p.x - iconSize / 2, p.y - iconSize / 2, iconSize, iconSize);
-          ctx.globalAlpha = 1;
-        } else {
-          // Original white dots: default rendering and fallback if WebP fails to load.
-          const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius * 3.2);
-          halo.addColorStop(0, 'rgba(210,238,255,0.38)');
-          halo.addColorStop(0.35, 'rgba(210,238,255,0.15)');
-          halo.addColorStop(1, 'rgba(210,238,255,0)');
-          ctx.fillStyle = halo;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, radius * 3.2, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = `rgba(220,242,255,${0.65 + 0.35 * pulse})`;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        visibleCount += 1;
+  // Expose lightweight counters while debugging visibility of the authoritative snapshot.
+  let visibleCount = 0;
+  for (const id of activeIds) {
+    const point = food.get(id);
+    if (!point) continue;
+    // Test distance from the permanent server point, never its animated display.
+    // Otherwise a magnetic dot could keep following the player outside pickup range.
+    const anchorDx = playerX - point.x;
+    const anchorDy = playerY - point.y;
+    if (anchorDx * anchorDx + anchorDy * anchorDy <= FOOD_MAGNET_RADIUS * FOOD_MAGNET_RADIUS) {
+      const dx = cameraX - point.displayX;
+      const dy = cameraY - point.displayY;
+      const distance = Math.hypot(dx, dy);
+      if (distance > 0.001) {
+        const travel = Math.min(distance, FOOD_MAGNET_SPEED * dt);
+        point.displayX += dx / distance * travel;
+        point.displayY += dy / distance * travel;
       }
-      if (time - lastDebugLog > 5000) {
-        lastDebugLog = time;
-        console.debug('[echo:food] active:', activeIds.size, 'known:', food.size, 'visible:', visibleCount, 'connected:', isConnected);
-      }
+      point.magnetActive = true;
+    } else if (point.magnetActive) {
+      // Only a visual reset: the authoritative server position is untouched.
+      point.displayX = point.x;
+      point.displayY = point.y;
+      point.magnetActive = false;
+    }
+    const p = worldToScreen(point.displayX, point.displayY, cameraX, cameraY, width, height);
+    // Offscreen points are normal; keep them in the snapshot and only skip drawing here.
+    if (p.x < -30 || p.y < -30 || p.x > width + 30 || p.y > height + 30) continue;
+    const pulse = 0.65 + 0.35 * Math.sin(time * 0.002 + point.pulse);
+    const radius = point.size * pulse;
+    if (FOOD_VISUAL_MODE === 'icon' && foodAnimation) {
+      // Decode the actual animation frames once, then select a cached frame
+      // every draw. Canvas.drawImage(Image) otherwise freezes animated WebP.
+      // Stagger phases between food points so 1,000 icons don't move in sync.
+      const iconSize = radius * 6;
+      const currentFrame = foodAnimation.frameAt(time + point.id * 37);
+      ctx.globalAlpha = 0.8 + 0.2 * pulse;
+      ctx.drawImage(currentFrame, p.x - iconSize / 2, p.y - iconSize / 2, iconSize, iconSize);
+      ctx.globalAlpha = 1;
+    } else {
+      // Original white dots: default rendering and fallback if WebP fails to load.
+      const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius * 3.2);
+      halo.addColorStop(0, 'rgba(210,238,255,0.38)');
+      halo.addColorStop(0.35, 'rgba(210,238,255,0.15)');
+      halo.addColorStop(1, 'rgba(210,238,255,0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, radius * 3.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = `rgba(220,242,255,${0.65 + 0.35 * pulse})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    visibleCount += 1;
+  }
+  if (time - lastDebugLog > 5000) {
+    lastDebugLog = time;
+    console.debug('[echo:food] active:', activeIds.size, 'known:', food.size, 'visible:', visibleCount, 'connected:', isConnected);
+  }
 }
