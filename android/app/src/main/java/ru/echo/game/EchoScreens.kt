@@ -334,6 +334,7 @@ private fun EchoNativePage(
     onOAuthLogin: (String, Boolean) -> Unit,
     onNavigate: (Page) -> Unit, onBack: () -> Unit
 ) {
+    val context = LocalContext.current
     EchoSpaceBackground {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             // Capture the BoxWithConstraints dimensions before entering the
@@ -429,6 +430,25 @@ private fun EchoNativePage(
                 }
             }
 
+            if (page == Page.HOME) {
+                val tileSize = (viewportHeight.value * .31f).coerceIn(78f, 132f).dp
+                val shape = RoundedCornerShape(15.dp)
+                Box(Modifier.align(Alignment.CenterEnd).padding(end = 14.dp).size(tileSize)
+                    .clip(shape).background(Color(0xFF101E2F)).border(1.dp, Cyan, shape)
+                    .clickable {
+                        audio.click()
+                        context.startActivity(Intent(context, EchoWebActivity::class.java)
+                            .putExtra(EchoWebActivity.EXTRA_PAGE, Page.SHOP.name)
+                            .putExtra(EchoWebActivity.EXTRA_AD_FREE, true))
+                    }, contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("ADS", color = Cyan, fontSize = 29.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        Text(tr(audio, "БЕЗ РЕКЛАМЫ", "NO ADS"), color = White,
+                            fontSize = 14.sp, textAlign = TextAlign.Center)
+                    }
+                }
+            }
             // main/client/fullscreen.css: fixed square upper-right return arrow.
             // Keep it outside the scroll container, so it never scrolls away.
             if (page == Page.SETTINGS) {
