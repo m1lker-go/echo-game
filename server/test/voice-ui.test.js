@@ -66,7 +66,7 @@ function harness() {
   const CustomEvent = class { constructor(type, opts) { this.type = type; this.detail = opts.detail; } };
   vm.runInNewContext(source, { window, document, navigator, sessionStorage, CustomEvent, setInterval() {}, Date, console }, { filename: 'voice-ui.js' });
   return {
-    window, document, nodes, messages, requests, store,
+    window, document, navigator, nodes, messages, requests, store,
     get stopped() { return stopped; },
     enterRoom(roomId, roundId) { const socket = new EventEmitter(); socket.connected = false;
       document.dispatchEvent({ type: 'echo:socket-ready', detail: { socket } });
@@ -90,6 +90,57 @@ test('voice HUD uses current abilities, hidden speaking panel and no fake speake
   app.pointer('pointerdown');
   assert.equal(app.messages.length, 1);
   assert.equal(app.requests.length, 0, 'no microphone request without an audio transport');
+});
+
+test('Android first press requests permission even when LiveKit is still connecting', async () => {
+  const app = harness();
+  app.window.ECHO_ANDROID_ARENA = true;
+  app.pointer('pointerdown');
+  await app.flush();
+  assert.equal(app.requests.length, 1, 'Android getUserMedia must run on the first tap');
+  assert.equal(app.stopped, 1, 'capture is closed when voice is still disconnected');
+  assert.equal(app.nodes.get('#echo-voice-mic').getAttribute('aria-pressed'), 'false');
+  assert.match(app.messages.at(-1), /пока не подключён/);
+});
+
+test('Android permission granted after release never transmits audio', async () => {
+  const app = harness();
+  app.window.ECHO_ANDROID_ARENA = true;
+  let grantPermission;
+  let starts = 0, stops = 0;
+  app.navigator.mediaDevices.getUserMedia = () => new Promise(resolve => { grantPermission = resolve; });
+  const transport = { ready: false, start: async () => { starts++; }, stop() {} };
+  app.window.ECHOVoiceTransport = transport;
+
+  app.pointer('pointerdown');
+  assert.equal(typeof grantPermission, 'function', 'request starts immediately');
+  app.pointer('pointerup');
+  transport.ready = true;
+  grantPermission({getTracks: () => [{stop: () => { stops++; }}]});
+  await app.flush();
+
+  assert.equal(starts, 0, 'late permission must not publish microphone');
+  assert.equal(stops, 1, 'late audio capture must be closed');
+  assert.equal(app.nodes.get('#echo-voice-mic').getAttribute('aria-pressed'), 'false');
+});
+
+test('Android keeps the first hold when LiveKit connects during permission dialog', async () => {
+  const app = harness();
+  app.window.ECHO_ANDROID_ARENA = true;
+  let grantPermission;
+  let starts = 0, stops = 0;
+  app.navigator.mediaDevices.getUserMedia = () => new Promise(resolve => { grantPermission = resolve; });
+  const transport = { ready: false, start: async () => { starts++; }, stop() {} };
+  app.window.ECHOVoiceTransport = transport;
+
+  app.pointer('pointerdown');
+  transport.ready = true;
+  grantPermission({getTracks: () => [{stop: () => { stops++; }}]});
+  await app.flush();
+  assert.equal(starts, 1, 'first held press must start when transport is ready');
+  assert.equal(app.nodes.get('#echo-voice-mic').getAttribute('aria-pressed'), 'true');
+  app.pointer('pointerup');
+  assert.equal(stops, 1, 'stops when user releases');
 });
 
 test('speaker list filters by room and round, mute persists within one round and resets at the boundary', () => {
