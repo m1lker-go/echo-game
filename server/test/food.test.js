@@ -34,7 +34,7 @@ test('an active food point can be collected only once', () => {
     [3, { id: 3, x: 5, y: 0, active: false, respawnAt: 0 }],
   ]);
   const player = { x: 0, y: 0 };
-  const options = { radius: 60, now: 1000, random: () => 0, respawnMinMs: 10_000, respawnMaxMs: 25_000 };
+  const options = { radius: 70, now: 1000, random: () => 0, respawnMinMs: 10_000, respawnMaxMs: 25_000 };
   assert.equal(collectFood(player, points, options), 1);
   assert.equal(points.get(1).active, false);
   assert.equal(points.get(1).respawnAt, 11_000);
@@ -68,4 +68,14 @@ test('server food snapshot exposes only active food display data', () => {
     [2, { id: 2, x: 30, y: 40, size: 6, pulse: 1, active: false, respawnAt: 9999 }],
   ]));
   assert.deepEqual(snapshot, [{ id: 1, x: 10, y: 20, size: 5, pulse: 0 }]);
+});
+
+test('pickup radius includes food exactly 70 units away but excludes 70.1', () => {
+  const points = new Map([
+    [1, { id: 1, x: 70, y: 0, active: true, respawnAt: 0 }],
+    [2, { id: 2, x: 70.1, y: 0, active: true, respawnAt: 0 }],
+  ]);
+  assert.equal(collectFood({ x: 0, y: 0 }, points, { now: 1000 }), 1);
+  assert.equal(points.get(1).active, false);
+  assert.equal(points.get(2).active, true);
 });
