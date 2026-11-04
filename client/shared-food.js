@@ -1,7 +1,5 @@
-import { getWorldViewport } from './viewport-scale.js?v=echo-world-zoom-2';
 import { loadAnimatedWebpFrames } from './animated-webp-frames.js?v=echo-webp-frames-1';
 
-const foodCanvas = document.querySelector('#shared-food');
 const energyText = document.querySelector('#energy');
 
 // Server positions never change during pickup: only displayX/displayY animate.
@@ -123,45 +121,21 @@ function findSocket() {
 }
 findSocket();
 
-function resize() {
-  if (!foodCanvas) return;
-  const rect = foodCanvas.getBoundingClientRect();
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  foodCanvas.width = Math.max(1, Math.round(rect.width * dpr));
-  foodCanvas.height = Math.max(1, Math.round(rect.height * dpr));
-}
-window.addEventListener('resize', resize, { passive: true });
-window.addEventListener('echo:viewport-resized', resize, { passive: true });
-resize();
-
-function isoProject(x, y) {
-  return { x: (x - y) * ISO_X, y: (x + y) * ISO_Y };
-}
-
+// Project food using the same camera-space deltas as game.js's grid.
+// The caller supplies the already scaled world canvas, so no second layer or
+ // independent pixel-ratio / CSS-viewport transform can drift during movement.
 function worldToScreen(x, y, cx, cy, width, height) {
-  const point = isoProject(x, y);
-  const camera = isoProject(cx, cy);
-  return {
-    x: width / 2 + point.x - camera.x,
-    y: height / 2 + point.y - camera.y,
-  };
+  const dx = x - cx, dy = y - cy;
+  return { x: width / 2 + (dx - dy) * ISO_X, y: height / 2 + (dx + dy) * ISO_Y };
 }
 
-// Called from game.js once per actual arena frame using the exact same camera.
-// No separate RAF, prediction or rounded HUD-coordinate reads.
-export function renderSharedFood(time, cameraX, cameraY) {
-  if (document.hidden || !isConnected || !foodCanvas) { lastRenderAt = 0; return; }
+// Called after the grid/boundary in game.js, with the SAME canvas and transform.
+// playerX/Y are authoritative movement coordinates for the 70-unit magnet test.
+// cameraX/Y are used to aim food at the visually centered player.
+export function renderSharedFood(ctx, time, cameraX, cameraY, playerX, playerY, width, height) {
+  if (document.hidden || !isConnected || !ctx) { lastRenderAt = 0; return; }
   const dt = lastRenderAt ? Math.min(Math.max((time - lastRenderAt) / 1000, 0), 0.05) : 0;
   lastRenderAt = time;
-  if (foodCanvas && isConnected) {
-    const rect = foodCanvas.getBoundingClientRect();
-    const { width, height, scale } = getWorldViewport(rect.width, rect.height);
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const ctx = foodCanvas.getContext('2d');
-
-    if (ctx) {
-      ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
-      ctx.clearRect(0, 0, width, height);
       // Expose lightweight counters while debugging visibility of the authoritative snapshot.
       let visibleCount = 0;
       for (const id of activeIds) {
@@ -169,8 +143,8 @@ export function renderSharedFood(time, cameraX, cameraY) {
         if (!point) continue;
         // Test distance from the permanent server point, never its animated display.
         // Otherwise a magnetic dot could keep following the player outside pickup range.
-        const anchorDx = cameraX - point.x;
-        const anchorDy = cameraY - point.y;
+        const anchorDx = playerX - point.x;
+        const anchorDy = playerY - point.y;
         if (anchorDx * anchorDx + anchorDy * anchorDy <= FOOD_MAGNET_RADIUS * FOOD_MAGNET_RADIUS) {
           const dx = cameraX - point.displayX;
           const dy = cameraY - point.displayY;
@@ -222,6 +196,4 @@ export function renderSharedFood(time, cameraX, cameraY) {
         lastDebugLog = time;
         console.debug('[echo:food] active:', activeIds.size, 'known:', food.size, 'visible:', visibleCount, 'connected:', isConnected);
       }
-    }
-  }
 }
