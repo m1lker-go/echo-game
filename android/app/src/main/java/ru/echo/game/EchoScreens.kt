@@ -50,6 +50,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Brush
@@ -326,6 +328,31 @@ private fun EchoButton(
     }
 }
 
+
+/** Compact, vector no-ads icon; does not rely on an external drawable. */
+@Composable
+private fun EchoNoAdsIcon() {
+    Canvas(Modifier.size(33.dp)) {
+        val w = size.width
+        val h = size.height
+        val line = 2.dp.toPx()
+        drawRoundRect(
+            color = Cyan,
+            topLeft = Offset(w * .12f, h * .28f),
+            size = Size(w * .76f, h * .48f),
+            cornerRadius = CornerRadius(w * .09f, h * .09f),
+            style = Stroke(width = line)
+        )
+        drawCircle(Cyan, radius = w * .058f, center = Offset(w * .35f, h * .50f))
+        drawLine(Cyan, Offset(w * .53f, h * .45f), Offset(w * .72f, h * .45f),
+            strokeWidth = line, cap = StrokeCap.Round)
+        drawLine(Cyan, Offset(w * .53f, h * .57f), Offset(w * .66f, h * .57f),
+            strokeWidth = line, cap = StrokeCap.Round)
+        drawLine(Color(0xFFF0FAFF), Offset(w * .09f, h * .90f), Offset(w * .92f, h * .10f),
+            strokeWidth = 3.dp.toPx(), cap = StrokeCap.Round)
+    }
+}
+
 @Composable
 private fun EchoNativePage(
     page: Page, audio: EchoAudioEngine,
@@ -335,6 +362,9 @@ private fun EchoNativePage(
     onNavigate: (Page) -> Unit, onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    var showAdFreeConfirm by remember { mutableStateOf(false) }
+    var adFreeCheckoutBusy by remember { mutableStateOf(false) }
+    var adFreeNotice by remember { mutableStateOf<String?>(null) }
     EchoSpaceBackground {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             // Capture the BoxWithConstraints dimensions before entering the
@@ -431,23 +461,27 @@ private fun EchoNativePage(
             }
 
             if (page == Page.HOME) {
-                val tileSize = (viewportHeight.value * .31f).coerceIn(78f, 132f).dp
-                val shape = RoundedCornerShape(15.dp)
+                // A smaller tile in the free right-hand area of the native home screen.
+                val tileSize = (viewportHeight.value * .20f).coerceIn(66f, 90f).dp
+                val shape = RoundedCornerShape(14.dp)
                 Box(Modifier.align(Alignment.TopEnd)
-                    .padding(top = (viewportHeight.value * .15f).dp, end = 14.dp)
+                    .padding(top = (viewportHeight.value * .16f).dp, end = 14.dp)
                     .size(tileSize)
-                    .clip(shape).background(Color(0xFF101E2F)).border(1.dp, Cyan, shape)
-                    .clickable {
+                    .shadow(6.dp, shape)
+                    .clip(shape)
+                    .background(Brush.verticalGradient(listOf(Color(0xFF18334B), Color(0xFF06101C))))
+                    .border(1.dp, Cyan.copy(alpha = .85f), shape)
+                    .clickable(enabled = !adFreeCheckoutBusy) {
                         audio.click()
-                        context.startActivity(Intent(context, EchoWebActivity::class.java)
-                            .putExtra(EchoWebActivity.EXTRA_PAGE, Page.SHOP.name)
-                            .putExtra(EchoWebActivity.EXTRA_AD_FREE, true))
+                        showAdFreeConfirm = true
                     }, contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("ADS", color = Cyan, fontSize = 29.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(8.dp))
-                        Text(tr(audio, "БЕЗ РЕКЛАМЫ", "NO ADS"), color = White,
-                            fontSize = 14.sp, textAlign = TextAlign.Center)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center) {
+                        EchoNoAdsIcon()
+                        Spacer(Modifier.height(4.dp))
+                        Text(tr(audio, "БЕЗ\\nРЕКЛАМЫ", "NO ADS"), color = White,
+                            fontFamily = EchoFont, fontWeight = FontWeight.Medium,
+                            fontSize = 11.sp, lineHeight = 13.sp, textAlign = TextAlign.Center)
                     }
                 }
             }
@@ -472,6 +506,70 @@ private fun EchoNativePage(
                 )
             }
         }
+    }
+    if (page == Page.HOME && showAdFreeConfirm) {
+        val signedIn = auth.token() != null
+        EchoConfirmDialog(
+            title = tr(audio, "БЕЗ РЕКЛАМЫ", "NO ADS"),
+            message = if (signedIn) tr(audio,
+                "Отключить рекламу навсегда за 490 ₽? Награды за рекламные задания будут выдаваться сразу, до 5 раз в день.",
+                "Disable ads permanently for 490 RUB? Rewarded quests will grant rewards immediately, up to 5 times a day.")
+            else tr(audio, "Для покупки войди в аккаунт ECHO.",
+                "Sign in to your ECHO account to purchase."),
+            cancelLabel = if (signedIn) tr(audio, "НЕТ", "NO") else null,
+            confirmLabel = if (signedIn) tr(audio, "КУПИТЬ ЗА 490 ₽", "BUY FOR 490 RUB")
+                else tr(audio, "ПОНЯТНО", "OK"),
+            onDismiss = { showAdFreeConfirm = false },
+            onConfirm = {
+                showAdFreeConfirm = false
+                val session = auth.token()
+                if (session != null && !adFreeCheckoutBusy) {
+                    adFreeCheckoutBusy = true
+                    Thread {
+                        val result = runCatching { EchoAdFreeAccess.createRobokassaCheckout(session) }
+                        (context as? android.app.Activity)?.runOnUiThread {
+                            adFreeCheckoutBusy = false
+                            if (auth.token() != session) {
+                                adFreeNotice = tr(audio, "Войди в аккаунт ECHO и попробуй снова.",
+                                    "Sign in to ECHO and try again.")
+                            } else {
+                                result.onSuccess { url ->
+                                    val checkout = Intent(Intent.ACTION_VIEW,
+                                        android.net.Uri.parse(url))
+                                        .addCategory(Intent.CATEGORY_BROWSABLE)
+                                    runCatching { context.startActivity(checkout) }
+                                        .onFailure {
+                                            adFreeNotice = tr(audio, "Не удалось открыть страницу оплаты.",
+                                                "Could not open the payment page.")
+                                        }
+                                }.onFailure { error ->
+                                    adFreeNotice = when (error) {
+                                        is EchoAdFreeAlreadyPurchased -> tr(audio,
+                                            "Реклама уже отключена для этого аккаунта.",
+                                            "Ads are already disabled for this account.")
+                                        is EchoAdFreeSignInRequired -> tr(audio,
+                                            "Сессия истекла. Войди в аккаунт заново.",
+                                            "Session expired. Please sign in again.")
+                                        else -> tr(audio, "Не удалось начать оплату. Проверь соединение и попробуй позже.",
+                                            "Could not start payment. Check your connection and try again later.")
+                                    }
+                                }
+                            }
+                        }
+                    }.start()
+                }
+            }
+        )
+    }
+    if (page == Page.HOME && adFreeNotice != null) {
+        EchoConfirmDialog(
+            title = tr(audio, "БЕЗ РЕКЛАМЫ", "NO ADS"),
+            message = adFreeNotice.orEmpty(),
+            cancelLabel = null,
+            confirmLabel = tr(audio, "ПОНЯТНО", "OK"),
+            onDismiss = { adFreeNotice = null },
+            onConfirm = { adFreeNotice = null }
+        )
     }
 }
 
