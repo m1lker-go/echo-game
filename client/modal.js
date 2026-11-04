@@ -164,7 +164,9 @@
       ...options,
     };
 
-    panel.classList.remove('echo-round-result-modal');
+    // Per-dialog layout is opt-in; never carry it into another modal.
+    panel.classList.remove('echo-round-result-modal', 'echo-ad-free-confirm');
+    if (config.modalClass === 'echo-ad-free-confirm') panel.classList.add('echo-ad-free-confirm');
     previousFocus = document.activeElement;
     titleNode.textContent = String(config.title ?? '');
     textNode.textContent = String(config.text ?? '');
