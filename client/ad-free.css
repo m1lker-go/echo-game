@@ -64,3 +64,27 @@
   }
   #game #menu-main .echo-ad-free-caption { font-size: 10px; }
 }
+
+/* The supplied buttonads.webp is the complete tile artwork. Keep the old
+   vector/caption as a safe fallback until the image actually loads. */
+#game #menu-main .echo-ad-free-buy .echo-ad-free-image {
+  display: none;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+#game #menu-main .echo-ad-free-buy.has-art {
+  padding: 0;
+  gap: 0;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  box-shadow: none;
+}
+#game #menu-main .echo-ad-free-buy.has-art .echo-ad-free-image { display: block; }
+#game #menu-main .echo-ad-free-buy.has-art .echo-ad-free-symbol,
+#game #menu-main .echo-ad-free-buy.has-art .echo-ad-free-caption { display: none; }
+#game #menu-main .echo-ad-free-buy.has-art:hover {
+  box-shadow: none;
+}
