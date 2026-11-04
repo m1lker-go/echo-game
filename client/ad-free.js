@@ -122,6 +122,16 @@ async function reconcile(){
  }catch(error){console.warn('[ECHO ad-free] reconcile:',error.message)}
  finally{reconcileBusy=false;}
 }
+// The custom artwork is optional until buttonads.webp has been committed.
+// Avoid a broken-image tile by retaining the existing SVG/text fallback.
+const adFreeArt=document.querySelector('#echo-ad-free-buy .echo-ad-free-image');
+if(adFreeArt){
+ const button=adFreeArt.closest('#echo-ad-free-buy');
+ const updateArt=()=>button?.classList.toggle('has-art',adFreeArt.naturalWidth>0);
+ adFreeArt.addEventListener('load',updateArt);
+ adFreeArt.addEventListener('error',()=>button?.classList.remove('has-art'));
+ if(adFreeArt.complete)updateArt();
+}
 window.ECHOAdFree={hasAdFree,refreshAdFree,buyAdFree};
 document.querySelector('#echo-ad-free-buy')?.addEventListener('click',buyAdFree);
 document.addEventListener('echo:auth-changed',()=>{cached=null;void refreshAdFree();void reconcile();});
