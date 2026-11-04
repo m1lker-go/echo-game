@@ -88,7 +88,7 @@ export async function showAdBeforeBattle(){
  if(busy)return false;
  busy=true;
  try{
-  const {hasAdFree}=await import('./ad-free.js?v=echo-ad-free-1');
+  const {hasAdFree}=await import('./ad-free.js?v=echo-ad-free-3');
   if(await hasAdFree()){console.info('[ECHO interstitial] disabled by account entitlement');return false;}
   const counter=scheduleBattleEntry({token:localStorage.getItem('echo.authToken')});
   console.info('[ECHO interstitial] entry #'+counter.count+', request ad: '+counter.showAd);
