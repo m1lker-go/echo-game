@@ -1,4 +1,4 @@
-import { renderSharedFood } from './shared-food.js?v=echo-world-lock-1';
+import { renderSharedFood } from './shared-food.js?v=echo-food-magnet-70-1';
 import { renderWorldBoundary } from './world-boundary.js?v=echo-world-lock-1';
 import * as THREE from 'three';
 import { playGameSound } from './audio-effects.js?v=echo-sfx-1';
