@@ -413,7 +413,7 @@ function defaultPlayerSkin(socket){
 }
 
 const FOOD_COUNT = 1000;
-const FOOD_COLLECT_RADIUS = 60;
+const FOOD_COLLECT_RADIUS = 70;
 const FOOD_RESPAWN_MIN_MS = 10_000;
 const FOOD_RESPAWN_MAX_MS = 25_000;
 
