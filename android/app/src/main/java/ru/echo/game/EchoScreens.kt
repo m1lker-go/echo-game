@@ -463,7 +463,7 @@ private fun EchoNativePage(
             if (page == Page.HOME) {
                 // Uses buttonads.webp when present in drawable-nodpi. A vector/text
                 // fallback keeps older APK checkout builds usable without the art.
-                val tileSize = (viewportHeight.value * .20f).coerceIn(66f, 90f).dp
+                val tileSize = (viewportHeight.value * .15f).coerceIn(50f, 68f).dp
                 val shape = RoundedCornerShape(14.dp)
                 val pictureId = remember(context) {
                     context.resources.getIdentifier("buttonads", "drawable", context.packageName)
