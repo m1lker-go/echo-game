@@ -6,7 +6,7 @@
 const crypto=require('node:crypto');
 const REWARDS=Object.freeze([10,15,20,25,30]);
 const PLACEMENT_ID=2096987;
-function createVideoBonus({pool,sessionUser,dailyDateKey,createRouter=()=>require('express').Router(),now=()=>Date.now()}){
+function createVideoBonus({pool,sessionUser,dailyDateKey,createRouter=()=>require('express').Router(),now=()=>Date.now(),hasAdFree=async()=>false}){
  const router=createRouter();
  async function initialize(){
   await pool.query([
@@ -85,6 +85,34 @@ function createVideoBonus({pool,sessionUser,dailyDateKey,createRouter=()=>requir
    if(client)await client.query('ROLLBACK').catch(()=>{});
    console.error('[video bonus] complete failed',e.message);
    res.status(500).json({error:'Video unavailable'});
+  }finally{client?.release();}
+ });
+
+ router.post('/ad-free-claim',async(req,res)=>{
+  res.set('Cache-Control','no-store');
+  let client;
+  try{
+   const id=await account(req,res);if(!id)return;
+   const date=dailyDateKey();
+   client=await pool.connect();await client.query('BEGIN');
+   const row=await lock(client,id,date);
+   if(!await hasAdFree(client,id)){
+    await client.query('ROLLBACK');
+    return res.status(403).json({error:'Ad-free purchase required'});
+   }
+   const index=Number(row.claimed);
+   if(index>=5||Number(row.watched)!==index){
+    await client.query('ROLLBACK');return unavailable(res);
+   }
+   const reward=REWARDS[index];
+   await client.query('UPDATE echo_daily_video_bonus SET watched=claimed+1,claimed=claimed+1,attempt_id=NULL,started_at=NULL,updated_at=NOW() WHERE profile_id=$1 AND quest_date=$2::date',[id,date]);
+   await client.query('INSERT INTO echo_wallets(profile_id,coins) VALUES($1,$2) ON CONFLICT(profile_id) DO UPDATE SET coins=echo_wallets.coins+EXCLUDED.coins',[id,reward]);
+   await client.query('COMMIT');
+   return res.json({claimedNow:true,adFree:true,reward,level:index+1});
+  }catch(e){
+   if(client)await client.query('ROLLBACK').catch(()=>{});
+   console.error('[video bonus] ad-free claim failed',e.message);
+   return res.status(500).json({error:'Video reward unavailable'});
   }finally{client?.release();}
  });
  router.post('/claim',async(req,res)=>{
