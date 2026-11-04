@@ -50,5 +50,5 @@ test('physics keeps server authority; visual smoothing is render only',()=>{
  assert.match(game,/visualCorrectionOffset\(visualX,visualY,data\.x,data\.y\)/);
  assert.match(game,/settleVisualCorrection\(state\.visualCorrectionX,state\.visualCorrectionY,dt\)/);
  assert.match(game,/state\.socket\.emit\('echo:move',\{x:state\.x,y:state\.y/);
- assert.ok(page.includes('game.js?v=echo-camera-jitter-1'));
+ assert.ok(page.includes('game.js?v=echo-food-magnet-70-1'));
 });
