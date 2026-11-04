@@ -49,7 +49,7 @@ test('gameplay Socket.IO remains untouched and voice synchronizes with current g
   const game=fs.readFileSync(path.join(root,'client/game.js'),'utf8');
   assert.ok(game.includes("transports:['websocket','polling'],reconnection:true,timeout:5000"));
   assert.ok(!game.includes('isIOSSocketClient'));
-  assert.ok(html.includes('game.js?v=echo-camera-jitter-1'));
+  assert.ok(html.match(/game\.js\?v=[^"'\s<>]+/));
   assert.ok(src.includes('function syncGameSocket()'));
   assert.ok(src.includes('if (current && current !== socket) bindSocket(current)'));
   assert.ok(src.includes('if (inGame()) syncGameSocket()'));

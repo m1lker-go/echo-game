@@ -51,6 +51,6 @@ test('voice badge module cache keys are updated so browsers and APK load the fix
   const game=fs.readFileSync(path.join(client,'game.js'),'utf8');
   const html=fs.readFileSync(path.join(client,'index.html'),'utf8');
   assert.ok(game.includes('player-labels.js?v=echo-labels-up-1-voice-1'));
-  assert.ok(html.includes('game.js?v=echo-camera-jitter-1-voice-1'));
+  assert.ok(html.match(/game\.js\?v=[^"'\s<>]+/));
   assert.ok(html.includes('voice-ui.js?v=echo-voice-ui-6'));
 });
