@@ -433,7 +433,9 @@ private fun EchoNativePage(
             if (page == Page.HOME) {
                 val tileSize = (viewportHeight.value * .31f).coerceIn(78f, 132f).dp
                 val shape = RoundedCornerShape(15.dp)
-                Box(Modifier.align(Alignment.CenterEnd).padding(end = 14.dp).size(tileSize)
+                Box(Modifier.align(Alignment.TopEnd)
+                    .padding(top = (viewportHeight.value * .15f).dp, end = 14.dp)
+                    .size(tileSize)
                     .clip(shape).background(Color(0xFF101E2F)).border(1.dp, Cyan, shape)
                     .clickable {
                         audio.click()
