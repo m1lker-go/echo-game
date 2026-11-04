@@ -34,12 +34,12 @@ test('WebP frames render explicitly and the white dot fallback stays available',
  const html=fs.readFileSync(path.join(project,'client/index.html'),'utf8');
  const decoder=fs.readFileSync(path.join(project,'client/animated-webp-frames.js'),'utf8');
  assert.ok(food.includes('foodAnimation.frameAt(time + point.id * 37)'));
- assert.ok(food.includes("get('food') === 'dots' ? 'dots' : 'icon'"));
+ assert.ok(food.includes("get('food') === 'icon' ? 'icon' : 'dots'"));
  assert.ok(food.includes("foodAnimation = null"));
  assert.ok(food.includes('ctx.createRadialGradient'),'Old white food dots stay intact');
  assert.ok(food.includes('FOOD_VISUAL_MODE === \'icon\' && foodAnimation'));
  assert.ok(food.includes('loadAnimatedWebpFrames'));
- assert.ok(html.includes('shared-food.js?v=echo-food-animated-2'));
+ assert.ok(html.includes('game.js?v=echo-food-magnet-70-1'));
  assert.ok(decoder.includes("if(last?.dispose)ctx.clearRect"));
  assert.ok(decoder.includes("if(!frame.blend)ctx.clearRect"));
  assert.ok(decoder.includes("const snapshot=document.createElement('canvas')"));
