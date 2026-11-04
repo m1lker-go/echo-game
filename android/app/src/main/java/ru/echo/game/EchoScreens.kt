@@ -536,13 +536,14 @@ private fun EchoNativePage(
         EchoConfirmDialog(
             title = tr(audio, "БЕЗ РЕКЛАМЫ", "NO ADS"),
             message = if (signedIn) tr(audio,
-                "Отключить рекламу навсегда за 490 ₽? Награды за рекламные задания будут выдаваться сразу, до 5 раз в день.",
-                "Disable ads permanently for 490 RUB? Rewarded quests will grant rewards immediately, up to 5 times a day.")
+                "Больше никакой рекламы!\nРекламные задания выполняются автоматически!",
+                "No more ads!\nRewarded tasks complete automatically!")
             else tr(audio, "Для покупки войди в аккаунт ECHO.",
                 "Sign in to your ECHO account to purchase."),
             cancelLabel = if (signedIn) tr(audio, "НЕТ", "NO") else null,
-            confirmLabel = if (signedIn) tr(audio, "КУПИТЬ ЗА 490 ₽", "BUY FOR 490 RUB")
+            confirmLabel = if (signedIn) tr(audio, "КУПИТЬ 490 ₽", "BUY 490 RUB")
                 else tr(audio, "ПОНЯТНО", "OK"),
+            compactLayout = true,
             onDismiss = { showAdFreeConfirm = false },
             onConfirm = {
                 showAdFreeConfirm = false
@@ -1080,6 +1081,7 @@ internal fun EchoConfirmDialog(
     confirmLabel: String,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
+    compactLayout: Boolean = false,
     content: (@Composable () -> Unit)? = null
 ) {
     Dialog(
@@ -1101,16 +1103,21 @@ internal fun EchoConfirmDialog(
                 val availableHeight = maxHeight
                 val compact = availableHeight <= 520.dp
                 val panelShape = RoundedCornerShape(13.dp)
-                val panelPadding = if (compact) 22.dp else 42.dp
+                val panelPadding = if (compactLayout) {
+                    if (compact) 18.dp else 26.dp
+                } else if (compact) 22.dp else 42.dp
                 Column(
                     modifier = Modifier
-                        .width(minOf(availableWidth, 680.dp))
+                        .width(minOf(availableWidth, if (compactLayout) 540.dp else 680.dp))
                         .heightIn(max = availableHeight)
                         .clip(panelShape)
                         .background(Color.Black)
                         .border(1.dp, Color.White, panelShape)
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = panelPadding, vertical = if (compact) 24.dp else 34.dp),
+                        .padding(
+                            horizontal = panelPadding,
+                            vertical = if (compactLayout) 19.dp else if (compact) 24.dp else 34.dp
+                        ),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
@@ -1118,27 +1125,27 @@ internal fun EchoConfirmDialog(
                         modifier = Modifier.fillMaxWidth(),
                         color = Color.White,
                         fontFamily = EchoFont,
-                        fontSize = if (availableWidth < 600.dp) 22.sp else 28.sp,
+                        fontSize = if (compactLayout) 22.sp else if (availableWidth < 600.dp) 22.sp else 28.sp,
                         fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 0.14.em,
+                        letterSpacing = if (compactLayout) 0.09.em else 0.14.em,
                         textAlign = TextAlign.Center,
-                        lineHeight = 36.sp
+                        lineHeight = if (compactLayout) 29.sp else 36.sp
                     )
-                    Spacer(Modifier.height(if (compact) 18.dp else 30.dp))
+                    Spacer(Modifier.height(if (compactLayout) 14.dp else if (compact) 18.dp else 30.dp))
                     Text(
                         text = message,
                         modifier = Modifier.fillMaxWidth(),
                         color = Color.White,
                         fontFamily = EchoFont,
                         fontSize = 14.sp,
-                        lineHeight = 24.sp,
+                        lineHeight = if (compactLayout) 22.sp else 24.sp,
                         textAlign = TextAlign.Center
                     )
                     if (content != null) {
                         Spacer(Modifier.height(16.dp))
                         content()
                     }
-                    Spacer(Modifier.height(if (compact) 20.dp else 36.dp))
+                    Spacer(Modifier.height(if (compactLayout) 22.dp else if (compact) 20.dp else 36.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
