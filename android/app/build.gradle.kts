@@ -23,12 +23,13 @@ android {
         applicationId = "ru.echogame.arena"
         minSdk = 26
         targetSdk = 35
-        versionCode = 22
+        versionCode = 26
         versionName = "1.0.3"
 
         val vkConfigured = !((System.getenv("ECHO_VK_CLIENT_SECRET")
             ?: providers.gradleProperty("ECHO_VK_CLIENT_SECRET").orNull).isNullOrBlank())
         buildConfigField("boolean", "ECHO_VK_CONFIGURED", vkConfigured.toString())
+        buildConfigField("boolean", "ECHO_AD_DIAGNOSTICS", "false")
     }
 
     buildFeatures {
@@ -66,6 +67,13 @@ android {
             if (releaseSigningReady) {
                 signingConfig = signingConfigs.getByName("echoRuStoreRelease")
             }
+        }
+        // Control build from ECHO 1.0.3; never publish to RuStore.
+        create("diagnostic") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+            versionNameSuffix = "-compare-diag"
+            buildConfigField("boolean", "ECHO_AD_DIAGNOSTICS", "true")
         }
     }
 }
