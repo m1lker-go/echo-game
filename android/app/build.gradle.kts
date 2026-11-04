@@ -23,7 +23,7 @@ android {
         applicationId = "ru.echogame.arena"
         minSdk = 26
         targetSdk = 35
-        versionCode = 23
+        versionCode = 25
         versionName = "1.0.4"
 
         val vkConfigured = !((System.getenv("ECHO_VK_CLIENT_SECRET")
@@ -71,6 +71,13 @@ android {
             if (releaseSigningReady) {
                 signingConfig = signingConfigs.getByName("echoRuStoreRelease")
             }
+        }
+        // Local control APK only. Uses the original 1.0.4 advertising logic.
+        create("diagnostic") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+            versionNameSuffix = "-compare-diag"
+            buildConfigField("boolean", "ECHO_AD_DIAGNOSTICS", "true")
         }
     }
 }
