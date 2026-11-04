@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 
 const PREMIUM_PRICE = 40;
 const PRODUCT_ID = '1';
+const AD_FREE_PRODUCT_ID='2', AD_FREE_VOTES=100;
 const VK_APP_ID = String(process.env.VK_MINI_APP_ID || '');
 const VK_SECRET = process.env.VK_MINI_APP_SECRET || '';
 const enabled = () => /^\d+$/.test(VK_APP_ID) && VK_SECRET.length > 8 &&
@@ -26,18 +27,18 @@ const validOrder = value => /^[1-9]\d{0,19}$/.test(String(value || '')) &&
 // VK's order_status_change item_id is optional. If VK sends it, it must
 // match the product ID returned by our get_item callback. The actual signed
 // price is mandatory and must still equal 40 votes (including "40.00").
-function checkVKOrderProduct(body) {
+function checkVKOrderProduct(body,productId=PRODUCT_ID,price=PREMIUM_PRICE) {
   const rawId = body?.item_id;
   const hasItemId = rawId !== undefined && rawId !== null &&
     String(rawId).trim() !== '';
-  const itemIdMatches = !hasItemId || String(rawId).trim() === PRODUCT_ID;
+  const itemIdMatches = !hasItemId || String(rawId).trim() === productId;
   const rawPrice = body?.item_price;
   const priceText = typeof rawPrice === 'string' ? rawPrice.trim() :
     typeof rawPrice === 'number' ? String(rawPrice) : '';
   const priceMatches = /^\d+(?:\.\d+)?$/.test(priceText) &&
-    Number(priceText) === PREMIUM_PRICE;
+    Number(priceText) === price;
   return {
-    ok: String(body?.item) === PRODUCT_ID && itemIdMatches && priceMatches,
+    ok: String(body?.item) === productId && itemIdMatches && priceMatches,
     hasItemId,
     itemIdMatches,
     hasPrice: priceText.length > 0,
@@ -47,7 +48,7 @@ function checkVKOrderProduct(body) {
 const vkError = (res, code, message, critical = true) =>
   res.json({ error: { error_code: code, error_msg: message, critical } });
 
-function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = () => require('express').Router() }) {
+function createVKPayments({ pool, sessionUser, rollSecurePack, adFree=null, createRouter = () => require('express').Router() }) {
   // A router factory lets CI check complete VK callbacks without dependencies.
   const router = createRouter();
   let schemaReady = false;
@@ -78,6 +79,8 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
     // its browser-side animation intent has been lost.
     await pool.query('ALTER TABLE echo_vk_payments ALTER COLUMN intent_id DROP NOT NULL');
     await pool.query('ALTER TABLE echo_vk_payments ADD COLUMN IF NOT EXISTS refunded_at TIMESTAMPTZ');
+    await pool.query("ALTER TABLE echo_vk_payment_intents ADD COLUMN IF NOT EXISTS product TEXT NOT NULL DEFAULT 'premium_pack'");
+    await pool.query("ALTER TABLE echo_vk_payments ADD COLUMN IF NOT EXISTS product TEXT NOT NULL DEFAULT 'premium_pack'");
     schemaReady = true;
   }
 
@@ -108,6 +111,25 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
     }
   });
 
+
+  router.post('/intent-ad-free',async(req,res)=>{
+    if(!enabled()||!adFree)return res.status(503).json({error:'VK purchases unavailable'});
+    try{
+      const user=await sessionUser(req);
+      if(!user)return res.status(401).json({error:'Unauthorized'});
+      const account=await pool.query(
+       "SELECT provider_id FROM echo_accounts WHERE id=$1 AND provider='vkid'",[user.id]);
+      if(!validVKUser(account.rows[0]?.provider_id))
+        return res.status(403).json({error:'VK account required'});
+      if(await adFree.has(pool,user.id))return res.status(409).json({error:'Already purchased'});
+      const id=crypto.randomBytes(16).toString('hex');
+      await pool.query("INSERT INTO echo_vk_payment_intents(id,account_id,product) VALUES($1,$2,'ad_free')",[id,user.id]);
+      return res.json({intentId:id,item:AD_FREE_PRODUCT_ID,price:AD_FREE_VOTES});
+    }catch(error){
+      console.error('[echo vk payment] ad-free intent failed:',error.message);
+      return res.status(500).json({error:'Cannot prepare VK purchase'});
+    }
+  });
   router.get('/intent/:id', async (req, res) => {
     if (!/^[0-9a-f]{32}$/.test(req.params.id)) return res.status(400).json({ error: 'Invalid ID' });
     try {
@@ -149,17 +171,18 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
       trace(type, 'invalid_user');
       return vkError(res, 22, 'Invalid VK user');
     }
-    if (String(body.item) !== PRODUCT_ID) {
+    if (![PRODUCT_ID,AD_FREE_PRODUCT_ID].includes(String(body.item))) {
       trace(type, 'unknown_item');
       return vkError(res, 20, 'Item not found');
     }
+    const adFreeOrder=String(body.item)===AD_FREE_PRODUCT_ID;
     // Exactly the Cat Fighting catalog flow: a constant item_id and price.
     if (type === 'get_item' || type === 'get_item_test') {
       trace(type, 'item_found');
       return res.json({ response: {
-        item_id: PRODUCT_ID, title: 'ECHO — элитный пак',
+        item_id: String(body.item), title: adFreeOrder?'ECHO — Без рекламы навсегда':'ECHO — элитный пак',
         photo_url: 'https://cat-fight.ru/echo/assets/packs/specialcardpic.webp',
-        price: PREMIUM_PRICE, expiration: 3600
+        price: adFreeOrder?AD_FREE_VOTES:PREMIUM_PRICE, expiration: 3600
       } });
     }
     if (!validOrder(body.order_id)) {
@@ -188,9 +211,11 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
                SELECT 1 FROM echo_accounts a
                WHERE a.id=p.account_id AND a.provider='vkid' AND a.provider_id=$3
              )
-           RETURNING p.app_order_id`,
+           RETURNING p.app_order_id,p.product`,
           [String(body.order_id),isTest,String(body.user_id)]
         );
+        if(r.rowCount&&r.rows[0]?.product==='ad_free'&&adFree)
+          await adFree.refund(pool,'vk',String(body.order_id),isTest);
         trace(type,r.rowCount?'refund_recorded':'refund_unmatched');
         return res.json({response:{
           order_id:Number(body.order_id),
@@ -207,7 +232,7 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
     }
     // A valid signed VK charge callback may omit item_id. The price is
     // mandatory; reject wrong prices and any mismatched *supplied* item_id.
-    const productCheck = checkVKOrderProduct(body);
+    const productCheck = checkVKOrderProduct(body,String(body.item),adFreeOrder?AD_FREE_VOTES:PREMIUM_PRICE);
     if (!productCheck.ok) {
       trace(type, 'unexpected_item_id_or_price');
       // Log only field presence and comparisons, never payment tokens/IDs.
@@ -256,20 +281,27 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
       // Only for ECHO's animated reveal; payment must never depend on this
       // extra record because the VK SKU is a fixed "1".
       const pending = await client.query(
-        `SELECT id FROM echo_vk_payment_intents
-         WHERE account_id=$1 AND status='pending' AND expires_at>NOW()
+        adFreeOrder ? `SELECT id FROM echo_vk_payment_intents
+         WHERE account_id=$1 AND status='pending' AND product='ad_free' AND expires_at>NOW()
+           AND created_at>NOW()-INTERVAL '15 minutes'
+         ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE` : `SELECT id FROM echo_vk_payment_intents
+         WHERE account_id=$1 AND status='pending' AND product='premium_pack' AND expires_at>NOW()
            AND created_at>NOW()-INTERVAL '15 minutes'
          ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE`,
         [accountId]
       );
       const intentId = pending.rows[0]?.id || null;
-      const cards = rollSecurePack('premium');
+      const cards = adFreeOrder?[]:rollSecurePack('premium');
       const added = await client.query(
+        adFreeOrder ? `INSERT INTO echo_vk_payments
+         (order_id,is_test,intent_id,account_id,price,cards,product)
+         VALUES ($1,$2,$3,$4,$5,$6::jsonb,'ad_free')
+         ON CONFLICT (order_id,is_test) DO NOTHING RETURNING app_order_id` :
         `INSERT INTO echo_vk_payments
          (order_id,is_test,intent_id,account_id,price,cards)
          VALUES ($1,$2,$3,$4,$5,$6::jsonb)
          ON CONFLICT (order_id,is_test) DO NOTHING RETURNING app_order_id`,
-        [String(body.order_id), isTest, intentId, accountId, PREMIUM_PRICE, JSON.stringify(cards)]
+        [String(body.order_id), isTest, intentId, accountId, adFreeOrder?AD_FREE_VOTES:PREMIUM_PRICE, JSON.stringify(cards)]
       );
       if (!added.rowCount) {
         // Another simultaneous callback has already processed this order.
@@ -285,6 +317,10 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
           order_id: Number(body.order_id), app_order_id: Number(duplicate.rows[0].app_order_id)
         } });
       }
+      if(adFreeOrder){
+        if(!adFree)throw new Error('Ad-free service not ready');
+        await adFree.grant(client,accountId,'vk',String(body.order_id),isTest);
+      }
       for (const card of cards) {
         await client.query(
           `INSERT INTO echo_hero_collection(account_id,model,fragments) VALUES ($1,$2,$3)
@@ -298,7 +334,7 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
       );
       // The order_id uniqueness check above guarantees that retries do not
       // double-count this premium opening or grant duplicate fragments.
-      await recordPackOpened(client,accountId,'premium');
+      if(!adFreeOrder)await recordPackOpened(client,accountId,'premium');
       await client.query('COMMIT');
       trace(type, 'reward_issued');
       console.log('[echo vk payment] fulfilled', { isTest, hasIntent: Boolean(intentId) });
@@ -317,4 +353,4 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, createRouter = ()
 
   return { router, initialize };
 }
-module.exports = { createVKPayments, verifyNotification, checkVKOrderProduct, PREMIUM_PRICE };
+module.exports = { createVKPayments, verifyNotification, checkVKOrderProduct, PREMIUM_PRICE, AD_FREE_PRODUCT_ID, AD_FREE_VOTES };

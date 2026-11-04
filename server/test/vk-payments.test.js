@@ -107,7 +107,7 @@ test('catalog calls mirror Cat Fighting: item 1, fixed price, 3600s expiration',
 });
 test('both real and test catalog requests reject unknown SKUs',async()=>{
  const h=harness();
- assert.equal((await h.call('get_item',{item:'2'})).error.error_code,20);
+ assert.equal((await h.call('get_item',{item:'3'})).error.error_code,20);
  assert.equal((await h.call('get_item_test',{item:'echo_premium_pack_old'})).error.error_code,20);
  assert.equal(h.connections,0);
 });
@@ -184,4 +184,14 @@ test('item_id in callback is optional but signed price and item are mandatory',(
   {item:'1'},
   {item:'1',item_price:'40',item_id:'2'}
  ])assert.equal(checkVKOrderProduct(fields).ok,false);
+});
+
+test('ad-free VK catalog uses a distinct SKU and an exact 100-vote price',async()=>{
+ const h=harness();
+ const response=await h.call('get_item',{item:'2'});
+ assert.equal(response.response.item_id,'2');
+ assert.equal(response.response.price,100);
+ assert.match(response.response.title,/Без рекламы/);
+ assert.equal(checkVKOrderProduct({item:'2',item_id:'2',item_price:'100'},'2',100).ok,true);
+ assert.equal(checkVKOrderProduct({item:'2',item_id:'2',item_price:'40'},'2',100).ok,false);
 });

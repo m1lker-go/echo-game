@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 class EchoWebActivity : ComponentActivity() {
     companion object {
         const val EXTRA_PAGE = "echo.page"
+        const val EXTRA_AD_FREE = "echo.adFree"
         private const val BASE = "https://cat-fight.ru/echo/"
         private const val TAG = "EchoWebView"
     }
@@ -116,7 +117,7 @@ class EchoWebActivity : ComponentActivity() {
         pendingVoicePermissionRequest = null
     }
 
-    private val requestedUrl get() = when(page) {
+    private val requestedUrl get() = if (page == Page.SHOP && intent.getBooleanExtra(EXTRA_AD_FREE, false)) BASE + "?adfree=1" else when(page) {
         Page.ARENA -> BASE + "?play=1"
         Page.TUTORIAL -> BASE + "tutorial.html"
         else -> BASE

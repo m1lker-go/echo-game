@@ -201,6 +201,17 @@ async function watchVideoBonus(){
  loading=true;
  try{
   const accountToken=token();
+  // Paid players receive the normal daily reward immediately, server-side.
+  const {hasAdFree}=await import('./ad-free.js?v=echo-ad-free-1');
+  if(await hasAdFree()){
+   const response=await fetch(endpoint('/api/daily-video/ad-free-claim'),{
+    method:'POST',headers:{Authorization:'Bearer '+accountToken,'Content-Type':'application/json'},body:'{}'
+   });
+   if(!response.ok)throw Error('ad-free claim '+response.status);
+   const data=await response.json();
+   window.ECHOToast?.show(t('quests_reward','Получено: ')+data.reward+' ECHO Coins');
+   return;
+  }
   const result=await watchEchoRewardedVideo(async()=>{
    const response=await fetch(endpoint('/api/daily-video/start'),{
     method:'POST',headers:{Authorization:'Bearer '+accountToken}

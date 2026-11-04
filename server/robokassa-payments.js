@@ -7,6 +7,7 @@ const PRICE_RUB='250.00', PRICE_CENTS=25000, MERCHANT_URL='https://auth.robokass
 // Cat Fighting's legacy invoices are Date.now()*10000+userId;
 // ECHO uses small sequential DB IDs + this reserved prefix.
 const INVOICE_OFFSET=2000000000n, PRODUCT='echo_premium_pack';
+const AD_FREE_PRICE_RUB='490.00',AD_FREE_PRICE_CENTS=49000,AD_FREE_PRODUCT='echo_ad_free';
 const toInvoice=id=>(INVOICE_OFFSET+BigInt(id)).toString();
 const toOrderId=invoice=>{
   if(!/^[1-9]\d{0,17}$/.test(String(invoice ?? '')))return null;
@@ -31,8 +32,8 @@ function config(env=process.env) {
     enabled:!!merchant && password1.length>=8 && password2.length>=8};
 }
 const digest=s=>crypto.createHash('md5').update(s,'utf8').digest('hex').toUpperCase();
-const signatureForCheckout=(merchant,sum,id,pass)=>digest([merchant,sum,id,pass,'Shp_type='+PRODUCT].join(':'));
-const signatureForResult=(sum,id,pass)=>digest([sum,id,pass,'Shp_type='+PRODUCT].join(':'));
+const signatureForCheckout=(merchant,sum,id,pass,product=PRODUCT)=>digest([merchant,sum,id,pass,'Shp_type='+product].join(':'));
+const signatureForResult=(sum,id,pass,product=PRODUCT)=>digest([sum,id,pass,'Shp_type='+product].join(':'));
 function secureSameSignature(expected,provided){
   if(typeof provided!=='string'||!/^[a-f0-9]{32}$/i.test(provided))return false;
   return crypto.timingSafeEqual(Buffer.from(expected),Buffer.from(provided.toUpperCase()));
@@ -48,7 +49,7 @@ function toCents(raw){
 const validId=x=>/^[1-9]\d{0,17}$/.test(String(x??''));
 
 function createRobokassaPayments({
-  pool,sessionUser,rollSecurePack,
+  pool,sessionUser,rollSecurePack,adFree=null,
   createRouter=()=>require('express').Router(),getConfig=config
 }){
   const router=createRouter();
@@ -88,6 +89,34 @@ function createRobokassaPayments({
       res.status(500).json({error:'Payment unavailable'});
     }
   });
+
+  // Separate SKU: never reuse a premium-pack payment or price.
+  router.post('/create-ad-free',async(req,res)=>{
+    res.set('Cache-Control','no-store');
+    const c=getConfig();
+    if(!c.enabled||!schemaReady||!adFree)return res.status(503).json({error:'Payment not configured'});
+    try{
+      const user=await sessionUser(req);
+      if(!user)return res.status(401).json({error:'Sign in to ECHO'});
+      if(await adFree.has(pool,user.id))return res.status(409).json({error:'Already purchased'});
+      const r=await pool.query(
+       "INSERT INTO echo_robokassa_orders(account_id,amount,is_test,product) VALUES($1,$2,$3,'ad_free') RETURNING id",
+       [user.id,AD_FREE_PRICE_RUB,c.test]);
+      const id=toInvoice(r.rows[0].id);
+      const qs=new URLSearchParams({
+        MerchantLogin:c.merchant,OutSum:AD_FREE_PRICE_RUB,InvId:id,
+        Description:'ECHO: без рекламы навсегда',
+        SignatureValue:signatureForCheckout(c.merchant,AD_FREE_PRICE_RUB,id,c.password1,AD_FREE_PRODUCT),
+        Shp_type:AD_FREE_PRODUCT,
+        IsTest:c.test?'1':'0',Culture:'ru',Encoding:'utf-8'
+      });
+      res.json({orderId:id,price:AD_FREE_PRICE_RUB,currency:'RUB',
+        checkoutUrl:MERCHANT_URL+'?'+qs.toString(),testMode:c.test});
+    }catch(error){
+      console.error('[echo robokassa] ad-free create failed:',error.message);
+      res.status(500).json({error:'Payment unavailable'});
+    }
+  });
   router.get('/status/:id',async(req,res)=>{
     res.set('Cache-Control','no-store');
     const orderId=toOrderId(req.params.id);
@@ -95,9 +124,9 @@ function createRobokassaPayments({
     try{
       const user=await sessionUser(req);
       if(!user)return res.status(401).json({error:'Unauthorized'});
-      const r=await pool.query('SELECT status,cards FROM echo_robokassa_orders WHERE id=$1 AND account_id=$2',[orderId,user.id]);
+      const r=await pool.query('SELECT status,cards,product FROM echo_robokassa_orders WHERE id=$1 AND account_id=$2',[orderId,user.id]);
       if(!r.rowCount)return res.status(404).json({error:'Order not found'});
-      res.json({status:r.rows[0].status,cards:r.rows[0].status==='paid'?r.rows[0].cards:null});
+      res.json({status:r.rows[0].status,product:r.rows[0].product,cards:r.rows[0].status==='paid'?r.rows[0].cards:null});
     }catch(error){
       console.error('[echo robokassa] status failed:',error.message);
       res.status(500).json({error:'Order unavailable'});
@@ -110,10 +139,10 @@ function createRobokassaPayments({
     const b=req.body||{};
     const sum=typeof b.OutSum==='string'?b.OutSum:'';
     const id=String(b.InvId??'');
-    if(b.Shp_type!==PRODUCT ||
+    if(![PRODUCT,AD_FREE_PRODUCT].includes(b.Shp_type) ||
        Object.keys(b).some(k=>k.startsWith('Shp_')&&k!=='Shp_type')||
-       !toOrderId(id)||toCents(sum)!==PRICE_CENTS||
-       !secureSameSignature(signatureForResult(sum,id,c.password2),b.SignatureValue))
+       !toOrderId(id)||toCents(sum)!==(b.Shp_type===AD_FREE_PRODUCT?AD_FREE_PRICE_CENTS:PRICE_CENTS)||
+       !secureSameSignature(signatureForResult(sum,id,c.password2,b.Shp_type),b.SignatureValue))
       return res.status(400).send('BAD SIGNATURE OR ORDER');
     let client;
     try{
@@ -121,7 +150,8 @@ function createRobokassaPayments({
       await client.query('BEGIN');
       const found=await client.query('SELECT account_id,status,amount,is_test,product FROM echo_robokassa_orders WHERE id=$1 FOR UPDATE',[toOrderId(id)]);
       const order=found.rows[0];
-      if(!order||toCents(order.amount)!==PRICE_CENTS||order.product!=='premium_pack'||order.is_test!==c.test){
+      if(!order||toCents(order.amount)!==(b.Shp_type===AD_FREE_PRODUCT?AD_FREE_PRICE_CENTS:PRICE_CENTS)||
+         (order.product==='ad_free'?AD_FREE_PRODUCT:PRODUCT)!==b.Shp_type||order.is_test!==c.test){
         await client.query('ROLLBACK');return res.status(400).send('ORDER MISMATCH');
       }
       if(order.status==='paid'){
@@ -129,6 +159,14 @@ function createRobokassaPayments({
       }
       if(order.status!=='pending'){
         await client.query('ROLLBACK');return res.status(409).send('ORDER NOT PENDING');
+      }
+      if(order.product==='ad_free'){
+        if(!adFree)throw new Error('Ad-free service not ready');
+        await adFree.grant(client,order.account_id,'robokassa',id,c.test);
+        await client.query("UPDATE echo_robokassa_orders SET status='paid',cards='[]'::jsonb,paid_at=NOW() WHERE id=$1",[toOrderId(id)]);
+        await client.query('COMMIT');
+        console.info('[echo robokassa] ad-free entitlement granted',{test:c.test});
+        return res.type('text/plain').send('OK'+id);
       }
       const cards=rollSecurePack('premium');
       if(!Array.isArray(cards)||cards.length!==5)throw new Error('Invalid premium roll');
@@ -155,4 +193,4 @@ function createRobokassaPayments({
   return {router,initialize};
 }
 module.exports={createRobokassaPayments,config,toCents,
-  signatureForCheckout,signatureForResult,secureSameSignature,PRICE_RUB,PRODUCT,toInvoice,toOrderId};
+  signatureForCheckout,signatureForResult,secureSameSignature,PRICE_RUB,PRODUCT,AD_FREE_PRICE_RUB,AD_FREE_PRODUCT,toInvoice,toOrderId};
