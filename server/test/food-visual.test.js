@@ -16,11 +16,14 @@ test('White food dots are default while WebP preview preserves authoritative pic
  assert.match(script,/\.catch\(error => \{/);
  assert.match(script,/const halo = ctx\.createRadialGradient/);
  assert.match(script,/ctx\.arc\(p\.x, p\.y, radius, 0, Math\.PI \* 2\)/);
- assert.match(script,/const FOOD_MAGNET_RADIUS = 60/);
+ assert.match(script,/const FOOD_MAGNET_RADIUS = 70/);
+ assert.match(script,/export function renderSharedFood\(time, cameraX, cameraY\)/);
+ assert.match(script,/worldToScreen\(point\.displayX, point\.displayY, cameraX, cameraY, width, height\)/);
+ assert.doesNotMatch(script,/requestAnimationFrame\(draw\)/);
  assert.match(script,/socket\.on\('echo:food', syncFood\)/);
  assert.match(server,/point\.active = false/);
  assert.match(server,/createFoodSnapshot/);
- assert.match(html,/shared-food\.js\?v=echo-render-budget-1/);
+ assert.match(html,/game\.js\?v=echo-food-magnet-70-1/);
 });
 
 test('The preview asset is animated transparent WebP and its dimensions suit a food icon',()=>{
