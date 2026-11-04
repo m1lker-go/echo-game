@@ -35,7 +35,7 @@ test('release workflow never runs on each APK branch push',()=>{
   assert.ok(yaml.includes("versionCode='24'"));
   assert.ok(yaml.includes("versionName='1.0.5'"));
   assert.ok(yaml.includes('release-out/ECHO-1.0.5-rustore-release.apk'));
-  assert.doesNotMatch(yaml,/1\\.0\\.2/);
+  assert.doesNotMatch(yaml,/1\.0\.2/);
   assert.match(yaml,/name='ru\.echogame\.arena'/);
   assert.match(yaml,/apksigner" verify --verbose --print-certs/);
   assert.match(yaml,/application-debuggable/);
