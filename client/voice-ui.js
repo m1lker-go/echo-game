@@ -184,8 +184,10 @@
   }
   async function beginHold() {
     if (pressed || !activeGame()) return;
-    const transport = window.ECHOVoiceTransport;
-    if (!transport?.ready) {
+    // Inside the ECHO Android WebView, ask for the system microphone permission
+    // on the FIRST deliberate press, even while LiveKit is still connecting.
+    // Browsers/VK keep the existing ready-only behavior.
+    if (!window.ECHOVoiceTransport?.ready && window.ECHO_ANDROID_ARENA !== true) {
       unavailableFeedback();
       return;
     }
@@ -202,9 +204,17 @@
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         video: false
       });
-      // Permission may complete after a finger was released or a round changed.
-      if (!pressed || ticket !== generation || !activeGame() || !transport.ready) {
+      // The Android permission dialog can outlive the original finger press.
+      // Never publish an audio track unless the player is STILL holding.
+      if (!pressed || ticket !== generation || !activeGame()) {
         stopTracks(captured);
+        return;
+      }
+      const transport = window.ECHOVoiceTransport;
+      if (!transport?.ready) {
+        stopTracks(captured);
+        endHold();
+        unavailableFeedback();
         return;
       }
       stream = captured;
@@ -230,8 +240,9 @@
   mic.addEventListener('pointerdown', (event) => {
     if (event.button !== undefined && event.button !== 0) return;
     if (pointerId !== null) return;
-    // No pointer capture if voice service is not connected.
-    if (!window.ECHOVoiceTransport?.ready) {
+    // Android must be able to request RECORD_AUDIO before LiveKit is ready.
+    // Other platforms do not prompt for a disconnected voice service.
+    if (!window.ECHOVoiceTransport?.ready && window.ECHO_ANDROID_ARENA !== true) {
       unavailableFeedback();
       return;
     }
