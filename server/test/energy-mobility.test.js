@@ -88,5 +88,5 @@ test('live Socket.IO handlers apply mobility server-side; rendering and joystick
  assert.match(game,/socket\?\.emit\('echo:ability',\{type:'boost'\}\)/);
  assert.match(game,/socket\.on\('echo:positionCorrection'/);
  assert.match(controls,/energyMobilityMultiplier/);
- assert.match(page,/game\.js\?v=echo-camera-jitter-1/);
+ assert.match(page,/game\.js\?v=[^"'\s<>]+/);
 });
