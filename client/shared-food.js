@@ -4,7 +4,10 @@ import { loadAnimatedWebpFrames } from './animated-webp-frames.js?v=echo-webp-fr
 const foodCanvas = document.querySelector('#shared-food');
 const energyText = document.querySelector('#energy');
 
-// Food is fixed in world coordinates; collection stays server-authoritative.
+// Server positions never change during pickup: only displayX/displayY animate.
+// Keep the visual attraction radius equal to the server pickup radius.
+const FOOD_MAGNET_RADIUS = 70;
+const FOOD_MAGNET_SPEED = 520;
 const ISO_X = 0.8660254;
 const ISO_Y = 0.5;
 
@@ -28,9 +31,10 @@ let activeIds = new Set();
 let socket = null;
 let isConnected = false;
 let lastDebugLog = 0;
+let lastRenderAt = 0;
 
 function getPoint(id, x = 0, y = 0, size = 6, pulse = 0) {
-  return { id, x, y, size, pulse };
+  return { id, x, y, displayX: x, displayY: y, size, pulse, magnetActive: false };
 }
 
 function syncFood(snapshot) {
@@ -44,8 +48,14 @@ function syncFood(snapshot) {
     nextIds.add(item.id);
     const point = food.get(item.id);
     if (point) {
+      const movedByServer = point.x !== item.x || point.y !== item.y;
       point.x = item.x;
       point.y = item.y;
+      if (!point.magnetActive || movedByServer) {
+        point.displayX = item.x;
+        point.displayY = item.y;
+        point.magnetActive = false;
+      }
       point.size = Number.isFinite(item.size) ? item.size : point.size;
       point.pulse = Number.isFinite(item.pulse) ? item.pulse : point.pulse;
     } else {
@@ -101,6 +111,7 @@ function onSocketDisconnect() {
   isConnected = false;
   activeIds.clear();
   food.clear();
+  lastRenderAt = 0;
 }
 
 function findSocket() {
@@ -139,7 +150,9 @@ function worldToScreen(x, y, cx, cy, width, height) {
 // Called from game.js once per actual arena frame using the exact same camera.
 // No separate RAF, prediction or rounded HUD-coordinate reads.
 export function renderSharedFood(time, cameraX, cameraY) {
-  if (document.hidden || !isConnected || !foodCanvas) return;
+  if (document.hidden || !isConnected || !foodCanvas) { lastRenderAt = 0; return; }
+  const dt = lastRenderAt ? Math.min(Math.max((time - lastRenderAt) / 1000, 0), 0.05) : 0;
+  lastRenderAt = time;
   if (foodCanvas && isConnected) {
     const rect = foodCanvas.getBoundingClientRect();
     const { width, height, scale } = getWorldViewport(rect.width, rect.height);
@@ -154,7 +167,27 @@ export function renderSharedFood(time, cameraX, cameraY) {
       for (const id of activeIds) {
         const point = food.get(id);
         if (!point) continue;
-        const p = worldToScreen(point.x, point.y, cameraX, cameraY, width, height);
+        // Test distance from the permanent server point, never its animated display.
+        // Otherwise a magnetic dot could keep following the player outside pickup range.
+        const anchorDx = cameraX - point.x;
+        const anchorDy = cameraY - point.y;
+        if (anchorDx * anchorDx + anchorDy * anchorDy <= FOOD_MAGNET_RADIUS * FOOD_MAGNET_RADIUS) {
+          const dx = cameraX - point.displayX;
+          const dy = cameraY - point.displayY;
+          const distance = Math.hypot(dx, dy);
+          if (distance > 0.001) {
+            const travel = Math.min(distance, FOOD_MAGNET_SPEED * dt);
+            point.displayX += dx / distance * travel;
+            point.displayY += dy / distance * travel;
+          }
+          point.magnetActive = true;
+        } else if (point.magnetActive) {
+          // Only a visual reset: the authoritative server position is untouched.
+          point.displayX = point.x;
+          point.displayY = point.y;
+          point.magnetActive = false;
+        }
+        const p = worldToScreen(point.displayX, point.displayY, cameraX, cameraY, width, height);
         // Offscreen points are normal; keep them in the snapshot and only skip drawing here.
         if (p.x < -30 || p.y < -30 || p.x > width + 30 || p.y > height + 30) continue;
         const pulse = 0.65 + 0.35 * Math.sin(time * 0.002 + point.pulse);
