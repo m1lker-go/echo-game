@@ -88,3 +88,41 @@
 #game #menu-main .echo-ad-free-buy.has-art:hover {
   box-shadow: none;
 }
+
+/* Only the lifetime ad-free confirmation: compact and readable in landscape. */
+.echo-modal.echo-ad-free-confirm {
+  width: min(540px, 100%);
+  padding: 26px 28px 24px;
+}
+.echo-modal.echo-ad-free-confirm .echo-modal-title {
+  font-size: clamp(20px, 3vw, 26px);
+  letter-spacing: .09em;
+}
+.echo-modal.echo-ad-free-confirm .echo-modal-text {
+  margin-top: 16px;
+  font-size: clamp(13px, 1.8vw, 15px);
+  line-height: 1.55;
+  white-space: pre-line;
+}
+.echo-modal.echo-ad-free-confirm .echo-modal-actions {
+  margin-top: 24px;
+  gap: 12px;
+}
+.echo-modal.echo-ad-free-confirm .echo-modal-button {
+  min-height: 46px;
+  padding: 10px 8px;
+  font-size: 12px;
+  letter-spacing: .015em;
+  line-height: 1.25;
+}
+@media (max-width: 600px), (max-height: 400px) {
+  .echo-modal.echo-ad-free-confirm { padding: 18px 20px 16px; }
+  .echo-modal.echo-ad-free-confirm .echo-modal-title { font-size: 20px; }
+  .echo-modal.echo-ad-free-confirm .echo-modal-text { margin-top: 10px; font-size: 12px; }
+  .echo-modal.echo-ad-free-confirm .echo-modal-actions { margin-top: 16px; gap: 8px; }
+  .echo-modal.echo-ad-free-confirm .echo-modal-button {
+    min-height: 42px;
+    font-size: 11px;
+    padding: 8px 5px;
+  }
+}
