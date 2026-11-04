@@ -20,7 +20,7 @@ function createFoodPoint(id, {
 }
 
 function collectFood(player, food, {
-  radius = 60,
+  radius = 70,
   now = Date.now(),
   random = Math.random,
   respawnMinMs = 10_000,
