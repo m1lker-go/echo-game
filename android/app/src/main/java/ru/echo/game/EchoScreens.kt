@@ -479,7 +479,7 @@ private fun EchoNativePage(
                         verticalArrangement = Arrangement.Center) {
                         EchoNoAdsIcon()
                         Spacer(Modifier.height(4.dp))
-                        Text(tr(audio, "БЕЗ\\nРЕКЛАМЫ", "NO ADS"), color = White,
+                        Text(tr(audio, "БЕЗ\nРЕКЛАМЫ", "NO ADS"), color = White,
                             fontFamily = EchoFont, fontWeight = FontWeight.Medium,
                             fontSize = 11.sp, lineHeight = 13.sp, textAlign = TextAlign.Center)
                     }
