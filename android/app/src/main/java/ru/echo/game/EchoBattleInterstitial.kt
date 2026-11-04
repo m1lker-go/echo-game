@@ -56,6 +56,22 @@ internal class EchoBattleInterstitial(private val activity: Activity) {
 
     fun beforeBattle(token: String?, proceed: () -> Unit) {
         if (destroyed || activity.isFinishing || activity.isDestroyed) return
+        if (!token.isNullOrBlank()) {
+            EchoAdFreeAccess.check(activity, token) { active ->
+                if (destroyed || activity.isFinishing || activity.isDestroyed) return@check
+                if (active != false) {
+                    Log.i(TAG, if (active == true) "Interstitial skipped: account is ad-free"
+                        else "Interstitial skipped: entitlement status unavailable")
+                    proceed()
+                } else requestBeforeBattle(token, proceed)
+            }
+            return
+        }
+        requestBeforeBattle(token, proceed)
+    }
+
+    private fun requestBeforeBattle(token: String?, proceed: () -> Unit) {
+        if (destroyed || activity.isFinishing || activity.isDestroyed) return
         if (!shouldShow(token)) {
             proceed()
             return
