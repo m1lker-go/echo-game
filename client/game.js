@@ -15,7 +15,7 @@ import { createPlayerLabels, measurePlayerLabelBounds } from './player-labels.js
 import {attachSpawnShield,updateSpawnShield} from './spawn-shield.js?v=echo-shield-pulse-1';
 import { createServerWaterBoundaryDebug } from './server-water-boundary-debug.js?v=echo-global-font-1';
 import { createWorldDecorations } from './world-decorations.js?v=echo-glowing-mushrooms-10';
-import { renderSharedFood } from './shared-food.js?v=echo-world-lock-1';
+import { renderSharedFood } from './shared-food.js?v=echo-food-magnet-70-1';
 import { renderWorldBoundary } from './world-boundary.js?v=echo-world-lock-1';
 
 const activityProfileStorageKey = 'echo.activityProfileId';
