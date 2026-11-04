@@ -461,27 +461,51 @@ private fun EchoNativePage(
             }
 
             if (page == Page.HOME) {
-                // A smaller tile in the free right-hand area of the native home screen.
+                // Uses buttonads.webp when present in drawable-nodpi. A vector/text
+                // fallback keeps older APK checkout builds usable without the art.
                 val tileSize = (viewportHeight.value * .20f).coerceIn(66f, 90f).dp
                 val shape = RoundedCornerShape(14.dp)
-                Box(Modifier.align(Alignment.TopEnd)
-                    .padding(top = (viewportHeight.value * .16f).dp, end = 14.dp)
-                    .size(tileSize)
-                    .shadow(6.dp, shape)
-                    .clip(shape)
-                    .background(Brush.verticalGradient(listOf(Color(0xFF18334B), Color(0xFF06101C))))
-                    .border(1.dp, Cyan.copy(alpha = .85f), shape)
-                    .clickable(enabled = !adFreeCheckoutBusy) {
-                        audio.click()
-                        showAdFreeConfirm = true
-                    }, contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center) {
-                        EchoNoAdsIcon()
-                        Spacer(Modifier.height(4.dp))
-                        Text(tr(audio, "БЕЗ\nРЕКЛАМЫ", "NO ADS"), color = White,
-                            fontFamily = EchoFont, fontWeight = FontWeight.Medium,
-                            fontSize = 11.sp, lineHeight = 13.sp, textAlign = TextAlign.Center)
+                val pictureId = remember(context) {
+                    context.resources.getIdentifier("buttonads", "drawable", context.packageName)
+                }
+                Box(
+                    modifier = Modifier.align(Alignment.TopEnd)
+                        .padding(top = (viewportHeight.value * .16f).dp, end = 14.dp)
+                        .size(tileSize)
+                        .clip(shape)
+                        .clickable(enabled = !adFreeCheckoutBusy) {
+                            audio.click()
+                            showAdFreeConfirm = true
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (pictureId != 0) {
+                        Image(
+                            painter = painterResource(pictureId),
+                            contentDescription = tr(audio, "Купить без рекламы", "Buy no ads"),
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier.fillMaxSize()
+                                .background(Brush.verticalGradient(listOf(
+                                    Color(0xFF18334B), Color(0xFF06101C))))
+                                .border(1.dp, Cyan.copy(alpha = .85f), shape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                EchoNoAdsIcon()
+                                Spacer(Modifier.height(4.dp))
+                                Text(tr(audio, "БЕЗ\nРЕКЛАМЫ", "NO ADS"), color = White,
+                                    fontFamily = EchoFont, fontWeight = FontWeight.Medium,
+                                    fontSize = 11.sp, lineHeight = 13.sp,
+                                    textAlign = TextAlign.Center)
+                            }
+                        }
                     }
                 }
             }
