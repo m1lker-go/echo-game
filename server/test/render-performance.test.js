@@ -40,15 +40,18 @@ test('aura and shared food never render behind menu or when hidden',()=>{
  const a=read('player-aura.js'),f=read('shared-food.js');
  assert.match(a,/document\.hidden \|\| !game\.classList\.contains\('echo-in-battle'\)/);
  assert.match(a,/time-lastAuraAt<auraFrameInterval-1/);
- assert.match(f,/!isConnected\)\{/);
- assert.match(f,/time-lastFoodFrame<ECHO_FOOD_INTERVAL-1/);
+ assert.match(f,/if \(document.hidden \|\| !isConnected \|\| !foodCanvas\)/);
+ assert.match(f,/const dt = lastRenderAt \?/);
+ assert.doesNotMatch(f,/requestAnimationFrame\(draw\)/);
  assert.match(f,/setTimeout\(findSocket,250\)/);
  assert.match(f,/socket\.on\('echo:food', syncFood\)/);
 });
 test('client cache versions updated for mobile without gameplay changes',()=>{
  const h=read('index.html');
- for(const file of ['menu','shared-food','player-aura'])assert.ok(h.includes(file+'.js?v=echo-render-budget-1'));
- assert.ok(h.includes('game.js?v=echo-camera-jitter-1'));
+ assert.ok(h.includes('menu.js?v=echo-render-budget-1-tutorial-1'));
+ assert.ok(h.includes('player-aura.js?v=echo-render-budget-1'));
+ assert.ok(h.includes('game.js?v=echo-food-magnet-70-1'));
  assert.match(read('game.js'),/state\.socket\.emit\('echo:move'/);
- assert.match(read('shared-food.js'),/FOOD_MAGNET_RADIUS = 60/);
+ assert.match(read('shared-food.js'),/FOOD_MAGNET_RADIUS = 70/);
+ assert.match(read('game.js'),/renderSharedFood\(time,state\.cameraX,state\.cameraY\)/);
 });
