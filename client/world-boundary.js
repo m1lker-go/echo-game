@@ -1,113 +1,34 @@
-import { getWorldViewport } from './viewport-scale.js?v=echo-world-zoom-2';
+// The arena boundary is drawn into the SAME #world canvas and frame as the grid.
+// No independent RAF, socket interpolation or second camera.
+const FIELD_HALF = (50 * 84) / 2;
+const ISO_X = 0.8660254, ISO_Y = 0.5;
+let localX = 0, localY = 0, velocityX = 0, velocityY = 0;
 
-const canvas = document.querySelector('#world');
-
-const FIELD_CELLS = 50;
-const CELL_SIZE = 84;
-const FIELD_HALF = (FIELD_CELLS * CELL_SIZE) / 2;
-const ISO = { x: 0.8660254, y: 0.5 };
-
-let socket = null;
-let playerX = 0;
-let playerY = 0;
-let targetX = 0;
-let targetY = 0;
-let playerVx = 0;
-let playerVy = 0;
-let lastSnapshotAt = 0;
-let lastFrameAt = 0;
-
-function bindSocket() {
-  const current = window.echoSocket;
-  if (!current || current === socket) return;
-
-  socket = current;
-  socket.on('echo:players', (players) => {
-    if (!Array.isArray(players) || !socket?.id) return;
-    const me = players.find((player) => player?.id === socket.id);
-    if (!me || !Number.isFinite(me.x) || !Number.isFinite(me.y)) return;
-
-    targetX = me.x;
-    targetY = me.y;
-    playerVx = Number.isFinite(me.vx) ? me.vx : 0;
-    playerVy = Number.isFinite(me.vy) ? me.vy : 0;
-
-    if (!lastSnapshotAt) {
-      playerX = targetX;
-      playerY = targetY;
-    }
-    lastSnapshotAt = performance.now();
+export function renderWorldBoundary(ctx, cameraX, cameraY, width, height, playerX, playerY, vx, vy) {
+  localX = playerX; localY = playerY; velocityX = vx; velocityY = vy;
+  const project = (x, y) => ({
+    x: width / 2 + ((x - cameraX) - (y - cameraY)) * ISO_X,
+    y: height / 2 + ((x - cameraX) + (y - cameraY)) * ISO_Y,
   });
-}
-
-function updatePlayerPosition(time) {
-  const dt = lastFrameAt ? Math.min((time - lastFrameAt) / 1000, 0.05) : 0;
-  lastFrameAt = time;
-
-  if (!lastSnapshotAt) return;
-
-  const since = Math.min(Math.max((time - lastSnapshotAt) / 1000, 0), 0.25);
-  const predictedX = targetX + playerVx * since;
-  const predictedY = targetY + playerVy * since;
-  const blend = 1 - Math.exp(-18 * dt);
-  playerX += (predictedX - playerX) * blend;
-  playerY += (predictedY - playerY) * blend;
-}
-
-function worldToScreen(x, y, cameraX, cameraY, width, height) {
-  return {
-    x: width / 2 + (x - cameraX - (y - cameraY)) * ISO.x,
-    y: height / 2 + (x - cameraX + (y - cameraY)) * ISO.y,
-  };
-}
-
-function drawBoundary(time = performance.now()) {
-  bindSocket();
-  updatePlayerPosition(time);
-
-  if (!canvas) {
-    requestAnimationFrame(drawBoundary);
-    return;
-  }
-
-  const rect = canvas.getBoundingClientRect();
-  if (!rect.width || !rect.height) {
-    requestAnimationFrame(drawBoundary);
-    return;
-  }
-
-  const dpr = canvas.width / rect.width;
-  const { width, height, scale } = getWorldViewport(rect.width, rect.height);
   const corners = [
-    worldToScreen(-FIELD_HALF, -FIELD_HALF, playerX, playerY, width, height),
-    worldToScreen(FIELD_HALF, -FIELD_HALF, playerX, playerY, width, height),
-    worldToScreen(FIELD_HALF, FIELD_HALF, playerX, playerY, width, height),
-    worldToScreen(-FIELD_HALF, FIELD_HALF, playerX, playerY, width, height),
+    project(-FIELD_HALF, -FIELD_HALF), project(FIELD_HALF, -FIELD_HALF),
+    project(FIELD_HALF, FIELD_HALF), project(-FIELD_HALF, FIELD_HALF),
   ];
-
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    requestAnimationFrame(drawBoundary);
-    return;
-  }
-
   const boundaryPath = () => {
     ctx.beginPath();
     ctx.moveTo(corners[0].x, corners[0].y);
-    for (let i = 1; i < corners.length; i += 1) ctx.lineTo(corners[i].x, corners[i].y);
+    for (let i = 1; i < corners.length; i++) ctx.lineTo(corners[i].x, corners[i].y);
     ctx.closePath();
   };
-
   ctx.save();
-  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+  // Cut away the grid outside the authoritative, fixed world rectangle.
   ctx.beginPath();
   ctx.rect(0, 0, width, height);
   ctx.moveTo(corners[0].x, corners[0].y);
-  for (let i = 1; i < corners.length; i += 1) ctx.lineTo(corners[i].x, corners[i].y);
+  for (let i = 1; i < corners.length; i++) ctx.lineTo(corners[i].x, corners[i].y);
   ctx.closePath();
   ctx.fillStyle = 'rgba(2, 7, 14, .86)';
   ctx.fill('evenodd');
-
   boundaryPath();
   ctx.lineJoin = 'round';
   ctx.shadowColor = 'rgba(64, 190, 255, .95)';
@@ -127,21 +48,17 @@ function drawBoundary(time = performance.now()) {
   ctx.lineWidth = 1;
   ctx.stroke();
   ctx.restore();
-  requestAnimationFrame(drawBoundary);
 }
 
-requestAnimationFrame(drawBoundary);
-
-const jumpButton = document.querySelector('#jump');
-jumpButton?.addEventListener('pointerdown', (event) => {
-  const length = Math.hypot(playerVx, playerVy);
-  if (length < 1) return;
-  const jumpDistance = 420;
-  const targetX = playerX + (playerVx / length) * jumpDistance;
-  const targetY = playerY + (playerVy / length) * jumpDistance;
-  if (targetX < -FIELD_HALF || targetX > FIELD_HALF || targetY < -FIELD_HALF || targetY > FIELD_HALF) {
+// Preserve the previous client-side jump guard without a separate predicted camera.
+document.querySelector('#jump')?.addEventListener('pointerdown', event => {
+  const speed = Math.hypot(velocityX, velocityY);
+  if (speed < 1) return;
+  const targetX = localX + velocityX / speed * 420;
+  const targetY = localY + velocityY / speed * 420;
+  if (targetX < -FIELD_HALF || targetX > FIELD_HALF ||
+      targetY < -FIELD_HALF || targetY > FIELD_HALF) {
     event.preventDefault();
     event.stopImmediatePropagation();
   }
 }, true);
-
