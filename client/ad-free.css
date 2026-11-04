@@ -5,7 +5,7 @@
   z-index: 2;
   top: clamp(90px, 15vh, 185px);
   right: clamp(24px, 5vw, 95px);
-  width: clamp(112px, 13.5vw, 205px);
+  width: clamp(84px, 10.125vw, 154px);
   aspect-ratio: 1 / 1;
   display: flex;
   flex-direction: column;
@@ -47,7 +47,7 @@
   #game #menu-main .echo-ad-free-buy {
     top: clamp(72px, 18vh, 105px);
     right: clamp(12px, 3vw, 25px);
-    width: clamp(88px, 13.2vw, 125px);
+    width: clamp(66px, 9.9vw, 94px);
     padding: 7px;
     border-radius: 13px;
     gap: 6px;
@@ -58,7 +58,7 @@
   #game #menu-main .echo-ad-free-buy {
     top: max(14px, env(safe-area-inset-top));
     right: max(7px, env(safe-area-inset-right));
-    width: clamp(68px, 12vw, 86px);
+    width: clamp(51px, 9vw, 65px);
     padding: 5px;
     gap: 3px;
   }
