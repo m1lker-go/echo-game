@@ -285,7 +285,7 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, adFree=null, crea
          WHERE account_id=$1 AND status='pending' AND product='ad_free' AND expires_at>NOW()
            AND created_at>NOW()-INTERVAL '15 minutes'
          ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE` : `SELECT id FROM echo_vk_payment_intents
-         WHERE account_id=$1 AND status='pending' AND expires_at>NOW()
+         WHERE account_id=$1 AND status='pending' AND product='premium_pack' AND expires_at>NOW()
            AND created_at>NOW()-INTERVAL '15 minutes'
          ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE`,
         [accountId]
