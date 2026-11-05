@@ -59,7 +59,7 @@ internal class EchoRewardedAds private constructor(private val appContext: Conte
         }
         if (token == null || checking) return
         val age = SystemClock.elapsedRealtime() - checkedAt
-        if (!refresh && adFree != null && age in 0 until ENTITLEMENT_TTL_MS) {
+        if (!refresh && adFree != null && age >= 0L && age < ENTITLEMENT_TTL_MS) {
             if (adFree == false) preload()
             return
         }
