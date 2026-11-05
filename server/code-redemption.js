@@ -8,7 +8,9 @@ function createCodeRedemption({sessionUser, referralRedeem, promoRedeem, secret=
   redeem=async(code,echoAccountId,key)=>{
     const r=await fetch(URL,{method:'POST',headers:{'Content-Type':'application/json','x-echo-partner-secret':key},
       body:JSON.stringify({code,echoAccountId}),signal:AbortSignal.timeout(5000),redirect:'error'});
-    let payload={};try{payload=await r.json()}catch{}
+    let payload={};
+    try { payload=await r.json(); }
+    catch { if (r.ok) return {status:502,payload:{error:'PARTNER_INVALID_RESPONSE'}}; }
     return {status:r.status,payload};
   }}){
   const router=express.Router(),recent=new Map();
@@ -47,11 +49,15 @@ function createCodeRedemption({sessionUser, referralRedeem, promoRedeem, secret=
       if(result.status===200&&result.payload?.verified)
         return res.json({success:true,type:'cat_partner',alreadyRedeemed:!!result.payload.alreadyRedeemed,
           message:'Код принят! Вернись в Cat Fighting и нажми «Проверка».'});
+      if(result.status===403){
+        console.error('[code-redemption] partner rejected shared authentication (HTTP 403); verify both services use the same secret');
+        return res.status(503).json({error:'PARTNER_AUTH_FAILED'});
+      }
       const status=[400,404,409,410,429,503].includes(result.status)?result.status:502;
-      return res.status(status).json({error:result.payload?.error||'Code activation unavailable'});
+      return res.status(status).json({error:result.payload?.error||'PARTNER_UNAVAILABLE'});
     }catch(error){
       console.error('[code-redemption] partner unavailable:',error.message);
-      return res.status(502).json({error:'Partner server unavailable'});
+      return res.status(502).json({error:'PARTNER_UNAVAILABLE'});
     }
   });
   return router;
