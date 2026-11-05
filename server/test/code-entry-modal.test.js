@@ -8,7 +8,7 @@ const vm = require('node:vm');
 
 const clientDir = path.join(__dirname, '../../client');
 
-function loadFixture() {
+function loadFixture(response = {ok:true,status:200,json:async()=>({success:true})}) {
   let openCode = null;
   let modal = null;
   let focused = null;
@@ -44,7 +44,7 @@ function loadFixture() {
   };
   vm.runInNewContext(fs.readFileSync(path.join(clientDir, 'code-entry.js'), 'utf8'), {
     document, window, localStorage: {getItem(){return 'valid-echo-account-token'}},
-    fetch: async(path,options)=>{calls.push({path,options});return {ok:true,status:200,json:async()=>({success:true})}},
+    fetch: async(path,options)=>{calls.push({path,options});return response},
     requestAnimationFrame: fn => fn()
   }, {filename:'code-entry.js'});
   return {
@@ -103,5 +103,19 @@ test('Code translations are present for Russian and English', () => {
       assert.equal(typeof dict.menu[key], 'string');
       assert.ok(dict.menu[key].length);
     }
+  }
+});
+
+test('Cat Fighting authentication mismatch and upstream failures display actionable messages', async () => {
+  for (const [response, message] of [
+    [{ok:false,status:503,json:async()=>({error:'PARTNER_AUTH_FAILED'})}, /ошибка проверки серверного ключа/],
+    [{ok:false,status:502,json:async()=>({error:'PARTNER_UNAVAILABLE'})}, /Cat Fighting временно недоступен/],
+    [{ok:false,status:502,json:async()=>{throw Error('Unexpected HTML response')}}, /ошибка сервера \\(502\\)/],
+  ]) {
+    const fixture=loadFixture(response);
+    const modal=fixture.open();
+    modal.contentElement.child.value='CF-ABCDEFGHIJKL';
+    assert.equal(await modal.buttons[0].onClick(),false);
+    assert.match(fixture.toasts.at(-1),message);
   }
 });
