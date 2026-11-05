@@ -54,7 +54,10 @@ class MainActivity : ComponentActivity() {
                         // Clear only a verified 401; offline or server 5xx must not
                         // silently sign out users from the native app.
                         if (error is EchoSessionExpired) runOnUiThread {
-                            if (echoAuth.token() == previous) echoAuth.clearSession()
+                            if (echoAuth.token() == previous) {
+                                echoAuth.clearSession()
+                                EchoRewardedAds.get(applicationContext).prepare(this@MainActivity, null)
+                            }
                         }
                     }
             }.start()
@@ -135,6 +138,7 @@ class MainActivity : ComponentActivity() {
                     echoAuth.busy = false
                     result.onSuccess {
                         echoAuth.accept(it)
+                        EchoRewardedAds.get(applicationContext).prepare(this@MainActivity, echoAuth.token())
                         Toast.makeText(this@MainActivity, "Вы вошли в ECHO", Toast.LENGTH_SHORT).show()
                     }.onFailure {
                         echoAuth.message = it.message ?: "Не удалось войти в ECHO через VK"
@@ -198,6 +202,7 @@ class MainActivity : ComponentActivity() {
                 echoAuth.busy = false
                 result.onSuccess { account ->
                     echoAuth.accept(account)
+                    EchoRewardedAds.get(applicationContext).prepare(this@MainActivity, echoAuth.token())
                     Toast.makeText(this@MainActivity,
                         if (echoAudio.language == "en") "Signed in to ECHO" else "Вход в ECHO выполнен",
                         Toast.LENGTH_SHORT).show()
@@ -251,6 +256,7 @@ class MainActivity : ComponentActivity() {
                 result.onSuccess {
                     // All ECHO bearer sessions are now invalid on the server.
                     echoAuth.clearSession()
+                    EchoRewardedAds.get(applicationContext).prepare(this@MainActivity, null)
                     // Remove the previous account's WebView localStorage.
                     // Other Android app data and sound/language preferences stay intact.
                     WebStorage.getInstance().deleteOrigin("https://cat-fight.ru")
@@ -270,12 +276,18 @@ class MainActivity : ComponentActivity() {
     private fun logoutEcho() {
         val existing = echoAuth.token()
         echoAuth.clearSession()
+        EchoRewardedAds.get(applicationContext).prepare(this, null)
         if (existing != null) Thread { echoAuth.logoutServer(existing) }.start()
     }
 
     override fun onResume() {
         super.onResume()
         if (::echoAudio.isInitialized) echoAudio.setForeground(true)
+        if (::echoAuth.isInitialized) {
+            // Refresh entitlement when returning from the shop; start rewarded
+            // preload on the home menu, ahead of opening Quests.
+            EchoRewardedAds.get(applicationContext).prepare(this, echoAuth.token(), refresh = true)
+        }
     }
 
     override fun onPause() {
