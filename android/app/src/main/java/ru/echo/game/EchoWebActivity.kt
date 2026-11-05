@@ -771,6 +771,17 @@ class EchoWebActivity : ComponentActivity() {
             rewardedAds = EchoRewardedAds(this, web).also {
                 web.addJavascriptInterface(it, "EchoAndroidAds")
             }
+            // Start warming the rewarded placement before the player taps Watch.
+            // Never request ads for a verified ad-free account; on uncertainty
+            // the existing click path can still attempt a normal SDK load.
+            auth.token()?.let { signedInToken ->
+                EchoAdFreeAccess.check(this@EchoWebActivity, signedInToken) { paid ->
+                    if (!isFinishing && !isDestroyed && auth.token() == signedInToken &&
+                        paid == false) {
+                        rewardedAds?.preload()
+                    }
+                }
+            }
         }
         // Install before the FIRST loadUrl(). ECHO's menu.js and game.js read
         // the chosen model synchronously, before onPageFinished ever fires.
