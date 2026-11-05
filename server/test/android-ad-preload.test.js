@@ -59,7 +59,7 @@ test('paid accounts remain protected and rewarded quests require actual onReward
  assert.doesNotMatch(rewarded,/onDismiss[\s\S]{0,100}dispatch\([^\n]*true/);
 });
 
-test('ad requests and callbacks cannot survive Activity teardown',()=>{
+test('ad requests and callbacks retain bounded timers and cache cleanup',()=>{
  for(const source of [interstitial,rewarded]){
   assert.match(source,/retryTask\?\.let \{ handler\.removeCallbacks\(it\) \}/);
   assert.match(source,/cached\?\.let \{ runCatching \{ it\.dismiss\(\) \} \}/);
