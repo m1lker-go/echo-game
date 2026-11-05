@@ -4,6 +4,7 @@
 // VK Bridge callbacks are client attestations, not cryptographic provider SSV.
 // DB locking prevents duplicate coins; provider-side proof is a future hardening.
 const crypto=require('node:crypto');
+const {notifyGameMonitor}=require('./game-monitor');
 const REWARDS=Object.freeze([10,15,20,25,30]);
 const PLACEMENT_ID=2096987;
 function createVideoBonus({pool,sessionUser,dailyDateKey,createRouter=()=>require('express').Router(),now=()=>Date.now(),hasAdFree=async()=>false}){
@@ -80,6 +81,8 @@ function createVideoBonus({pool,sessionUser,dailyDateKey,createRouter=()=>requir
    // This is rate/uniqueness protected but not equivalent to provider-signed proof.
    await client.query('UPDATE echo_daily_video_bonus SET watched=claimed+1,attempt_id=NULL,started_at=NULL,updated_at=NOW() WHERE profile_id=$1 AND quest_date=$2::date',[id,date]);
    await client.query('COMMIT');
+   // Report only accepted video completions, not ad-free claims or ad starts.
+   notifyGameMonitor('video',{accountId:id,context:'Ежедневное задание (видео), этап '+(Number(row.claimed)+1)});
    return res.json({success:true,readyToClaim:true});
   }catch(e){
    if(client)await client.query('ROLLBACK').catch(()=>{});
