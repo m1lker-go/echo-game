@@ -55,7 +55,7 @@ internal class EchoRewardedAds(
                 val task = Runnable { retryTask = null; preload() }
                 retryTask = task
                 handler.postDelayed(task, delay)
-                Log.i(TAG, "Rewarded preload retry in \${delay}ms")
+                Log.i(TAG, "Rewarded preload retry in ${delay}ms")
             }
             return
         }
