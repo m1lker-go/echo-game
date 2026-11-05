@@ -1,7 +1,7 @@
 // Spatial ECHO Voice; dormant until the authoritative ECHO server enables LiveKit.
 (() => {
   'use strict';
-  const FULL = 500, MAX = 800;
+  const FULL = 1200, MAX = 1500;
   let socket = null, enabled = false, room = null, lk = null, loading = null;
   let connectionSerial = 0, speakingSerial = 0, scope = null;
   let positions = new Map(), selfPosition = null, publishingTrack = null;
