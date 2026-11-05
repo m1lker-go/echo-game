@@ -20,7 +20,7 @@ The normal **release** type keeps SDK verbose diagnostics disabled.
 
 ## Capture targeted Logcat output
 
-Clear old log lines, open ECHO, visit Quests, try a rewarded ad, then enter/replay
+Clear old log lines, open ECHO's native home menu while signed in to an account without "Без рекламы", visit Quests, try a rewarded ad, then enter/replay
 a battle for interstitials. Wait at least **45 seconds** after `onNoAd`;
 the SDK is deliberately not hammered with repeated requests.
 
@@ -46,13 +46,15 @@ may not expose every error code; `onNoAd` still records its message.
 - `Interstitial skipped: account is ad-free` — paid entitlement was verified.
 - `Interstitial skipped: entitlement status unavailable` — status could not be verified;
   ads are skipped to avoid accidentally showing them to a paid player.
-- `Preloading rewarded slot=2096987` — warming a reward placement from Quests.
+- `Preloading rewarded slot=2096987` — warming the reward placement from the native home menu, after account and ad-free verification.
 - `Rewarded preloaded` — cached, ready for the player's request.
 - `Rewarded displayed` — ad opened, but reward is **not** confirmed.
 - `Rewarded earned` / `onReward` — **only** this confirms a rewarded viewing.
 - `Rewarded dismissed ... reward=false` — the creative closed without confirmation;
   the app must not grant coins based on dismissal.
 - `Rewarded preload retry in 45000ms` — no-fill cooldown.
+
+Rewarded placement 2096987 uses one shared process-wide cache between the home menu and Quests; switching screens does not reset its no-fill cooldown or destroy a ready ad. Only the Quests WebView can request a rewarded display. Logging out, deleting the account, or a verified ad-free entitlement clears the shared cache. Verification failure does not trigger background preload.
 
 Cached ads expire after **30 minutes**. Each displayed ad is consumed once,
 and the next load starts after closing. A no-fill response retries after
