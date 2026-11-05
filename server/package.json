@@ -15,6 +15,7 @@
     "express": "^5.2.1",
     "pg": "^8.13.1",
     "socket.io": "^4.8.1",
-    "livekit-server-sdk": "^2.19.2"
+    "livekit-server-sdk": "^2.19.2",
+    "socks-proxy-agent": "^6.1.0"
   }
 }
