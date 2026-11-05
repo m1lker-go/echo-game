@@ -172,7 +172,7 @@ internal class EchoBattleInterstitial(private val activity: Activity) {
                 val task = Runnable { retryTask = null; preload() }
                 retryTask = task
                 handler.postDelayed(task, delay)
-                Log.i(TAG, "Interstitial preload retry in \${delay}ms")
+                Log.i(TAG, "Interstitial preload retry in ${delay}ms")
             }
             return
         }
