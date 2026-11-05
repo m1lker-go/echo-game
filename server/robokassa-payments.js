@@ -2,6 +2,7 @@
 // Staged ECHO-only Robokassa integration. Never reuse Cat Fighting's payment route.
 const crypto = require('node:crypto');
 const {recordPackOpened} = require('./pack-quest-progress');
+const {notifyGameMonitor}=require('./game-monitor');
 const PRICE_RUB='250.00', PRICE_CENTS=25000, MERCHANT_URL='https://auth.robokassa.ru/Merchant/Index.aspx';
 // Unique invoice namespace for this merchant, shared with Cat Fighting.
 // Cat Fighting's legacy invoices are Date.now()*10000+userId;
@@ -165,6 +166,7 @@ function createRobokassaPayments({
         await adFree.grant(client,order.account_id,'robokassa',id,c.test);
         await client.query("UPDATE echo_robokassa_orders SET status='paid',cards='[]'::jsonb,paid_at=NOW() WHERE id=$1",[toOrderId(id)]);
         await client.query('COMMIT');
+        if(!c.test)notifyGameMonitor('purchase',{accountId:order.account_id,product:'Без рекламы навсегда',amount:AD_FREE_PRICE_RUB,currency:'₽'});
         console.info('[echo robokassa] ad-free entitlement granted',{test:c.test});
         return res.type('text/plain').send('OK'+id);
       }
@@ -176,6 +178,7 @@ function createRobokassaPayments({
       await recordPackOpened(client,order.account_id,'premium');
       await client.query("UPDATE echo_robokassa_orders SET status='paid',cards=$2::jsonb,paid_at=NOW() WHERE id=$1",[toOrderId(id),JSON.stringify(cards)]);
       await client.query('COMMIT');
+      if(!c.test)notifyGameMonitor('purchase',{accountId:order.account_id,product:'Элитный пак',amount:PRICE_RUB,currency:'₽'});
       console.info('[echo robokassa] paid pack granted',{test:c.test});
       return res.type('text/plain').send('OK'+id);
     }catch(error){
