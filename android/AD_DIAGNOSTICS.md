@@ -1,63 +1,72 @@
 # ECHO Android — VK Ads diagnostic APK
 
-A separate Android **diagnostic** build variant enables extended ad logs,
-while ordinary **release** and **debug** variants keep them disabled.
-No local `gradle.properties` edits are required.
+Use the **diagnostic** build type to investigate live myTarget (VK Ads) loading
+without exposing advertising identifiers or tokens in public release logs.
+The normal **release** type keeps SDK verbose diagnostics disabled.
 
-## Build and install
+## Build locally (do not upload diagnostic builds to RuStore)
 
-1. Update the local `apk` branch without discarding local commits:
+1. In your clean local checkout, switch to `apk`, then `git pull origin apk`.
+2. In Android Studio, run **Sync Project with Gradle Files**.
+3. Choose **Build > Generate Signed Bundle / APK > APK** and the existing RuStore signing key.
+   Select the **diagnostic** build type (NOT release). Never create a new signing key.
+4. Install the diagnostic APK reported by Android Studio. Do not reinstall an older
+   `app/release/app-release.apk` accidentally.
+5. Verify that it is **versionCode 24**, **versionName 1.0.5-diag**.
 
-   ```powershell
-   git fetch origin
-   git merge --no-ff origin/apk -m "Merge VK Ads diagnostic build type"
-   ```
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" shell dumpsys package ru.echogame.arena | Select-String "versionCode=|versionName="
+```
 
-2. In Android Studio use **File → Sync Project with Gradle Files**.
-3. Use **Build → Generate Signed App Bundle or APK → APK**. Select the
-   same RuStore signing key and choose build type **diagnostic** rather than
-   **release**. No key/passwords should be committed.
-4. Install the new signed APK over the old one, using the exact file path
-   reported by Android Studio. The APK may be placed in
-   `android/app/diagnostic/` or the selected output directory;
-   do **not** reinstall the older `app/release/app-release.apk` by mistake.
-5. Verify that the installed app is **versionCode 23** and versionName
-   **1.0.4-diag**:
+## Capture targeted Logcat output
 
-   ```powershell
-   & "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" shell dumpsys package ru.echogame.arena | Select-String "versionCode=|versionName="
-   ```
-
-Build type `diagnostic` inherits all relevant `release` settings,
-including the configured release signing when available, and uses the same
-Android application ID (`ru.echogame.arena`). This avoids uninstalling
-the RuStore-signed game.
-
-## Capture logs
-
-Clear older logs, fully close and reopen ECHO, request one rewarded ad,
-and optionally start an ad-eligible battle:
+Clear old log lines, open ECHO, visit Quests, try a rewarded ad, then enter/replay
+a battle for interstitials. Wait at least **45 seconds** after `onNoAd`;
+the SDK is deliberately not hammered with repeated requests.
 
 ```powershell
 & "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" logcat -c
-& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" logcat -d -v time |
-  Select-String -Pattern "EchoAdDiag|EchoRewardedAds|EchoBattleAd|myTarget|MyTarget|my.target"
 ```
 
-Check that the logs contain `Diagnostic APK version=1.0.4-diag`.
-If SDK debug mode was not enabled, look for
-`Could not enable myTarget SDK verbose logging`; structured request
-traces should still work.
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" logcat -d -v time | Select-String "EchoBattleAd|EchoRewardedAds|EchoAdDiag"
+```
 
-`EchoAdDiag` records a local request number, ad format, slot ID,
-callback stage, elapsed time, SDK version, and any exposed SDK error code.
-The diagnostic build does not switch the account to test advertising and
-does not change the live advertising slot IDs.
+In `EchoAdDiag`, look for **Diagnostic APK version=1.0.5-diag** and the
+corresponding request / load / display / reward / dismiss stages. The SDK
+may not expose every error code; `onNoAd` still records its message.
 
-## Important
+### Key events
 
-- **Never publish the diagnostic APK to RuStore.** Publish only the
-  normal `release` variant, which automatically disables detailed logs.
-- Never share full, unfiltered Logcat dumps: SDK diagnostic output may
-  contain device metadata or unique identifiers. Redact before sharing.
-- No changes to local `android/gradle.properties` are required.
+- `Preloading interstitial slot=2097075` — requesting a future ad.
+- `Interstitial preloaded` — a ready ad is cached, but not displayed yet.
+- `Showing preloaded interstitial` — the player reached a battle-entry ad break.
+- `Interstitial unavailable` — network had no fill; cooldown before a new request.
+- `Interstitial entry resolved: cooldown` — battle proceeds instead of trapping a player.
+- `Interstitial skipped: account is ad-free` — paid entitlement was verified.
+- `Interstitial skipped: entitlement status unavailable` — status could not be verified;
+  ads are skipped to avoid accidentally showing them to a paid player.
+- `Preloading rewarded slot=2096987` — warming a reward placement from Quests.
+- `Rewarded preloaded` — cached, ready for the player's request.
+- `Rewarded displayed` — ad opened, but reward is **not** confirmed.
+- `Rewarded earned` / `onReward` — **only** this confirms a rewarded viewing.
+- `Rewarded dismissed ... reward=false` — the creative closed without confirmation;
+  the app must not grant coins based on dismissal.
+- `Rewarded preload retry in 45000ms` — no-fill cooldown.
+
+Cached ads expire after **30 minutes**. Each displayed ad is consumed once,
+and the next load starts after closing. A no-fill response retries after
+**45 seconds**, not once per tap. If an ad is still loading, interstitial
+entry waits at most **6.5 seconds**; a rewarded on-demand request waits at
+most **9 seconds**. Late loads remain cached for a later chance to show.
+These changes cannot guarantee fill from the ad network.
+
+## Privacy and release safety
+
+- Never publish `diagnostic` to RuStore; publish a verified normal
+  `release` only after on-device testing and a proper version bump.
+- Never post unfiltered Logcat dumps. Filter by ECHO tags and redact IDs.
+- Do not convert an interstitial or an incomplete creative into a rewarded
+  completion. The server issues game rewards only after the proper flow.
+- The promotional Cat Fighting fallback and third-party ad mediation
+  are **not part of this phase**.
