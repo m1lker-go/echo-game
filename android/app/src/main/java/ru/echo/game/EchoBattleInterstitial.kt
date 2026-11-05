@@ -4,8 +4,8 @@ import android.app.Activity
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
-import android.widget.Toast
 import com.my.target.ads.InterstitialAd
 import com.my.target.common.models.IAdLoadingError
 import java.security.MessageDigest
@@ -13,31 +13,40 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * Android interstitial 2097075. TEMPORARY TEST: every battle entry from #3
- * for both guests and signed-in users; reset each Moscow calendar day.
- * No fill, SDK errors and slow requests never prevent joining battle.
+ * Android interstitial (2097075): request on every battle entry from #3.
+ * A successfully loaded ad is cached for the next natural battle transition;
+ * a failed load is retried in the background after a bounded cooldown.
+ * Network no-fill never blocks entering an online match indefinitely.
  */
 internal class EchoBattleInterstitial(private val activity: Activity) {
     private companion object {
         const val TAG = "EchoBattleAd"
         const val SLOT_ID = 2097075
-        const val LOAD_TIMEOUT_MS = 6500L
+        const val ENTRY_WAIT_MS = 6500L
+        const val RETRY_DELAY_MS = 45000L
+        const val CACHE_TTL_MS = 30 * 60 * 1000L
         val MOSCOW = ZoneId.of("Europe/Moscow")
     }
 
     private val preferences =
         activity.getSharedPreferences("echo.android.battle-entries", Context.MODE_PRIVATE)
     private val handler = Handler(Looper.getMainLooper())
-    private var active: InterstitialAd? = null
-    private var timeout: Runnable? = null
-    private var epoch = 0
+    private var cached: InterstitialAd? = null
+    private var loading: InterstitialAd? = null
+    private var showing: InterstitialAd? = null
+    private var cachedAt = 0L
+    private var nextLoadAt = 0L
+    private var retryTask: Runnable? = null
+    private var entryTimeout: Runnable? = null
+    private var pendingEntry: (() -> Unit)? = null
+    private var mayRequestAds = false
     private var destroyed = false
 
     private fun shouldShow(token: String?): Boolean {
         val identity = if (token.isNullOrBlank()) {
             "guest"
         } else {
-            // Never persist the session bearer token itself.
+            // Never persist the bearer token itself.
             val digest = MessageDigest.getInstance("SHA-256").digest(token.toByteArray())
             "account-" + digest.take(8).joinToString("") { "%02x".format(it) }
         }
@@ -55,113 +64,193 @@ internal class EchoBattleInterstitial(private val activity: Activity) {
     }
 
     fun beforeBattle(token: String?, proceed: () -> Unit) {
-        if (destroyed || activity.isFinishing || activity.isDestroyed) return
+        if (destroyed || activity.isFinishing || activity.isDestroyed || pendingEntry != null) return
         if (!token.isNullOrBlank()) {
-            EchoAdFreeAccess.check(activity, token) { active ->
+            EchoAdFreeAccess.check(activity, token) { paid ->
                 if (destroyed || activity.isFinishing || activity.isDestroyed) return@check
-                if (active != false) {
-                    Log.i(TAG, if (active == true) "Interstitial skipped: account is ad-free"
+                if (paid != false) {
+                    // Unknown entitlement must not accidentally show ads to paid users.
+                    mayRequestAds = false
+                    discardCached()
+                    Log.i(TAG, if (paid == true) "Interstitial skipped: account is ad-free"
                         else "Interstitial skipped: entitlement status unavailable")
                     proceed()
-                } else requestBeforeBattle(token, proceed)
+                } else {
+                    mayRequestAds = true
+                    requestBeforeBattle(token, proceed)
+                }
             }
-            return
+        } else {
+            mayRequestAds = true
+            requestBeforeBattle(token, proceed)
         }
-        requestBeforeBattle(token, proceed)
     }
 
     private fun requestBeforeBattle(token: String?, proceed: () -> Unit) {
-        if (destroyed || activity.isFinishing || activity.isDestroyed) return
+        if (destroyed || activity.isFinishing || activity.isDestroyed || pendingEntry != null) return
         if (!shouldShow(token)) {
             proceed()
+            // Warm one ad in case the player uses Replay in this same arena.
+            preload()
             return
         }
-        if (active != null) return
-
-        val serial = ++epoch
-        val trace = EchoAdDiagnostics.Trace("interstitial", SLOT_ID)
-        var finished = false
-        fun finish() {
-            if (finished || serial != epoch) return
-            finished = true
-            timeout?.let { handler.removeCallbacks(it) }
-            timeout = null
-            active = null
-            trace.event("proceed_to_battle")
-            if (!destroyed && !activity.isFinishing && !activity.isDestroyed) proceed()
-        }
-
-        try {
-            Log.i(TAG, "Requesting interstitial slot=$SLOT_ID")
-            val ad = InterstitialAd(SLOT_ID, activity)
-            active = ad
-            ad.listener2 = object : InterstitialAd.InterstitialAdListener2() {
-                override fun onLoad(interstitialAd: InterstitialAd) {
-                    if (finished || serial != epoch || destroyed) return
-                    trace.event("onLoad")
-                    Log.i(TAG, "Interstitial loaded slot=$SLOT_ID")
-                    // Once visible, wait for real close; never start the game
-                    // underneath an active interstitial.
-                    timeout?.let { handler.removeCallbacks(it) }
-                    timeout = null
-                    try {
-                        trace.event("show_start")
-                        interstitialAd.show()
-                    } catch (error: Exception) {
-                        trace.failure("show", error)
-                        Log.w(TAG, "Cannot display interstitial", error)
-                        finish()
+        pendingEntry = proceed
+        if (tryShowCached()) return
+        // Never start repeated load() calls for rapid re-entry: an existing
+        // request or a no-fill cooldown is shared with the preloader.
+        preload()
+        if (pendingEntry != null) {
+            if (SystemClock.elapsedRealtime() < nextLoadAt) {
+                Log.i(TAG, "Interstitial in no-fill cooldown; entering battle")
+                finishEntry("cooldown")
+            } else {
+                val timer = Runnable {
+                    entryTimeout = null
+                    if (pendingEntry != null && showing == null) {
+                        Log.i(TAG, "Interstitial still loading; entering battle")
+                        finishEntry("entry_timeout")
+                        // Keep the in-flight load: a late onLoad can warm Replay.
                     }
                 }
-                override fun onDisplay(interstitialAd: InterstitialAd) {
+                entryTimeout = timer
+                handler.postDelayed(timer, ENTRY_WAIT_MS)
+            }
+        }
+    }
+
+    private fun finishEntry(reason: String) {
+        val proceed = pendingEntry ?: return
+        pendingEntry = null
+        entryTimeout?.let { handler.removeCallbacks(it) }
+        entryTimeout = null
+        Log.i(TAG, "Interstitial entry resolved: $reason")
+        if (!destroyed && !activity.isFinishing && !activity.isDestroyed) proceed()
+    }
+
+    private fun discardCached() {
+        cached?.let { runCatching { it.dismiss() } }
+        cached = null
+        cachedAt = 0L
+    }
+
+    private fun tryShowCached(): Boolean {
+        val ad = cached ?: return false
+        val age = SystemClock.elapsedRealtime() - cachedAt
+        if (age < 0 || age > CACHE_TTL_MS) {
+            Log.i(TAG, "Cached interstitial expired; reloading")
+            discardCached()
+            return false
+        }
+        cached = null
+        cachedAt = 0L
+        showing = ad
+        entryTimeout?.let { handler.removeCallbacks(it) }
+        entryTimeout = null
+        try {
+            Log.i(TAG, "Showing preloaded interstitial slot=$SLOT_ID")
+            ad.show()
+        } catch (error: Exception) {
+            Log.w(TAG, "Cannot display preloaded interstitial", error)
+            showing = null
+            finishEntry("show_exception")
+            scheduleFailureRetry()
+        }
+        return true
+    }
+
+    private fun scheduleFailureRetry() {
+        nextLoadAt = SystemClock.elapsedRealtime() + RETRY_DELAY_MS
+        preload()
+    }
+
+    private fun preload() {
+        if (destroyed || !mayRequestAds || activity.isFinishing || activity.isDestroyed ||
+            loading != null || cached != null || showing != null) return
+        val delay = nextLoadAt - SystemClock.elapsedRealtime()
+        if (delay > 0) {
+            if (retryTask == null) {
+                val task = Runnable { retryTask = null; preload() }
+                retryTask = task
+                handler.postDelayed(task, delay)
+                Log.i(TAG, "Interstitial preload retry in \${delay}ms")
+            }
+            return
+        }
+        retryTask?.let { handler.removeCallbacks(it) }
+        retryTask = null
+        val ad = InterstitialAd(SLOT_ID, activity)
+        loading = ad
+        val trace = EchoAdDiagnostics.Trace("interstitial", SLOT_ID)
+        ad.listener2 = object : InterstitialAd.InterstitialAdListener2() {
+            override fun onLoad(interstitialAd: InterstitialAd) {
+                if (loading !== ad || destroyed) return
+                loading = null
+                if (!mayRequestAds) { runCatching { ad.dismiss() }; return }
+                nextLoadAt = 0L
+                cached = ad
+                cachedAt = SystemClock.elapsedRealtime()
+                trace.event("onLoad")
+                Log.i(TAG, "Interstitial preloaded slot=$SLOT_ID")
+                if (pendingEntry != null) tryShowCached()
+            }
+            override fun onNoAd(error: IAdLoadingError, adFromSdk: InterstitialAd) {
+                if (loading !== ad || destroyed) return
+                loading = null
+                trace.noAd(error)
+                Log.i(TAG, "Interstitial unavailable slot=$SLOT_ID: " + error.message)
+                finishEntry("no_fill")
+                scheduleFailureRetry()
+            }
+            override fun onDisplay(interstitialAd: InterstitialAd) {
+                if (showing === ad) {
                     trace.event("onDisplay")
                     Log.i(TAG, "Interstitial displayed slot=$SLOT_ID")
                 }
-                override fun onNoAd(error: IAdLoadingError, ad: InterstitialAd) {
-                    trace.noAd(error)
-                    Log.i(TAG, "Interstitial unavailable slot=$SLOT_ID: " + error.message)
-                    // No-fill is expected at times: do not show repeated error toasts to players.
-                    finish()
-                }
-                override fun onFailedToShow(interstitialAd: InterstitialAd) {
-                    trace.event("onFailedToShow")
-                    Log.w(TAG, "Interstitial failed to show")
-                    Toast.makeText(activity, "Не удалось показать рекламу", Toast.LENGTH_SHORT).show()
-                    finish()
-                }
-                override fun onClose(ad: InterstitialAd) {
-                    trace.event("onClose")
-                    Log.i(TAG, "Interstitial closed slot=$SLOT_ID")
-                    finish()
-                }
             }
-            val timer = Runnable {
-                if (active === ad && !finished) {
-                    trace.event("timeout", "limitMs=$LOAD_TIMEOUT_MS")
-                    Log.i(TAG, "Interstitial loading timeout; entering battle")
-                    Toast.makeText(activity, "Реклама не загрузилась", Toast.LENGTH_SHORT).show()
-                    finish()
-                    runCatching { ad.dismiss() }
-                }
+            override fun onFailedToShow(interstitialAd: InterstitialAd) {
+                if (showing !== ad || destroyed) return
+                trace.event("onFailedToShow")
+                Log.w(TAG, "Interstitial failed to show slot=$SLOT_ID")
+                showing = null
+                finishEntry("failed_to_show")
+                scheduleFailureRetry()
             }
-            timeout = timer
-            handler.postDelayed(timer, LOAD_TIMEOUT_MS)
+            override fun onClose(interstitialAd: InterstitialAd) {
+                if (showing !== ad || destroyed) return
+                trace.event("onClose")
+                Log.i(TAG, "Interstitial closed slot=$SLOT_ID")
+                showing = null
+                finishEntry("closed")
+                // Every impression consumes its ad; load a fresh one for Replay.
+                preload()
+            }
+        }
+        try {
+            Log.i(TAG, "Preloading interstitial slot=$SLOT_ID")
             trace.event("load_start")
             ad.load()
             trace.event("load_returned")
         } catch (error: Exception) {
-            trace.failure("load_or_init", error)
-            Log.w(TAG, "Cannot initialize interstitial", error)
-            finish()
+            if (loading === ad) loading = null
+            trace.failure("load", error)
+            Log.w(TAG, "Interstitial preload failed", error)
+            finishEntry("load_exception")
+            scheduleFailureRetry()
         }
     }
 
     fun destroy() {
         destroyed = true
-        epoch++
-        timeout?.let { handler.removeCallbacks(it) }
-        timeout = null
-        active?.dismiss()
-        active = null
+        mayRequestAds = false
+        entryTimeout?.let { handler.removeCallbacks(it) }
+        entryTimeout = null
+        retryTask?.let { handler.removeCallbacks(it) }
+        retryTask = null
+        pendingEntry = null
+        discardCached()
+        loading?.let { runCatching { it.dismiss() } }
+        loading = null
+        showing?.let { runCatching { it.dismiss() } }
+        showing = null
     }
 }
