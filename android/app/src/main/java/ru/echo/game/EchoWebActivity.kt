@@ -768,19 +768,10 @@ class EchoWebActivity : ComponentActivity() {
         if (page == Page.QUESTS) {
             // Only the Quests WebView may access the native rewarded SDK.
             // Never expose this JS interface in checkout or other activities.
-            rewardedAds = EchoRewardedAds(this, web).also {
+            rewardedAds = EchoRewardedAds.get(applicationContext).also {
                 web.addJavascriptInterface(it, "EchoAndroidAds")
-            }
-            // Start warming the rewarded placement before the player taps Watch.
-            // Never request ads for a verified ad-free account; on uncertainty
-            // the existing click path can still attempt a normal SDK load.
-            auth.token()?.let { signedInToken ->
-                EchoAdFreeAccess.check(this@EchoWebActivity, signedInToken) { paid ->
-                    if (!isFinishing && !isDestroyed && auth.token() == signedInToken &&
-                        paid == false) {
-                        rewardedAds?.preload()
-                    }
-                }
+                // Reuse the ready ad loaded in MainActivity; no second SDK load.
+                it.attachQuests(this@EchoWebActivity, web)
             }
         }
         // Install before the FIRST loadUrl(). ECHO's menu.js and game.js read
@@ -947,7 +938,7 @@ class EchoWebActivity : ComponentActivity() {
         hideConnectionFailure()
         battleInterstitial?.destroy()
         battleInterstitial = null
-        rewardedAds?.destroy()
+        rewardedAds?.detachQuests(this)
         rewardedAds = null
         closeRobokassaPayment()
         dismissArenaExitDialog()
