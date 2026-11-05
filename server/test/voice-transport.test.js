@@ -11,7 +11,7 @@ const vendor=fs.readFileSync(path.join(root,'scripts/install-client-deps.sh'),'u
 
 test('voice transport is linked after UI, lazily loads pinned SDK',()=>{
   assert.ok(html.indexOf('voice-ui.js') < html.indexOf('voice-transport.js'));
-  assert.ok(html.includes('voice-transport.js?v=echo-livekit-voice-6'));
+  assert.ok(html.includes('voice-transport.js?v=echo-livekit-voice-7'));
   assert.ok(src.includes("if (!enabled || !socket?.connected || !inGame()) return;"));
   assert.ok(src.includes("echo:voice:join"));
   assert.ok(src.includes("scheduleRetry()"));
@@ -31,8 +31,8 @@ test('voice transport is linked after UI, lazily loads pinned SDK',()=>{
   assert.ok(vendor.includes("livekit-client-2.23.0.min.js"));
 });
 
-test('voice subscription follows the 500-800 range and server player snapshots',()=>{
-  assert.ok(src.includes('const FULL = 500, MAX = 800;'));
+test('voice subscription follows the 1200-1500 range and server player snapshots',()=>{
+  assert.ok(src.includes('const FULL = 1200, MAX = 1500;'));
   assert.ok(src.includes('const transmittingNearby = new Set();'));
   assert.ok(src.includes('microphonePublications.some(publication => !publication.isMuted)'));
   assert.ok(src.includes('for (const id of transmittingNearby) if (!talking.has(id)) speaker(id,true)'));
