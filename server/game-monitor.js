@@ -1,7 +1,6 @@
 'use strict';
 // Private, best-effort Telegram notices for the game owner.
 // Do not use this for client-side clicks, test purchases or ad-free claims.
-const { pool } = require('./db');
 
 const safe = value => String(value ?? '').replace(/[\r\n\t<>\x00-\x1f]/g, ' ').slice(0, 160);
 
@@ -12,6 +11,7 @@ function notifyGameMonitor(kind, { accountId, product, amount, currency, context
 
   void (async () => {
     try {
+      const { pool } = require("./db");
       const result = await pool.query('SELECT nickname FROM echo_accounts WHERE id = $1', [accountId]);
       const name = safe(result.rows[0]?.nickname || 'Игрок');
       const player = `Игрок: ${name}\nID: ${safe(accountId)}`;
