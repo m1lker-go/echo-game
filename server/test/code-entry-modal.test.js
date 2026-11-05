@@ -110,7 +110,7 @@ test('Cat Fighting authentication mismatch and upstream failures display actiona
   for (const [response, message] of [
     [{ok:false,status:503,json:async()=>({error:'PARTNER_AUTH_FAILED'})}, /ошибка проверки серверного ключа/],
     [{ok:false,status:502,json:async()=>({error:'PARTNER_UNAVAILABLE'})}, /Cat Fighting временно недоступен/],
-    [{ok:false,status:502,json:async()=>{throw Error('Unexpected HTML response')}}, /ошибка сервера \\(502\\)/],
+    [{ok:false,status:502,json:async()=>{throw Error('Unexpected HTML response')}}, /ошибка сервера \(502\)/],
   ]) {
     const fixture=loadFixture(response);
     const modal=fixture.open();
