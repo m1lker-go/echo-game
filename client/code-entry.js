@@ -44,7 +44,15 @@
               headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
               body:JSON.stringify({code}),cache:'no-store'
             });
-            const data=await response.json();
+            // A reverse-proxy outage may return HTML instead of JSON.
+            // Keep the HTTP status visible instead of masking it as a parsing failure.
+            const data=await response.json().catch(()=>null);
+            if(!data || typeof data!=='object') {
+              window.ECHOToast?.show(response.ok
+                ? 'Некорректный ответ сервера ECHO. Попробуй позже.'
+                : 'Не удалось проверить код: ошибка сервера ('+response.status+').');
+              return false;
+            }
             if(!response.ok||!data.success) {
               const messages={400:'code_invalid',404:'code_not_found',409:'code_used',410:'code_expired',429:'code_limited',503:'code_not_configured'};
               const fallback={400:'Неверный код',404:'Код не найден',409:'Код уже использован',410:'Срок действия кода истёк',429:'Слишком много попыток',503:'Связь игр пока не настроена'};
@@ -60,7 +68,17 @@
                 PROMO_NOT_FOUND:t('code_not_found','Код не найден'),
                 PROMO_INVALID:t('code_invalid','Неверный код')
               };
-              window.ECHOToast?.show(promos[data.error]||referral[data.error]||t(status,fallback[response.status]||'Не удалось проверить код'));
+              const partner={
+                PARTNER_AUTH_FAILED:'Связь с Cat Fighting нарушена: ошибка проверки серверного ключа.',
+                PARTNER_INVALID_RESPONSE:'Cat Fighting вернул некорректный ответ.',
+                PARTNER_UNAVAILABLE:'Сервер Cat Fighting временно недоступен.',
+                'Partner server unavailable':'Сервер Cat Fighting временно недоступен.',
+                Forbidden:'Ошибка авторизации между ECHO и Cat Fighting.',
+                'Code expired':'Срок действия кода истёк',
+                'Code already used':'Этот код уже использован',
+                'Code not found':'Код не найден'
+              };
+              window.ECHOToast?.show(partner[data.error]||promos[data.error]||referral[data.error]||t(status,fallback[response.status]||'Не удалось проверить код (HTTP '+response.status+')'));
               return false;
             }
             if(data.type==='referral'){
