@@ -1,5 +1,6 @@
 'use strict';
 const {recordPackOpened}=require('./pack-quest-progress');
+const {notifyGameMonitor}=require('./game-monitor');
 const crypto = require('node:crypto');
 
 const PREMIUM_PRICE = 40;
@@ -336,6 +337,10 @@ function createVKPayments({ pool, sessionUser, rollSecurePack, adFree=null, crea
       // double-count this premium opening or grant duplicate fragments.
       if(!adFreeOrder)await recordPackOpened(client,accountId,'premium');
       await client.query('COMMIT');
+      if(!isTest)notifyGameMonitor('purchase',{
+        accountId,product:adFreeOrder?'Без рекламы навсегда':'Элитный пак',
+        amount:adFreeOrder?AD_FREE_VOTES:PREMIUM_PRICE,currency:'голосов VK'
+      });
       trace(type, 'reward_issued');
       console.log('[echo vk payment] fulfilled', { isTest, hasIntent: Boolean(intentId) });
       return res.json({ response: {
