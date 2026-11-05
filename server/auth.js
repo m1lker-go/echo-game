@@ -3,6 +3,7 @@ const crypto = require('node:crypto');
 const express = require('express');
 const router = express.Router();
 const { pool } = require('./db');
+const { notifyGameMonitor } = require('./game-monitor');
 const { validateNickname } = require('./nickname-policy');
 const { verifyVKMiniAppLaunch } = require('./vk-launch');
 const APP_ID = String(process.env.VK_ID_APP_ID || '');
@@ -56,6 +57,7 @@ async function createVKAccountSession(uid) {
       ['vkid', String(uid)]
     );
     let account = existing.rows[0];
+    let createdNewAccount = false;
     if (!account) {
       const id = crypto.randomUUID();
       const nickname = 'Echo_' + id.replace(/-/g,'').slice(0,10);
@@ -63,6 +65,7 @@ async function createVKAccountSession(uid) {
         'INSERT INTO echo_accounts(id,provider,provider_id,nickname) VALUES($1,$2,$3,$4) ON CONFLICT(provider,provider_id) DO NOTHING RETURNING id,nickname',
         [id, 'vkid', String(uid), nickname]
       );
+      createdNewAccount = created.rows.length > 0;
       // Simultaneous app opens must resolve to one existing VK account.
       account = created.rows[0] || (await client.query(
         'SELECT id,nickname FROM echo_accounts WHERE provider=$1 AND provider_id=$2',
@@ -98,6 +101,7 @@ async function createVKAccountSession(uid) {
       [hash(session), account.id]
     );
     await client.query('COMMIT');
+    if (createdNewAccount) notifyGameMonitor('registration', { accountId: account.id });
     return { token: session, nickname: account.nickname, accountId: account.id };
   } catch (error) {
     await client.query('ROLLBACK');
