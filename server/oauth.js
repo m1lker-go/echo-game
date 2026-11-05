@@ -5,6 +5,7 @@
 const express = require('express');
 const crypto = require('node:crypto');
 const {pool} = require('./db');
+const {notifyGameMonitor} = require('./game-monitor');
 
 const ORIGIN = 'https://cat-fight.ru';
 const BASE = ORIGIN + '/echo/api/auth/oauth';
@@ -117,6 +118,7 @@ async function resolveIdentity(provider, providerId, linkId, database=pool) {
       'SELECT account_id FROM echo_auth_identities WHERE provider=$1 AND provider_id=$2',
       [provider,providerId]);
     let accountId=existing.rows[0]?.account_id;
+    let createdNewAccount=false;
     if (accountId && linkId && String(accountId)!==String(linkId)) {
       const error=new Error('Provider already belongs to another account');
       error.status=409;throw error;
@@ -141,8 +143,10 @@ async function resolveIdentity(provider, providerId, linkId, database=pool) {
       await client.query('INSERT INTO echo_auth_identities(account_id,provider,provider_id) VALUES($1,$2,$3)',
         [id,provider,providerId]);
       accountId=id;
+      createdNewAccount=true;
     }
     await client.query('COMMIT');
+    if(createdNewAccount)notifyGameMonitor('registration',{accountId});
     return String(accountId);
   } catch(error){
     await client.query('ROLLBACK').catch(()=>{});
