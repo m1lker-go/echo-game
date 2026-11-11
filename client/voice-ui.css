@@ -96,8 +96,37 @@
   box-shadow: inset 0 0 18px rgba(96,206,255,.12), 0 0 15px rgba(68,176,226,.17);
 }
 #game #echo-voice-mic.is-transmitting {
-  border-color: #88ddff;
+  border: 2px solid #88ddff;
+  background: rgba(44,162,216,.3);
   box-shadow: 0 0 18px rgba(89,205,249,.5), inset 0 0 20px rgba(86,192,237,.25);
+}
+#game #echo-voice-mic.is-transmitting svg,
+#game #echo-voice-mic.is-transmitting small {
+  color: #a9edff;
+  filter: drop-shadow(0 0 6px rgba(88,216,255,.6));
+}
+/* Small live indicator appears only while the microphone is actually publishing. */
+#game #echo-voice-mic.is-transmitting::after {
+  content: '';
+  position: absolute;
+  top: 12%;
+  right: 12%;
+  width: 10%;
+  height: 10%;
+  border-radius: 50%;
+  background: #a6eeff;
+  border: 1px solid #e0f9ff;
+  box-shadow: 0 0 0 3px rgba(78,202,250,.25), 0 0 9px rgba(102,228,255,.85);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  #game #echo-voice-mic.is-transmitting::after {
+    animation: echo-mic-live 1.2s ease-in-out infinite;
+  }
+}
+@keyframes echo-mic-live {
+  0%, 100% { opacity: .8; }
+  50% { opacity: 1; box-shadow: 0 0 0 5px rgba(78,202,250,.16), 0 0 13px rgba(102,228,255,.95); }
 }
 #game #echo-voice-mic:focus-visible,
 #game .echo-voice-mute:focus-visible { outline: 2px solid #a1e1ff; outline-offset: 2px; }
