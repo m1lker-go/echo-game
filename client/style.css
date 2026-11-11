@@ -56,11 +56,10 @@ body { color: var(--white); user-select: none; -webkit-user-select: none; -webki
 /* PvP defeat */
 .defeat-screen { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; padding: 24px; background: rgba(0,0,0,.82); backdrop-filter: blur(5px); }
 .defeat-screen[hidden] { display: none !important; }
-.defeat-card { width: min(390px, 100%); display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
-.defeat-title { font-size: clamp(28px, 6vw, 42px); font-weight: 650; letter-spacing: .12em; text-shadow: 0 0 24px rgba(235,246,255,.16); }
-.defeat-subtitle { margin-bottom: 20px; color: #737a86; font-size: 10px; letter-spacing: .1em; }
-.defeat-buttons { width: 100%; display: flex; flex-direction: column; gap: 12px; }
-.defeat-buttons .menu-button { width: 100%; }
+.defeat-card { width: min(430px, 100%); display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+.defeat-title { font-size: clamp(30px, 6.3vw, 46px); font-weight: 650; letter-spacing: .1em; text-shadow: 0 0 24px rgba(235,246,255,.16); }
+.defeat-buttons { width: 100%; display: flex; flex-direction: column; gap: 14px; }
+.defeat-buttons .menu-button { width: 100%; height: 66px; font-size: 18px; font-weight: 600; }
 
 @media (pointer: fine) and (min-width: 721px) { .mobile-controls { justify-content: flex-end; padding-right: 24px; } .joystick { display: none; } }
 @media (pointer: coarse), (max-width: 720px) { .controls-hint { display: none; } .stats { top: 70px; } }

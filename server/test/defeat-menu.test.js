@@ -7,6 +7,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../../client/game.js'), 'utf8');
+const markup = fs.readFileSync(path.join(__dirname, '../../client/index.html'), 'utf8');
+const styles = fs.readFileSync(path.join(__dirname, '../../client/style.css'), 'utf8');
 
 // Evaluate the actual return-to-menu handler in isolation: the rest of game.js
 // needs WebGL, a server connection, and a browser to initialize.
@@ -64,4 +66,11 @@ test('regular game exit still restores menu with a closed socket', () => {
   assert.equal(state.menuHidden, false);
   assert.equal(state.inBattle, false);
   assert.equal(state.released, 1);
+});
+
+test('defeat screen removes redundant energy subtitle and enlarges title and actions',()=>{
+  assert.doesNotMatch(markup,/class="defeat-subtitle"/);
+  assert.match(markup,/style\.css\?v=echo-defeat-ui-1/);
+  assert.match(styles,/\.defeat-title\s*\{[^}]*font-size:\s*clamp\(30px,\s*6\.3vw,\s*46px\)/);
+  assert.match(styles,/\.defeat-buttons \.menu-button\s*\{[^}]*height:\s*66px;[^}]*font-size:\s*18px;/);
 });

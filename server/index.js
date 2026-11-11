@@ -1056,9 +1056,12 @@ function finishFight(fight) {
   const loserState = players.get(loser.id);
   if (!winnerState || !loserState) return;
   const winnerProfileId = dailyActivityProfileIds.get(winnerState.id);
-  if (winnerProfileId && !loserState.isBot) addDailyActivity(winnerProfileId, 'pvp_wins', 1).catch((error) => console.error('[daily-activity] PvP write failed:', error.message));
+  // A confirmed win over an AI bot is still PvP progress for the human winner.
+  // Bots have no activity profile or authenticated socket, so they cannot write
+  // progress to a human account when they win.
+  if (winnerProfileId) addDailyActivity(winnerProfileId, 'pvp_wins', 1).catch((error) => console.error('[daily-activity] PvP write failed:', error.message));
   const winnerAccountId = io.sockets.sockets.get(winnerState.id)?.data.verifiedAccountId;
-  if (winnerAccountId && !loserState.isBot) addDailyActivity(winnerAccountId, 'pvp_wins', 1).catch(error => console.error('[daily-quests] PvP write failed:', error.message));
+  if (winnerAccountId) addDailyActivity(winnerAccountId, 'pvp_wins', 1).catch(error => console.error('[daily-quests] PvP write failed:', error.message));
 
   const winnerEnergyBefore = winnerState.energy;
   const loserEnergy = loserState.energy;

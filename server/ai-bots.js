@@ -28,6 +28,8 @@ function createAiBots({
   const keyOf = ({roundId,roomId}) => String(roundId) + ':' + String(roomId);
   const inRoom = (player, room) => player.roundId === room.roundId && player.roomId === room.roomId;
   const safePoint = p => isValidPosition(p) && !isWater(p);
+  // Water is a last-resort route only; tree collisions and world bounds remain solid.
+  const traversablePoint = p => isValidPosition(p);
   const capPosition = n => Math.max(-halfSize + 65, Math.min(halfSize - 65, n));
 
   function spawnBot(room, meta, time) {
@@ -208,7 +210,7 @@ function createAiBots({
     // Stable left/right preference stops the bot from alternating around
     // a tree on every tick. Probe *ahead* before committing to a heading.
     const angles=[0,side*.42,side*.85,side*1.32,-side*.42,-side*.85,-side*1.32,Math.PI];
-    let chosen=null;
+    let chosen=null,waterFallback=false;
     for(const offset of angles){
       const heading=direction+offset;
       const ax=Math.cos(heading),ay=Math.sin(heading);
@@ -217,6 +219,20 @@ function createAiBots({
       if(!safePoint({x:bot.x+ax*speed*dt,y:bot.y+ay*speed*dt}))continue;
       chosen={x:ax,y:ay};
       break;
+    }
+    if(!chosen){
+      // No dry heading is available. Let the bot cross a water hazard rather
+      // than freeze forever, while still respecting trees and map boundaries.
+      for(const offset of angles){
+        const heading=direction+offset;
+        const ax=Math.cos(heading),ay=Math.sin(heading);
+        const look=Math.min(82,Math.max(48,speed*.38),distance);
+        if(!traversablePoint({x:bot.x+ax*look,y:bot.y+ay*look}))continue;
+        if(!traversablePoint({x:bot.x+ax*speed*dt,y:bot.y+ay*speed*dt}))continue;
+        chosen={x:ax,y:ay};
+        waterFallback=true;
+        break;
+      }
     }
     if(!chosen){
       meta.avoidSide*=-1;
@@ -229,7 +245,7 @@ function createAiBots({
     const nextVx=bot.vx+(chosen.x*speed-bot.vx)*blend;
     const nextVy=bot.vy+(chosen.y*speed-bot.vy)*blend;
     const next={x:bot.x+nextVx*dt,y:bot.y+nextVy*dt};
-    if(!safePoint(next)){
+    if(!traversablePoint(next)||(!waterFallback&&isWater(next))){
       // Approach obstacles slowly instead of snapping to another direction.
       meta.avoidSide*=-1;
       return slowDown(bot,dt);

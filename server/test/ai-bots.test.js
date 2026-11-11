@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {createAiBots,BOT_COUNT,TICK_MS}=require('../ai-bots');
 
-function harness({random=()=>0.9,halfSize=2100,collectFood=()=>0,valid=()=>true}={}){
+function harness({random=()=>0.9,halfSize=2100,collectFood=()=>0,valid=()=>true,isWater=()=>false}={}){
   const players=new Map();
   const food=new Map([[1,{id:1,x:0,y:0,active:true}]]);
   let clock=1000000;
@@ -23,7 +23,7 @@ function harness({random=()=>0.9,halfSize=2100,collectFood=()=>0,valid=()=>true}
     },
     getFood:()=>food,
     isValidPosition:valid,
-    isWater:()=>false,
+    isWater,
     collectFood,
     checkForFights:()=>{calls.fights++;},
     broadcastPlayers:()=>{calls.broadcast++;},
@@ -81,6 +81,20 @@ test('bots wander with server-owned velocity, take breaks and obey safe world po
   assert.ok(after.every(bot=>Math.abs(bot.x)<=2100&&Math.abs(bot.y)<=2100));
   assert.ok(h.calls.fights>0,'bots participate in the existing server PvP scan');
   assert.ok(h.calls.broadcast<320*5+20,'bot broadcasts are batched by room');
+});
+
+test('bots cross water only as a last resort when every dry heading is blocked',()=>{
+  // A bot spawned on a tiny dry island must be able to cross the surrounding lake.
+  const water=point=>{const distance=Math.hypot(point.x,point.y);return distance>1&&distance<500;};
+  const h=harness({random:()=>0.82,isWater:water});
+  const human=h.addHuman('human');
+  h.ai.ensureForRoom(human);
+  const bot=h.bots()[0];
+  bot.x=0;bot.y=0;bot.energy=25;
+  human.x=350;human.y=0;human.energy=6;
+  h.forward(TICK_MS);
+  assert.ok(bot.x>0,'bot should move toward the target instead of freezing');
+  assert.ok(water(bot),'bot should enter water only after all dry headings fail');
 });
 
 test('bot food collection is real but bounded, never writes daily activity',()=>{
@@ -190,8 +204,19 @@ test('game server integrates bots with PvP while protecting real score and accou
   assert.match(source,/aiBots\.removeIfEmpty\(current\.roundId,current\.roomId\)/);
   assert.match(source,/aiBots\.reset\(\)/);
   assert.match(source,/!p\.isBot && p\.roomId === roomId/);
-  assert.match(source,/winnerProfileId && !loserState\.isBot/);
-  assert.match(source,/winnerAccountId && !loserState\.isBot/);
+  assert.match(source,/if \(winnerProfileId\) addDailyActivity\(winnerProfileId, 'pvp_wins', 1\)/);
+  assert.match(source,/if \(winnerAccountId\) addDailyActivity\(winnerAccountId, 'pvp_wins', 1\)/);
+});
+
+test('human PvP quest progress counts wins over bots, while bot winners have no human progress identity',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'../index.js'),'utf8');
+  const start=source.indexOf('function finishFight(');
+  const finish=source.slice(start,source.indexOf('\nfunction startFight',start));
+  assert.match(finish,/dailyActivityProfileIds\.get\(winnerState\.id\)/);
+  assert.match(finish,/io\.sockets\.sockets\.get\(winnerState\.id\)\?\.data\.verifiedAccountId/);
+  assert.match(finish,/if \(winnerProfileId\) addDailyActivity\(winnerProfileId, 'pvp_wins', 1\)/);
+  assert.match(finish,/if \(winnerAccountId\) addDailyActivity\(winnerAccountId, 'pvp_wins', 1\)/);
+  assert.doesNotMatch(finish,/loserState\.isBot/);
 });
 
 test('nearby weaker human is pursued even when other bots are nearby',()=>{
