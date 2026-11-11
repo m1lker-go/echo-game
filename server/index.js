@@ -16,6 +16,7 @@ const echoOAuth = require('./oauth');
 const { createAccountSessionRegistry } = require('./account-session-registry');
 const { roomIdentityFor, uniqueParticipants } = require('./player-identity');
 const { createVoiceService } = require('./voice-service');
+const {createAiBots,TICK_MS}=require('./ai-bots');
 
 const app = express();
 const server = http.createServer(app);
@@ -930,7 +931,7 @@ function scoreRoomTick() {
     const key = `${roundId}:${roomId}`;
     if (!roundScores.has(key)) roundScores.set(key, new Map());
     const scores = roundScores.get(key);
-    const active = [...players.values()].filter(p => p.roomId === roomId && p.roundId === roundId && !p.defeated);
+    const active = [...players.values()].filter(p => !p.isBot && p.roomId === roomId && p.roundId === roundId && !p.defeated);
     active.sort((a,b) => b.energy-a.energy || a.id.localeCompare(b.id));
     // One device-independent ranking row and score per verified account.
     const identityOf=player=>io.sockets.sockets.get(player.id)?.data.roomIdentity||player.id;
@@ -977,6 +978,8 @@ function advanceRoomRound() {
       if(results.length)socket.emit('echo:roundResults',results.map(item=>({...item,authenticated: Boolean(socket.data.verifiedAccountId)})));
     }
   });
+  // Synthetic opponents are never re-seated as authenticated socket players.
+  aiBots.reset();
   roundScores.clear();
   activeFights.clear();
   roomFood.clear();
@@ -1018,7 +1021,9 @@ function advanceRoomRound() {
     socket.emit('echo:spawn', {x:player.x,y:player.y,shieldUntil:player.shieldUntil});
     socket.emit('echo:deathFlowers',{roundId:player.roundId,flowers:[]});
   }
+  for (const player of players.values()) if (!player.isBot) aiBots.ensureForRoom(player);
   for (const player of players.values()) {
+    if(player.isBot) continue;
     broadcastPlayers(player);
     broadcastFood(player);
   }
@@ -1049,9 +1054,9 @@ function finishFight(fight) {
   const loserState = players.get(loser.id);
   if (!winnerState || !loserState) return;
   const winnerProfileId = dailyActivityProfileIds.get(winnerState.id);
-  if (winnerProfileId) addDailyActivity(winnerProfileId, 'pvp_wins', 1).catch((error) => console.error('[daily-activity] PvP write failed:', error.message));
+  if (winnerProfileId && !loserState.isBot) addDailyActivity(winnerProfileId, 'pvp_wins', 1).catch((error) => console.error('[daily-activity] PvP write failed:', error.message));
   const winnerAccountId = io.sockets.sockets.get(winnerState.id)?.data.verifiedAccountId;
-  if (winnerAccountId) addDailyActivity(winnerAccountId, 'pvp_wins', 1).catch(error => console.error('[daily-quests] PvP write failed:', error.message));
+  if (winnerAccountId && !loserState.isBot) addDailyActivity(winnerAccountId, 'pvp_wins', 1).catch(error => console.error('[daily-quests] PvP write failed:', error.message));
 
   const winnerEnergyBefore = winnerState.energy;
   const loserEnergy = loserState.energy;
@@ -1092,6 +1097,7 @@ function finishFight(fight) {
 
   void voiceService.remove(loserState);
   players.delete(loserState.id);
+  aiBots.removeIfEmpty(loserState.roundId,loserState.roomId);
   broadcastPlayers(winnerState);
 }
 
@@ -1137,6 +1143,22 @@ function checkForFights(source) {
     if (startFight(source, opponent)) return;
   }
 }
+
+// Bots run only in rooms with living real players. No sockets, DB accounts,
+// rewards, or AI activity when a room is empty.
+const aiBots=createAiBots({
+  players,
+  getFood:ensureRoomFood,
+  spawn:findOpenPlayerSpawn,
+  isValidPosition:isValidPlayerPosition,
+  isWater:isInWater,
+  collectFood,
+  checkForFights,
+  broadcastPlayers,
+  broadcastFood,
+  halfSize:WORLD_HALF_SIZE
+});
+setInterval(()=>aiBots.tick(),TICK_MS).unref();
 
 // Round transitions happen before broadcasting the fresh server clock.
 setInterval(() => {
@@ -1307,6 +1329,7 @@ io.on('connection', (socket) => {
     defeated: false,
   });
   socket.emit('echo:spawn',{x:spawn.x,y:spawn.y,shieldUntil:players.get(socket.id).shieldUntil});
+  aiBots.ensureForRoom(players.get(socket.id));
   broadcastPlayers(players.get(socket.id));
   broadcastFood(players.get(socket.id));
   socket.emit('echo:world', createWorldSnapshot());
@@ -1452,6 +1475,7 @@ io.on('connection', (socket) => {
       if (current.fightId) activeFights.delete(current.fightId);
     }
     players.delete(socket.id);
+    if(current)aiBots.removeIfEmpty(current.roundId,current.roomId);
     roomManager.markAbsent(identity);
     console.log(`[socket] disconnected: ${socket.id} (${reason})`);
     broadcastPlayers(current);
