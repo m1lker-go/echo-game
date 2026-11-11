@@ -162,8 +162,9 @@ function createAiBots({
       choosePlan(room,meta,bot,time);
     }
     if(meta.mode==='pause'){
+      const stopped=Math.hypot(bot.vx,bot.vy)>0.1;
       bot.vx=0;bot.vy=0;
-      return false;
+      return stopped;
     }
     if(meta.mode==='chase'){
       const target=players.get(meta.targetId);
@@ -172,13 +173,17 @@ function createAiBots({
       }else meta.target={x:target.x,y:target.y};
     }
     const target=meta.target;
-    if(!target || meta.mode==='pause') {bot.vx=0;bot.vy=0;return false;}
+    if(!target || meta.mode==='pause') {
+      const stopped=Math.hypot(bot.vx,bot.vy)>0.1;
+      bot.vx=0;bot.vy=0;return stopped;
+    }
     const dx=target.x-bot.x,dy=target.y-bot.y;
     const dist=Math.hypot(dx,dy);
     if(dist<34){
       meta.nextDecision=0;
+      const stopped=Math.hypot(bot.vx,bot.vy)>0.1;
       bot.vx=0;bot.vy=0;
-      return false;
+      return stopped;
     }
     const speed=meta.speed*(bot.energy>15?0.94:1);
     const desiredX=dx/dist*speed,desiredY=dy/dist*speed;
@@ -199,9 +204,10 @@ function createAiBots({
       break;
     }
     if(!moved){
+      const stopped=Math.hypot(bot.vx,bot.vy)>0.1;
       bot.vx=0;bot.vy=0;
       meta.nextDecision=0; // pick another direction on the next tick
-      return false;
+      return stopped;
     }
     if(bot.energy<meta.energyCap){
       const collected=collectFood(bot);
