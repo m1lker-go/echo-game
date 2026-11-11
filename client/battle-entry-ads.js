@@ -1,7 +1,7 @@
 // ECHO interstitial at natural navigation into battle (VK Mini Apps).
 // TEMPORARY AD TEST: request on every battle entry starting with #3 for all users.
 // Standalone Android uses the same schedule but its native myTarget SDK.
-// Block 2097075 belongs to Android; VK Bridge uses ad_format only.
+// Block 2097075 belongs to Android; VK Bridge uses ad_format only..
 const STORAGE_PREFIX='echo.battleEntries.v1.';
 const VK_AD_FORMAT='interstitial';
 const AD_TIMEOUT_MS=6000;
