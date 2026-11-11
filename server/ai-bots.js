@@ -9,6 +9,11 @@ const BOT_SKINS = Object.freeze([
 ]);
 const BOT_COUNT = BOT_NAMES.length;
 const TICK_MS = 250;
+const ENERGY_REJOIN_THRESHOLD = 200;
+const EXHAUSTED_EXIT_MIN_MS = 6500;
+const EXHAUSTED_EXIT_MAX_MS = 14500;
+const NORMAL_RESPAWN_MIN_MS = 4500;
+const NORMAL_RESPAWN_MAX_MS = 9500;
 
 function createAiBots({
   players, getFood, spawn, isValidPosition, isWater = () => false,
@@ -38,11 +43,14 @@ function createAiBots({
     };
     players.set(meta.id,bot);
     meta.respawnAt = null;
+    meta.retireAt = null;
     meta.nextDecision = time + rand(400,2200);
     meta.mode = 'pause';
     meta.target = null;
     meta.speed = rand(110,157);
-    meta.energyCap = Math.floor(rand(12,22));
+    // Roam and collect modest energy; rare high-energy PvP wins will trigger
+    // a delayed leave/rejoin instead of letting bots dominate indefinitely.
+    meta.energyCap = Math.floor(rand(35,85));
     meta.pauseUntil = time + rand(300,1200);
     return bot;
   }
@@ -235,9 +243,22 @@ function createAiBots({
       for(const meta of room.slots){
         let bot=players.get(meta.id);
         if(!bot){
-          if(meta.respawnAt===null)meta.respawnAt=time+rand(4500,9500);
+          // A bot defeated in normal PvP leaves the player map. Its slot
+          // returns after a short break, without a socket, account or ad.
+          if(meta.respawnAt===null)meta.respawnAt=time+rand(NORMAL_RESPAWN_MIN_MS,NORMAL_RESPAWN_MAX_MS);
           if(time>=meta.respawnAt){bot=spawnBot(room,meta,time);changed=true;}
           else continue;
+        }
+        if(bot.energy>ENERGY_REJOIN_THRESHOLD && meta.retireAt===null) {
+          meta.retireAt=time+rand(EXHAUSTED_EXIT_MIN_MS,EXHAUSTED_EXIT_MAX_MS);
+        }
+        // Never disappear in the middle of the authoritative PvP resolution.
+        if(meta.retireAt!==null && time>=meta.retireAt && !bot.fightingWith){
+          players.delete(bot.id);
+          meta.retireAt=null;
+          meta.respawnAt=time+rand(NORMAL_RESPAWN_MIN_MS,NORMAL_RESPAWN_MAX_MS);
+          changed=true;
+          continue;
         }
         const action=step(room,meta,bot,time,dt);
         if(action)changed=true;
