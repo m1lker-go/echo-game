@@ -88,7 +88,7 @@ test('bot food collection is real but bounded, never writes daily activity',()=>
   h.ai.ensureForRoom(h.addHuman('human'));
   for(let i=0;i<200;i++)h.forward(TICK_MS);
   assert.ok(collected>0);
-  assert.ok(h.bots().every(bot=>bot.energy<=22),'bot energy is capped to avoid endless farming');
+  assert.ok(h.bots().every(bot=>bot.energy<=85),'bot food farming remains modest');
   assert.ok(h.calls.food>0,'real food-consumption events are broadcast');
 });
 
@@ -103,6 +103,51 @@ test('a defeated bot respawns after a delay without creating more than five slot
   assert.equal(h.bots().length,5);
   assert.ok(h.players.has(id));
   assert.equal(new Set(h.bots().map(p=>p.id)).size,5);
+});
+
+
+test('bot with more than 200 energy stays briefly, then leaves and rejoins fresh',()=>{
+  const h=harness();
+  h.ai.ensureForRoom(h.addHuman('human'));
+  const bot=h.bots()[0],id=bot.id;
+  bot.energy=201;
+  const initialSpawns=h.calls.spawns;
+  h.forward(TICK_MS);
+  assert.ok(h.players.has(id),'bot does not disappear instantly at 201 energy');
+  h.forward(15000);
+  assert.equal(h.players.has(id),false,'high-energy bot leaves after a delay');
+  assert.equal(h.bots().length,4,'only this bot temporarily leaves');
+  h.forward(1000);
+  assert.equal(h.players.has(id),false,'bot does not instantly re-enter');
+  h.forward(15000);
+  assert.ok(h.players.has(id),'bot returns to the same occupied room');
+  assert.ok(h.players.get(id).energy<10,'bot returns with starter energy');
+  assert.equal(h.calls.spawns,initialSpawns+1);
+  assert.equal(h.bots().length,5);
+});
+
+test('high-energy bots never leave before an active PvP fight ends',()=>{
+  const h=harness();
+  h.ai.ensureForRoom(h.addHuman('human'));
+  const bot=h.bots()[0];
+  bot.energy=215;
+  bot.fightingWith='opponent';
+  h.forward(TICK_MS);
+  h.forward(20000);
+  assert.ok(h.players.has(bot.id),'active PvP fight cannot be interrupted by AI departure');
+  bot.fightingWith=null;
+  h.forward(TICK_MS);
+  assert.equal(h.players.has(bot.id),false,'bot exits after the fight resolves');
+  h.forward(15000);
+  assert.ok(h.players.has(bot.id),'bot rejoins afterward');
+});
+
+test('AI bots never create Socket.IO connections, accounts or rewarded-ad actions',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'../ai-bots.js'),'utf8');
+  assert.doesNotMatch(source,/socket\.connect|new WebSocket|axios|rewarded.?ad|ad[_-]?watched|INSERT INTO|localStorage/i);
+  const h=harness();
+  h.ai.ensureForRoom(h.addHuman('human'));
+  assert.ok(h.bots().every(bot=>bot.isBot && !bot.accountId && !bot.socket));
 });
 
 test('bots disappear immediately when the last real player leaves, and never run without humans',()=>{
