@@ -1062,7 +1062,9 @@ function finishFight(fight) {
   const loserEnergy = loserState.energy;
   const reward = Math.round(loserEnergy * 0.30);
   // Bots may fight normally, but must not snowball into huge-energy opponents.
-  winnerState.energy = Math.min(winnerState.isBot ? 35 : MAX_ENERGY, winnerEnergyBefore + reward);
+  // High-energy AI winners may temporarily exceed 200, then leave and
+  // rejoin after a random delay. Human players retain the original cap.
+  winnerState.energy = Math.min(winnerState.isBot ? 230 : MAX_ENERGY, winnerEnergyBefore + reward);
   loserState.energy = 0;
   winnerState.fightingWith = null;
   winnerState.fightId = null;
