@@ -8,7 +8,9 @@ const BOT_SKINS = Object.freeze([
   'character-male-b.glb', 'character-female-e.glb', 'character-male-c.glb'
 ]);
 const BOT_COUNT = BOT_NAMES.length;
-const TICK_MS = 250;
+// More frequent grouped snapshots remove 250ms position jumps on the client.
+const TICK_MS = 125;
+const SKILL_JUMP_MS = 450;
 const ENERGY_REJOIN_THRESHOLD = 200;
 const EXHAUSTED_EXIT_MIN_MS = 6500;
 const EXHAUSTED_EXIT_MAX_MS = 14500;
@@ -32,11 +34,12 @@ function createAiBots({
     const position = spawn(room.roundId,room.roomId);
     const bot = {
       id:meta.id, roundId:room.roundId, roomId:room.roomId,
-      name:BOT_NAMES[meta.index] + ' [BOT]',
+      name:BOT_NAMES[meta.index],
       isBot:true,
       x:position.x, y:position.y, vx:0, vy:0,
       energy:Math.floor(rand(2,7)),
       shieldUntil:time + 4000,
+      boostUntil:0, jumpUntil:0,
       inWater:false, lastWaterDamageAt:0,
       skin:BOT_SKINS[meta.index],
       fightingWith:null, fightId:null, defeated:false
@@ -52,6 +55,10 @@ function createAiBots({
     // a delayed leave/rejoin instead of letting bots dominate indefinitely.
     meta.energyCap = Math.floor(rand(35,85));
     meta.pauseUntil = time + rand(300,1200);
+    meta.targetId = null;
+    meta.escapeSide = random()<0.5?-1:1;
+    meta.avoidSide = random()<0.5?-1:1;
+    meta.nextSkillAt = time + rand(7500,13500);
     return bot;
   }
 
@@ -117,106 +124,152 @@ function createAiBots({
   }
 
   function choosePlan(room,meta,bot,time) {
-    // One in four decisions is a real pause; avoid uniform robotic motion.
-    if (random()<0.26) {
-      meta.mode='pause'; meta.target=null;
-      meta.pauseUntil=time+rand(800,3700);
+    // Wandering is deliberate, with occasional pauses, not random teleports.
+    meta.targetId=null;
+    if(random()<0.26){
+      meta.mode='pause';
+      meta.target=null;
+      meta.pauseUntil=time+rand(800,3200);
       meta.nextDecision=meta.pauseUntil;
       return;
     }
-    const opponents=nearby(room,bot,730);
-    const stronger=opponents.find(({player,distance})=>distance<360 && player.energy>bot.energy+3);
-    if (stronger && random()<0.68) {
-      const opponent=stronger.player;
-      const angle=Math.atan2(bot.y-opponent.y,bot.x-opponent.x)+rand(-0.55,0.55);
-      meta.mode='flee';
-      meta.target={x:capPosition(bot.x+Math.cos(angle)*rand(240,500)),
-        y:capPosition(bot.y+Math.sin(angle)*rand(240,500))};
-      meta.nextDecision=time+rand(900,2400);
-      return;
-    }
-    const weaker=opponents.filter(({player,distance})=>distance<650 && bot.energy>player.energy+3 && distance>65);
-    if(weaker.length && random()<0.35) {
-      meta.mode='chase';
-      meta.targetId=weaker[Math.floor(random()*weaker.length)].player.id;
-      meta.nextDecision=time+rand(1700,3500);
-      return;
-    }
-    // Food is an occasional objective, never a permanent grind.
-    if(bot.energy<meta.energyCap && random()<0.18) {
-      let best=null, distance=380;
-      for (const point of getFood(room.roundId,room.roomId).values()) {
+    if(bot.energy<meta.energyCap && random()<0.18){
+      let best=null,nearest=380;
+      for(const point of getFood(room.roundId,room.roomId).values()){
         if(!point.active)continue;
-        const d=Math.hypot(point.x-bot.x,point.y-bot.y);
-        if(d<distance){best=point;distance=d;}
+        const distance=Math.hypot(point.x-bot.x,point.y-bot.y);
+        if(distance<nearest){best=point;nearest=distance;}
       }
       if(best){
         meta.mode='food';
         meta.target={x:best.x,y:best.y};
-        meta.nextDecision=time+rand(1500,3600);
+        meta.nextDecision=time+rand(1600,3600);
         return;
       }
     }
     meta.mode='wander';
-    meta.target=waypoint(bot,rand(320,1450));
-    meta.nextDecision=time+rand(3800,10000);
+    meta.target=waypoint(bot,rand(350,1450));
+    meta.nextDecision=time+rand(4300,10000);
+  }
+
+  function tactic(room,meta,bot,time) {
+    const options=nearby(room,bot,920)
+      .filter(({player})=>Number(player.energy)!==Number(bot.energy));
+    const current=options.find(({player})=>player.id===meta.targetId);
+    // A much stronger enemy at contact range is always an immediate danger.
+    const emergency=options.find(({player,distance})=>
+      distance<300 && player.energy>bot.energy);
+    // Prioritize nearby real players, even when the bots are playing together.
+    const human=options.find(({player,distance})=>!player.isBot && distance<760);
+    const chosen=emergency||human||
+      (current && current.distance<850?current:null)||
+      options.find(({distance})=>distance<610);
+    if(!chosen)return null;
+    const mode=chosen.player.energy<bot.energy?'chase':'flee';
+    if(meta.mode!==mode || meta.targetId!==chosen.player.id){
+      meta.mode=mode;
+      meta.targetId=chosen.player.id;
+      meta.escapeSide=random()<0.5?-1:1;
+      meta.nextDecision=time+rand(1700,3100);
+    }
+    return chosen;
+  }
+
+  function maybeUseSkill(meta,bot,time,distance) {
+    if(time<meta.nextSkillAt || distance<115 || distance>670)return;
+    // Skill decision is infrequent even if the ability is available.
+    if(random()<0.38){
+      if(random()<0.48)bot.jumpUntil=time+SKILL_JUMP_MS;
+      else bot.boostUntil=time+700;
+      meta.nextSkillAt=time+rand(12000,21000);
+    }else meta.nextSkillAt=time+rand(2200,4800);
+  }
+
+  function slowDown(bot,dt) {
+    const previous=Math.hypot(bot.vx,bot.vy);
+    const damp=Math.exp(-9*dt);
+    bot.vx*=damp; bot.vy*=damp;
+    if(Math.hypot(bot.vx,bot.vy)<1){bot.vx=0;bot.vy=0;}
+    return previous>0.5;
+  }
+
+  function moveToward(meta,bot,target,time,dt) {
+    const dx=target.x-bot.x,dy=target.y-bot.y;
+    const distance=Math.hypot(dx,dy);
+    if(distance<32){
+      if(meta.mode!=='chase' && meta.mode!=='flee')meta.nextDecision=0;
+      return slowDown(bot,dt);
+    }
+    const powered=time<bot.jumpUntil?265:time<bot.boostUntil?240:meta.speed;
+    // Reduced speed when large, matching the shape of the player energy curve.
+    const speed=powered*(1-Math.min(0.2,bot.energy/500*0.2));
+    const direction=Math.atan2(dy,dx);
+    const side=meta.avoidSide;
+    // Stable left/right preference stops the bot from alternating around
+    // a tree on every tick. Probe *ahead* before committing to a heading.
+    const angles=[0,side*.42,side*.85,side*1.32,-side*.42,-side*.85,-side*1.32,Math.PI];
+    let chosen=null;
+    for(const offset of angles){
+      const heading=direction+offset;
+      const ax=Math.cos(heading),ay=Math.sin(heading);
+      const look=Math.min(82,Math.max(48,speed*.38),distance);
+      if(!safePoint({x:bot.x+ax*look,y:bot.y+ay*look}))continue;
+      if(!safePoint({x:bot.x+ax*speed*dt,y:bot.y+ay*speed*dt}))continue;
+      chosen={x:ax,y:ay};
+      break;
+    }
+    if(!chosen){
+      meta.avoidSide*=-1;
+      if(meta.mode==='wander'||meta.mode==='food')meta.nextDecision=0;
+      return slowDown(bot,dt);
+    }
+    // Velocity is continuous; movement never rotates the *existing* velocity
+    // by 45 degrees each tick (the former source of zigzagging).
+    const blend=1-Math.exp(-5.5*dt);
+    const nextVx=bot.vx+(chosen.x*speed-bot.vx)*blend;
+    const nextVy=bot.vy+(chosen.y*speed-bot.vy)*blend;
+    const next={x:bot.x+nextVx*dt,y:bot.y+nextVy*dt};
+    if(!safePoint(next)){
+      // Approach obstacles slowly instead of snapping to another direction.
+      meta.avoidSide*=-1;
+      return slowDown(bot,dt);
+    }
+    bot.x=next.x;bot.y=next.y;
+    bot.vx=nextVx;bot.vy=nextVy;
+    return true;
   }
 
   function step(room,meta,bot,time,dt) {
-    if(bot.fightingWith || bot.defeated) {
-      bot.vx=0;bot.vy=0;return false;
+    if(bot.fightingWith||bot.defeated){
+      return slowDown(bot,dt);
     }
-    if(time>=meta.nextDecision || (meta.mode==='pause' && time>=meta.pauseUntil)) {
-      choosePlan(room,meta,bot,time);
-    }
-    if(meta.mode==='pause'){
-      const stopped=Math.hypot(bot.vx,bot.vy)>0.1;
-      bot.vx=0;bot.vy=0;
-      return stopped;
-    }
-    if(meta.mode==='chase'){
-      const target=players.get(meta.targetId);
-      if(!target || target.defeated || !inRoom(target,room) || bot.energy<=target.energy+1){
+    const nearbyOpponent=tactic(room,meta,bot,time);
+    let target;
+    if(nearbyOpponent){
+      const opponent=nearbyOpponent.player;
+      const dist=nearbyOpponent.distance;
+      maybeUseSkill(meta,bot,time,dist);
+      if(meta.mode==='flee'){
+        const dx=bot.x-opponent.x,dy=bot.y-opponent.y;
+        const length=Math.max(1,Math.hypot(dx,dy));
+        const x=dx/length,y=dy/length;
+        const side=meta.escapeSide;
+        // A small lateral component gives variety without a random zigzag.
+        target={x:capPosition(bot.x+x*530-y*side*95),
+          y:capPosition(bot.y+y*530+x*side*95)};
+      }else target={x:opponent.x,y:opponent.y};
+    }else{
+      if(meta.mode==='chase'||meta.mode==='flee'||
+         time>=meta.nextDecision ||
+         (meta.mode==='pause'&&time>=meta.pauseUntil)){
         choosePlan(room,meta,bot,time);
-      }else meta.target={x:target.x,y:target.y};
+      }
+      if(meta.mode==='pause')return slowDown(bot,dt);
+      target=meta.target;
     }
-    const target=meta.target;
-    if(!target || meta.mode==='pause') {
-      const stopped=Math.hypot(bot.vx,bot.vy)>0.1;
-      bot.vx=0;bot.vy=0;return stopped;
-    }
-    const dx=target.x-bot.x,dy=target.y-bot.y;
-    const dist=Math.hypot(dx,dy);
-    if(dist<34){
-      meta.nextDecision=0;
-      const stopped=Math.hypot(bot.vx,bot.vy)>0.1;
-      bot.vx=0;bot.vy=0;
-      return stopped;
-    }
-    const speed=meta.speed*(bot.energy>15?0.94:1);
-    const desiredX=dx/dist*speed,desiredY=dy/dist*speed;
-    const blend=Math.min(1,dt*5.5);
-    bot.vx+=(desiredX-bot.vx)*blend;
-    bot.vy+=(desiredY-bot.vy)*blend;
-    let moved=false;
-    // Steering alternatives yield natural turns around trees and water.
-    const angles=[0,Math.PI/4,-Math.PI/4,Math.PI/2,-Math.PI/2];
-    for (const angle of angles) {
-      const vx=bot.vx*Math.cos(angle)-bot.vy*Math.sin(angle);
-      const vy=bot.vx*Math.sin(angle)+bot.vy*Math.cos(angle);
-      const candidate={x:bot.x+vx*dt,y:bot.y+vy*dt};
-      if (!safePoint(candidate)) continue;
-      bot.x=candidate.x;bot.y=candidate.y;
-      bot.vx=vx;bot.vy=vy;
-      moved=true;
-      break;
-    }
-    if(!moved){
-      const stopped=Math.hypot(bot.vx,bot.vy)>0.1;
-      bot.vx=0;bot.vy=0;
-      meta.nextDecision=0; // pick another direction on the next tick
-      return stopped;
-    }
+    if(!target)return slowDown(bot,dt);
+    const moved=moveToward(meta,bot,target,time,dt);
+    if(!moved)return false;
     if(bot.energy<meta.energyCap){
       const collected=collectFood(bot);
       if(collected>0){

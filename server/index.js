@@ -15,6 +15,7 @@ const echoAuth = require('./auth');
 const echoOAuth = require('./oauth');
 const { createAccountSessionRegistry } = require('./account-session-registry');
 const { roomIdentityFor, uniqueParticipants } = require('./player-identity');
+const {rankRoomEnergy} = require('./room-energy-leaderboard');
 const { createVoiceService } = require('./voice-service');
 const {createAiBots,TICK_MS}=require('./ai-bots');
 
@@ -950,7 +951,8 @@ function scoreRoomTick() {
     }
     if(rewardsReady&&earned.length)queueRewardWork(()=>roundRewards.writeTick(pool,roundId,roomId,earned));
     const ranked=[...scores.values()].sort((a,b)=>b.score-a.score||a.reachedAt-b.reachedAt||a.identity.localeCompare(b.identity));
-    const energyRanked=rankedPlayers.map(p=>({name:p.name,energy:p.energy,identity:identityOf(p)}));
+    // Real-time energy shows bots, but round points and ECHO Coins above exclude them.
+    const energyRanked=rankRoomEnergy(players.values(),roundId,roomId,identityOf);
     for (const player of active) {
       const socket = io.sockets.sockets.get(player.id);
       if (!socket) continue;

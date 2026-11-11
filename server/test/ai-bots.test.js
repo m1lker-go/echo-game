@@ -50,7 +50,8 @@ test('only five clearly marked bots join an occupied room; repeated joins do not
   assert.equal(h.ai.roomCount(),1);
   assert.equal(new Set(h.bots().map(p=>p.id)).size,5);
   for(const bot of h.bots()){
-    assert.match(bot.name,/ \[BOT\]$/);
+    assert.ok(['Max','Tim','Bob','Alex','Leo'].includes(bot.name));
+    assert.doesNotMatch(bot.name,/\[BOT\]/);
     assert.equal(bot.roundId,player.roundId);
     assert.equal(bot.roomId,player.roomId);
     assert.ok(bot.skin.endsWith('.glb'));
@@ -191,4 +192,75 @@ test('game server integrates bots with PvP while protecting real score and accou
   assert.match(source,/!p\.isBot && p\.roomId === roomId/);
   assert.match(source,/winnerProfileId && !loserState\.isBot/);
   assert.match(source,/winnerAccountId && !loserState\.isBot/);
+});
+
+test('nearby weaker human is pursued even when other bots are nearby',()=>{
+  const h=harness({random:()=>0.82});
+  const human=h.addHuman('human');
+  h.ai.ensureForRoom(human);
+  const bot=h.bots()[0];
+  bot.x=0;bot.y=0;bot.energy=25;
+  human.x=350;human.y=0;human.energy=6;
+  const initial=Math.hypot(human.x-bot.x,human.y-bot.y);
+  for(let i=0;i<16;i++)h.forward(TICK_MS);
+  assert.ok(Math.hypot(human.x-bot.x,human.y-bot.y)<initial-40,
+    'stronger bot must approach a weaker human');
+});
+
+test('nearby stronger human makes a weaker bot flee',()=>{
+  const h=harness({random:()=>0.82});
+  const human=h.addHuman('human');
+  h.ai.ensureForRoom(human);
+  const bot=h.bots()[0];
+  bot.x=0;bot.y=0;bot.energy=4;
+  human.x=200;human.y=0;human.energy=45;
+  const initial=Math.hypot(human.x-bot.x,human.y-bot.y);
+  for(let i=0;i<16;i++)h.forward(TICK_MS);
+  assert.ok(Math.hypot(human.x-bot.x,human.y-bot.y)>initial+35,
+    'weaker bot must run away from a stronger human');
+});
+
+test('AI skill is occasional, not spammed on each available cooldown',()=>{
+  let seed=12345678;
+  const rng=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
+  const h=harness({random:rng});
+  const human=h.addHuman('human');human.x=380;human.y=0;human.energy=1;
+  h.ai.ensureForRoom(human);
+  const bot=h.bots()[0];bot.x=0;bot.y=0;bot.energy=50;
+  let activations=0,lastSkill=0;
+  for(let i=0;i<440;i++){
+    h.forward(TICK_MS);
+    const active=Math.max(bot.boostUntil||0,bot.jumpUntil||0);
+    if(active>lastSkill){activations++;lastSkill=active;}
+    // Stay near so the skill decision is exercised across many seconds.
+    human.x=bot.x+320;human.y=bot.y;
+  }
+  assert.ok(activations>0,'bots eventually use an ability when chasing');
+  assert.ok(activations<=6,'skill cooldown must be much longer than 3s');
+});
+
+test('bot steering is continuous, without large position jumps or abrupt 45-degree velocity pivots',()=>{
+  let seed=8573;
+  const rng=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
+  const h=harness({random:rng});
+  const player=h.addHuman('human');player.x=1700;player.y=1700;
+  h.ai.ensureForRoom(player);
+  let biggestStep=0;
+  for(let i=0;i<240;i++){
+    const previous=new Map(h.bots().map(bot=>[bot.id,{x:bot.x,y:bot.y}]));
+    h.forward(TICK_MS);
+    for(const bot of h.bots()){
+      const old=previous.get(bot.id);
+      if(!old)continue;
+      biggestStep=Math.max(biggestStep,Math.hypot(bot.x-old.x,bot.y-old.y));
+    }
+  }
+  assert.ok(biggestStep<60,'bots must move continuously without 250ms jumps or teleports');
+});
+
+test('client renders AI jump visually and uses shorter interpolation horizon',()=>{
+  const game=fs.readFileSync(path.join(__dirname,'../../client/game.js'),'utf8');
+  assert.match(game,/p\.isBot\?\.14:\.25/);
+  assert.match(game,/p\.jumpVisualUntil>time/);
+  assert.match(game,/Math\.sin\(Math\.PI\*phase\)/);
 });

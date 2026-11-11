@@ -50,7 +50,7 @@ test('client cache versions updated for mobile without gameplay changes',()=>{
  const h=read('index.html');
  assert.ok(h.includes('menu.js?v=echo-render-budget-1-tutorial-1'));
  assert.ok(h.includes('player-aura.js?v=echo-render-budget-1'));
- assert.ok(h.includes('game.js?v=echo-food-world-layer-1'));
+ assert.ok(h.includes('game.js?v=echo-food-world-layer-2'));
  assert.match(read('game.js'),/state\.socket\.emit\('echo:move'/);
  assert.match(read('shared-food.js'),/FOOD_MAGNET_RADIUS = 70/);
  assert.match(read('game.js'),/renderSharedFood\(ctx,time,state\.cameraX,state\.cameraY,state\.x,state\.y,state\.width,state\.height\)/);
