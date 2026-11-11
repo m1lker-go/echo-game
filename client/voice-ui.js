@@ -14,8 +14,8 @@
   let roomId = null;
   let roundId = null;
   let boundSocket = null;
-  let pointerId = null;
-  let pressed = false;
+  // Voice is opt-in: one tap enables it, the next tap disables it.
+  let enabledByPlayer = false;
   let generation = 0;
   let stream = null;
   let transmitting = false;
@@ -119,7 +119,7 @@
     const nextRound = String(data.round.id);
     const nextRoom = String(data.roomId);
     if (nextRound === roundId && nextRoom === roomId) return;
-    endHold();
+    stopTalking();
     roundId = nextRound;
     roomId = nextRoom;
     speakers.clear();
@@ -127,7 +127,7 @@
     renderSpeakers();
   }
   function onDisconnect() {
-    endHold();
+    stopTalking();
     speakers.clear();
     renderSpeakers();
   }
@@ -165,28 +165,31 @@
   }
   function stopTracks(value) { for (const track of value?.getTracks?.() || []) track.stop(); }
   function updateMic() {
-    mic.classList.toggle('is-pressed', pressed);
+    mic.classList.toggle('is-pressed', enabledByPlayer && !transmitting);
     mic.classList.toggle('is-transmitting', transmitting);
-    mic.setAttribute('aria-pressed', String(transmitting));
+    mic.setAttribute('aria-pressed', String(enabledByPlayer));
+    const micLabel = enabledByPlayer
+      ? label('Выключить микрофон', 'Turn microphone off')
+      : label('Включить микрофон', 'Turn microphone on');
+    mic.setAttribute('aria-label', micLabel);
+    mic.title = micLabel;
     if (lastReportedTransmitting !== transmitting) {
       lastReportedTransmitting = transmitting;
       document.dispatchEvent(new CustomEvent('echo:voice-self-speaking', {detail:{active:transmitting}}));
     }
   }
-  function endHold() {
-    pressed = false;
+  function stopTalking() {
+    enabledByPlayer = false;
     generation++;
-    pointerId = null;
     transmitting = false;
     if (stream) { stopTracks(stream); stream = null; }
     try { window.ECHOVoiceTransport?.stop?.(); } catch (_) {}
     updateMic();
   }
-  async function beginHold() {
-    if (pressed || !activeGame()) return;
-    // Inside the ECHO Android WebView, ask for the system microphone permission
-    // on the FIRST deliberate press, even while LiveKit is still connecting.
-    // Browsers/VK keep the existing ready-only behavior.
+  async function startTalking() {
+    if (enabledByPlayer || !activeGame()) return;
+    // The first deliberate tap must request the microphone immediately.
+    // Android may request OS permission before LiveKit is connected.
     if (!window.ECHOVoiceTransport?.ready && window.ECHO_ANDROID_ARENA !== true) {
       unavailableFeedback();
       return;
@@ -195,7 +198,7 @@
       feedback(label('Микрофон недоступен на этом устройстве', 'Microphone unavailable on this device'));
       return;
     }
-    pressed = true;
+    enabledByPlayer = true;
     const ticket = ++generation;
     updateMic();
     let captured = null;
@@ -204,22 +207,21 @@
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         video: false
       });
-      // The Android permission dialog can outlive the original finger press.
-      // Never publish an audio track unless the player is STILL holding.
-      if (!pressed || ticket !== generation || !activeGame()) {
+      // A second tap, game exit, or lost connection cancels any pending permission.
+      if (!enabledByPlayer || ticket !== generation || !activeGame() || document.hidden) {
         stopTracks(captured);
         return;
       }
       const transport = window.ECHOVoiceTransport;
       if (!transport?.ready) {
         stopTracks(captured);
-        endHold();
+        stopTalking();
         unavailableFeedback();
         return;
       }
       stream = captured;
       await transport.start(captured);
-      if (!pressed || ticket !== generation || !activeGame()) {
+      if (!enabledByPlayer || ticket !== generation || !activeGame() || document.hidden) {
         try { transport.stop?.(); } catch (_) {}
         stopTracks(captured);
         if (stream === captured) stream = null;
@@ -231,48 +233,34 @@
       stopTracks(captured);
       if (stream === captured) stream = null;
       if (ticket === generation) {
-        endHold();
+        stopTalking();
         feedback(label('Не удалось включить микрофон', 'Could not activate microphone'));
       }
     }
   }
 
-  mic.addEventListener('pointerdown', (event) => {
-    if (event.button !== undefined && event.button !== 0) return;
-    if (pointerId !== null) return;
-    // Android must be able to request RECORD_AUDIO before LiveKit is ready.
-    // Other platforms do not prompt for a disconnected voice service.
-    if (!window.ECHOVoiceTransport?.ready && window.ECHO_ANDROID_ARENA !== true) {
-      unavailableFeedback();
-      return;
-    }
-    pointerId = event.pointerId;
-    try { mic.setPointerCapture(event.pointerId); } catch (_) {}
+  // A single click works with touch, mouse, and keyboard accessibility,
+  // including Safari on iPhone. No pointer capture or hold-to-talk behavior.
+  mic.addEventListener('click', event => {
     event.preventDefault();
-    void beginHold();
+    if (enabledByPlayer) stopTalking();
+    else void startTalking();
   });
-  const releasePointer = (event) => {
-    if (pointerId === null || event.pointerId !== pointerId) return;
-    endHold();
-  };
-  mic.addEventListener('pointerup', releasePointer);
-  mic.addEventListener('pointercancel', releasePointer);
-  mic.addEventListener('lostpointercapture', releasePointer);
   mic.addEventListener('contextmenu', event => event.preventDefault());
-  // Desktop push-to-talk. Ignore text editing and key autorepeat.
+  // Desktop V key uses the same toggle behavior (not push-to-talk).
   window.addEventListener('keydown', event => {
     if (event.code !== 'KeyV' || event.repeat || event.altKey || event.ctrlKey || event.metaKey ||
         /^(INPUT|TEXTAREA|SELECT)$/.test(event.target?.tagName || '') ||
         event.target?.isContentEditable) return;
-    if (pressed || pointerId !== null) return;
-    if (!window.ECHOVoiceTransport?.ready) return;
     event.preventDefault();
-    void beginHold();
+    if (enabledByPlayer) stopTalking();
+    else void startTalking();
   });
-  window.addEventListener('keyup', event => { if (event.code === 'KeyV' && pointerId === null) endHold(); });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) endHold(); });
-  window.addEventListener('blur', endHold);
-  document.addEventListener('echo:returned-to-menu', () => { endHold(); speakers.clear(); renderSpeakers(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stopTalking(); });
+  // Safari can blur during permission/UI transitions while the page stays visible.
+  // Do not stop the microphone on a transient blur; pagehide is a real exit.
+  window.addEventListener('pagehide', stopTalking);
+  document.addEventListener('echo:returned-to-menu', () => { stopTalking(); speakers.clear(); renderSpeakers(); });
   document.addEventListener('echo:socket-ready', event => bindSocket(event.detail?.socket || window.echoSocket));
   document.addEventListener('echo:voice-speaking', onSpeaking);
   window.addEventListener('languagechange', renderSpeakers);
@@ -286,7 +274,7 @@
   setInterval(() => {
     // Keep the speaker/mute list attached when gameplay replaces its socket.
     if (window.echoSocket && window.echoSocket !== boundSocket) bindSocket(window.echoSocket);
-    if (transmitting && !window.ECHOVoiceTransport?.ready) endHold();
+    if (enabledByPlayer && (!activeGame() || (transmitting && !window.ECHOVoiceTransport?.ready))) stopTalking();
     if ([...speakers.values()].some(speaker => speaker.expiresAt)) renderSpeakers();
   }, 500);
   bindSocket(window.echoSocket);
