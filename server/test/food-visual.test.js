@@ -28,7 +28,7 @@ test('White food dots are default while WebP preview preserves authoritative pic
  assert.match(script,/socket\.on\('echo:food', syncFood\)/);
  assert.match(server,/point\.active = false/);
  assert.match(server,/createFoodSnapshot/);
- assert.match(html,/game\.js\?v=echo-food-world-layer-1/);
+ assert.match(html,/game\.js\?v=echo-food-world-layer-2/);
  assert.doesNotMatch(html,/id="shared-food"/);
  assert.match(game,/renderSharedFood\(ctx,time,state\.cameraX,state\.cameraY,state\.x,state\.y,state\.width,state\.height\)/);
 });
