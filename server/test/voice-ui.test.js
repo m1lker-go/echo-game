@@ -75,6 +75,10 @@ function harness() {
     },
     speaking(data) { document.dispatchEvent({ type: 'echo:voice-speaking', detail: data }); },
     pointer(name, pointerId=3) { nodes.get('#echo-voice-mic').trigger(name, { pointerId, button: 0, preventDefault() {} }); },
+    tap() { nodes.get('#echo-voice-mic').trigger('click', {preventDefault() {}}); },
+    windowEvent(name) { windowEvents.get(name)?.({}); },
+    hidePage() { document.hidden = true; document.dispatchEvent({type:'visibilitychange'}); },
+    desktopV() { windowEvents.get('keydown')?.({code:'KeyV',repeat:false,target:{tagName:'BODY'},preventDefault() {}}); },
     async flush() { await new Promise(resolve => setImmediate(resolve)); }
   };
 }
@@ -82,12 +86,12 @@ function harness() {
 test('voice HUD uses current abilities, hidden speaking panel and no fake speakers', () => {
   assert.match(html, /id="echo-voice-mic"[^>]*class="ability echo-voice-mic"/);
   assert.match(html, /id="echo-voice-speakers"[^>]*aria-label="Говорят рядом" hidden/);
-  assert.match(html, /src="\.\/voice-ui\.js\?v=echo-voice-ui-7"/);
+  assert.match(html, /src="\.\/voice-ui\.js\?v=echo-voice-ui-8"/);
   assert.match(css, /--echo-jump-size/);
   const app = harness();
   assert.equal(app.nodes.get('#echo-voice-speakers').hidden, true);
   assert.equal(app.nodes.get('#echo-voice-speakers-list').children.length, 0);
-  app.pointer('pointerdown');
+  app.tap();
   assert.equal(app.messages.length, 1);
   assert.equal(app.requests.length, 0, 'no microphone request without an audio transport');
 });
@@ -95,7 +99,7 @@ test('voice HUD uses current abilities, hidden speaking panel and no fake speake
 test('Android first press requests permission even when LiveKit is still connecting', async () => {
   const app = harness();
   app.window.ECHO_ANDROID_ARENA = true;
-  app.pointer('pointerdown');
+  app.tap();
   await app.flush();
   assert.equal(app.requests.length, 1, 'Android getUserMedia must run on the first tap');
   assert.equal(app.stopped, 1, 'capture is closed when voice is still disconnected');
@@ -103,7 +107,7 @@ test('Android first press requests permission even when LiveKit is still connect
   assert.match(app.messages.at(-1), /пока не подключён/);
 });
 
-test('Android permission granted after release never transmits audio', async () => {
+test('Android tapping off during permission request prevents late audio publication', async () => {
   const app = harness();
   app.window.ECHO_ANDROID_ARENA = true;
   let grantPermission;
@@ -112,9 +116,9 @@ test('Android permission granted after release never transmits audio', async () 
   const transport = { ready: false, start: async () => { starts++; }, stop() {} };
   app.window.ECHOVoiceTransport = transport;
 
-  app.pointer('pointerdown');
+  app.tap();
   assert.equal(typeof grantPermission, 'function', 'request starts immediately');
-  app.pointer('pointerup');
+  app.tap();
   transport.ready = true;
   grantPermission({getTracks: () => [{stop: () => { stops++; }}]});
   await app.flush();
@@ -124,7 +128,7 @@ test('Android permission granted after release never transmits audio', async () 
   assert.equal(app.nodes.get('#echo-voice-mic').getAttribute('aria-pressed'), 'false');
 });
 
-test('Android keeps the first hold when LiveKit connects during permission dialog', async () => {
+test('Android first tap turns voice on when LiveKit connects during permission dialog', async () => {
   const app = harness();
   app.window.ECHO_ANDROID_ARENA = true;
   let grantPermission;
@@ -133,14 +137,14 @@ test('Android keeps the first hold when LiveKit connects during permission dialo
   const transport = { ready: false, start: async () => { starts++; }, stop() {} };
   app.window.ECHOVoiceTransport = transport;
 
-  app.pointer('pointerdown');
+  app.tap();
   transport.ready = true;
   grantPermission({getTracks: () => [{stop: () => { stops++; }}]});
   await app.flush();
-  assert.equal(starts, 1, 'first held press must start when transport is ready');
+  assert.equal(starts, 1, 'first tap must start when transport is ready');
   assert.equal(app.nodes.get('#echo-voice-mic').getAttribute('aria-pressed'), 'true');
-  app.pointer('pointerup');
-  assert.equal(stops, 1, 'stops when user releases');
+  app.tap();
+  assert.equal(stops, 1, 'stops after second tap');
 });
 
 test('speaker list filters by room and round, mute persists within one round and resets at the boundary', () => {
@@ -168,7 +172,7 @@ test('speaker list filters by room and round, mute persists within one round and
   assert.equal(app.nodes.get('#echo-voice-speakers').hidden, true);
 });
 
-test('press-and-hold starts and stops capture only with a connected transport', async () => {
+test('tap toggles voice on and off without holding the button', async () => {
   const app = harness();
   app.enterRoom(1, 'round');
   const operations = [];
@@ -179,13 +183,19 @@ test('press-and-hold starts and stops capture only with a connected transport', 
     start: async () => { operations.push('start'); },
     stop: () => { operations.push('stop'); }
   };
-  app.pointer('pointerdown');
+  app.tap();
   await app.flush();
   assert.equal(app.requests.length, 1);
   assert.equal(operations.includes('start'), true);
   assert.equal(app.nodes.get('#echo-voice-mic').getAttribute('aria-pressed'), 'true');
   assert.equal(JSON.stringify(localState), '[true]');
   app.pointer('pointerup');
+  app.pointer('pointercancel');
+  app.windowEvent('blur');
+  assert.equal(app.stopped, 0, 'finger release and Safari blur do not stop a toggle');
+  assert.equal(app.nodes.get('#echo-voice-mic').getAttribute('aria-pressed'), 'true');
+  assert.ok(app.nodes.get('#echo-voice-mic').classList.contains('is-transmitting'));
+  app.tap();
   assert.equal(app.stopped, 1);
   assert.equal(app.nodes.get('#echo-voice-mic').getAttribute('aria-pressed'), 'false');
   assert.ok(operations.includes('stop'));
@@ -202,6 +212,6 @@ test('microphone is anchored above jump without shifting boost/jump horizontally
   assert.ok(rule.includes('bottom: calc(100% +'));
   assert.ok(rule.includes('right: calc(var(--echo-jump-size'));
   assert.ok(rule.includes('width: calc(var(--echo-jump-size'));
-  assert.ok(html.includes('voice-ui.css?v=echo-voice-ui-5'));
+  assert.ok(html.includes('voice-ui.css?v=echo-voice-ui-6'));
   assert.ok(html.indexOf('id="boost"') < html.indexOf('id="jump"'));
 });
