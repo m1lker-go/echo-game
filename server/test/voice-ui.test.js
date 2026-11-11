@@ -203,6 +203,70 @@ test('tap toggles voice on and off without holding the button', async () => {
 });
 
 
+
+test('iPhone microphone stays enabled after transient Safari blur and turns off on pagehide', async () => {
+  const app = harness();
+  let publishes = 0;
+  app.window.ECHOVoiceTransport = {ready:true,start:async()=>{publishes++;},stop(){}};
+  app.tap();
+  await app.flush();
+  const mic = app.nodes.get('#echo-voice-mic');
+  assert.equal(publishes, 1);
+  assert.equal(mic.getAttribute('aria-label'), 'Выключить микрофон');
+  assert.equal(mic.getAttribute('aria-pressed'), 'true');
+  assert.equal(mic.classList.contains('is-transmitting'), true);
+  app.windowEvent('blur');
+  app.pointer('pointerup');
+  app.pointer('pointercancel');
+  assert.equal(mic.getAttribute('aria-pressed'), 'true', 'Safari focus changes must not end microphone capture');
+  app.windowEvent('pagehide');
+  assert.equal(mic.getAttribute('aria-pressed'), 'false');
+  assert.equal(app.stopped, 1);
+  assert.equal(mic.getAttribute('aria-label'), 'Включить микрофон');
+  assert.equal(mic.classList.contains('is-transmitting'), false);
+});
+
+test('second iPhone tap cancels a pending permission request without late publication', async () => {
+  const app = harness();
+  let resolveCapture, publishes = 0, closed = 0;
+  app.navigator.mediaDevices.getUserMedia = () => new Promise(resolve => { resolveCapture = resolve; });
+  app.window.ECHOVoiceTransport = {ready:true,start:async()=>{publishes++;},stop(){}};
+  app.tap();
+  assert.equal(app.nodes.get('#echo-voice-mic').getAttribute('aria-pressed'), 'true');
+  app.tap();
+  resolveCapture({getTracks:()=>[{stop:()=>{closed++;}}]});
+  await app.flush();
+  assert.equal(publishes, 0);
+  assert.equal(closed, 1);
+  assert.equal(app.nodes.get('#echo-voice-mic').getAttribute('aria-pressed'), 'false');
+});
+
+test('backgrounding and changing the round turn off an enabled microphone', async () => {
+  const app = harness();
+  const socket = app.enterRoom(1, 'round-1');
+  app.window.ECHOVoiceTransport = {ready:true,start:async()=>{},stop(){}};
+  app.tap();
+  await app.flush();
+  app.hidePage();
+  assert.equal(app.nodes.get('#echo-voice-mic').getAttribute('aria-pressed'), 'false');
+  app.document.hidden = false;
+  app.tap();
+  await app.flush();
+  socket.emit('echo:room', {roomId:2,round:{id:'round-2'}});
+  assert.equal(app.nodes.get('#echo-voice-mic').getAttribute('aria-pressed'), 'false');
+  assert.equal(app.stopped, 2);
+});
+
+test('desktop V key toggles microphone rather than requiring a hold', async () => {
+  const app = harness();
+  app.window.ECHOVoiceTransport = {ready:true,start:async()=>{},stop(){}};
+  app.desktopV();
+  await app.flush();
+  assert.equal(app.nodes.get('#echo-voice-mic').getAttribute('aria-pressed'), 'true');
+  app.desktopV();
+  assert.equal(app.nodes.get('#echo-voice-mic').getAttribute('aria-pressed'), 'false');
+});
+
 test('microphone is anchored above jump without shifting boost/jump horizontally', () => {
   assert.ok(css.includes('#game .ability-stack { position: relative; }'));
   const start = css.indexOf('#game #echo-voice-mic {');
