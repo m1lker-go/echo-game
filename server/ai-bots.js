@@ -203,9 +203,12 @@ function createAiBots({
       meta.nextDecision=0; // pick another direction on the next tick
       return false;
     }
-    if(bot.energy<meta.energyCap && collectFood(bot)>0){
-      bot.energy=Math.min(meta.energyCap,bot.energy+0); // collectFood returns count below
-      return 'food';
+    if(bot.energy<meta.energyCap){
+      const collected=collectFood(bot);
+      if(collected>0){
+        bot.energy=Math.min(meta.energyCap,bot.energy+collected);
+        return 'food';
+      }
     }
     return true;
   }
