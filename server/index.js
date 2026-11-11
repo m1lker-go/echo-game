@@ -1061,7 +1061,8 @@ function finishFight(fight) {
   const winnerEnergyBefore = winnerState.energy;
   const loserEnergy = loserState.energy;
   const reward = Math.round(loserEnergy * 0.30);
-  winnerState.energy = Math.min(MAX_ENERGY, winnerEnergyBefore + reward);
+  // Bots may fight normally, but must not snowball into huge-energy opponents.
+  winnerState.energy = Math.min(winnerState.isBot ? 35 : MAX_ENERGY, winnerEnergyBefore + reward);
   loserState.energy = 0;
   winnerState.fightingWith = null;
   winnerState.fightId = null;
