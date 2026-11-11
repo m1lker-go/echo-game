@@ -263,7 +263,7 @@
   document.addEventListener('echo:returned-to-menu', () => { stopTalking(); speakers.clear(); renderSpeakers(); });
   document.addEventListener('echo:socket-ready', event => bindSocket(event.detail?.socket || window.echoSocket));
   document.addEventListener('echo:voice-speaking', onSpeaking);
-  window.addEventListener('languagechange', renderSpeakers);
+  window.addEventListener('languagechange', () => { renderSpeakers(); updateMic(); });
 
   // Future transport contract: {ready:true,start(MediaStream):Promise,stop():void}.
   // Muting is per listener, per room and per 15-minute round (not a permanent block).
